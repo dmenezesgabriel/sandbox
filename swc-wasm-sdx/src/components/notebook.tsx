@@ -1,5 +1,6 @@
 import { Cell } from "../components/cell";
 import { useNotebooks } from "../contexts/notebooks-context";
+import { RuntimeContextProvider } from "../contexts/runtime-context";
 import type { Notebook } from "../types";
 
 interface NotebookProps {
@@ -21,12 +22,12 @@ export function Notebook({ notebook }: NotebookProps) {
   }
 
   return (
-    <div>
+    <RuntimeContextProvider>
       <div>{notebook.title}</div>
       <button onClick={handleAddCell}>Add Cell</button>
       {notebook.cells.map((cell) => (
         <Cell key={cell.id} notebookId={notebook.id} cell={cell} />
       ))}
-    </div>
+    </RuntimeContextProvider>
   );
 }

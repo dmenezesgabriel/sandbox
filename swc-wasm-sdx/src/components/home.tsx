@@ -1,19 +1,33 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Notebook } from "../components/notebook";
 import { useNotebooks } from "../contexts/notebooks-context";
 
 export function Home() {
   const { notebooks, addNotebook } = useNotebooks();
 
-  const notebook = {
-    id: "notebook-1",
-    title: "My Notebook",
-    cells: [
-      {
-        id: "cell-1",
-        cellType: "code",
-        source: `function add(a: number, b: number) {
+  const notebook = useMemo(
+    () => ({
+      id: "notebook-1",
+      title: "My Notebook",
+      cells: [
+        {
+          id: "cell-1",
+          cellType: "code",
+          source: `function add(a: number, b:
+           number) {
     return a + b;
+}
+
+const x = 1;
+let y = 19;
+
+class Person {
+    name: string;
+    age: number;
+    constructor(name: string, age: number) {
+        this.name = name;
+        this.age = age;
+    }
 }
 
 add(1, 2);
@@ -22,26 +36,35 @@ const div = document.createElement("div");
 document.body.appendChild(div);
 
 div.innerHTML = "Hello, world!" + add(1, 2)
+`,
+          type: "code",
+        },
+        {
+          id: "cell-2",
+          cellType: "code",
+          source: `console.log(add(1, 5));
+console.dir(window);
+// const person = new Person("John", 30);
+// console.log(person);
 
-for (let i = 0; i < 10; i++) {
-    console.log(i);
-}
 
 `,
-        type: "code",
+          type: "code",
+        },
+      ],
+      metadata: {
+        kernelSpec: {
+          language: "typescript",
+          name: "typescript",
+        },
       },
-    ],
-    metadata: {
-      kernelSpec: {
-        language: "typescript",
-        name: "typescript",
-      },
-    },
-  };
+    }),
+    []
+  );
 
   useEffect(() => {
     addNotebook(notebook);
-  }, []);
+  }, [addNotebook, notebook]);
 
   return (
     <div>
@@ -50,7 +73,6 @@ for (let i = 0; i < 10; i++) {
       ) : (
         <div>No Notebooks</div>
       )}
-      {JSON.stringify(notebooks, null, 2)}
     </div>
   );
 }

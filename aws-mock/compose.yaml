@@ -1,0 +1,48 @@
+services:
+  moto:
+    image: motoserver/moto:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - MOTO_PORT=5000
+      - MOTO_HOST=0.0.0.0
+      - MOTO_HTTP_ENDPOINT=http://moto:5000
+      - MOTO_DOCKER_NETWORK_NAME=moto-network
+      - MOTO_DOCKER_LAMBDA_IMAGE=mlupin/docker-lambda
+      - MOTO_LAMBDA_DATA_DIR=/tmp/data
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - moto-network
+
+  awscli:
+    image: amazon/aws-cli:latest
+    environment:
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://moto:5000
+    depends_on:
+      - moto
+    networks:
+      - moto-network
+
+  terraform:
+    image: hashicorp/terraform:latest
+    environment:
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+      - AWS_DEFAULT_REGION=us-east-1
+    depends_on:
+      - moto
+    networks:
+      - moto-network
+
+networks:
+  moto-network:
+    driver: bridge
