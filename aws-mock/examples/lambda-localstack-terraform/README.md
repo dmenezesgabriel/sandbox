@@ -41,7 +41,7 @@ docker compose run --rm awscli lambda invoke \
   /dev/stdout
 ```
 
-6. Get logs
+7. Get logs
 
 ```sh
 docker compose run --rm awscli logs filter-log-events \

@@ -1,0 +1,25 @@
+FROM amazonlinux:2
+
+RUN yum update -y && \
+    yum install -y curl unzip tar gzip which shadow-utils && \
+    yum clean all
+
+RUN amazon-linux-extras enable docker && \
+    yum install -y docker && \
+    yum clean all
+
+RUN curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && \
+    chmod +x /usr/local/bin/docker-compose
+
+RUN curl -Lo aws-sam-cli.zip https://github.com/aws/aws-sam-cli/releases/latest/download/aws-sam-cli-linux-x86_64.zip && \
+    unzip aws-sam-cli.zip -d sam-installation && \
+    ./sam-installation/install && \
+    rm -rf aws-sam-cli.zip sam-installation
+
+RUN which docker && docker --version && \
+    which sam && sam --version
+
+ENV PATH="/usr/local/bin:/usr/bin:/bin"
+
+ENTRYPOINT ["sam"]
+CMD ["--help"]
