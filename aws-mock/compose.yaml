@@ -58,16 +58,6 @@ services:
     networks:
       - aws-mock-network
 
-  sam-cli:
-    build:
-      context: .
-      dockerfile: ./dockerfiles/Dockerfile.sam-cli
-    container_name: sam-cli
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    tty: true
-    stdin_open: true
-
 networks:
   aws-mock-network:
     driver: bridge
