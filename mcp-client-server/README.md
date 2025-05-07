@@ -1,0 +1,5 @@
+- [MCP: Example](https://cobusgreyling.medium.com/using-langchain-with-model-context-protocol-mcp-e89b87ee3c4c)
+- [Langchain MCP Adapter](https://github.com/langchain-ai/langchain-mcp-adapters)
+- [MCP:SSE](https://apidog.com/pt/blog/untitled-pt-2/)
+- [data anonomization](https://mostly.ai/blog/data-anonymization-in-python)
+- [data anonomization ms presidio](https://ploomber.io/blog/pii-openai/)
