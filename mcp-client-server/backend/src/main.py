@@ -1,21 +1,20 @@
-import json
 import uuid
 from contextlib import AsyncExitStack, asynccontextmanager
-from http.client import HTTPResponse
 from pathlib import Path
-from typing import AsyncGenerator, List, Union
+from typing import AsyncGenerator, List, Optional, Tuple, Union
 
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
+from loguru import logger
 from pydantic import BaseModel, ConfigDict
 from template import html
 
@@ -34,6 +33,35 @@ model = ChatGoogleGenerativeAI(
     timeout=None,
     max_retries=2,
 )
+
+
+class ChatRequest(BaseModel):
+    messages: List[Union[HumanMessage, AIMessage, SystemMessage]]
+    thread_id: Optional[str] = None
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "messages": [
+                    {
+                        "type": "system",
+                        "content": (
+                            "You are a helpful assistant. \n"
+                            "You're provided with a list of tools, and a input from the user.\n"
+                            "Your job is to determine whether or not you have a tool which can handle the users input, "
+                            "or respond with plain text.\n"
+                        )
+                    },
+                    {
+                        "type": "human",
+                        "content": "What's 2+2?"
+                    }
+                ],
+                "thread_id": str(uuid.uuid4())
+            }
+        }
+    )
+
 
 async def create_graph(stack: AsyncExitStack):
     client = await stack.enter_async_context(MultiServerMCPClient(
@@ -67,13 +95,15 @@ async def create_graph(stack: AsyncExitStack):
     builder.add_edge("tools", "call_model")
     builder.add_edge("call_model", END)
     graph = builder.compile(checkpointer=MemorySaver())
-    return graph
+    runnable = graph.with_types(input_type=ChatRequest, output_type=dict)
+    return runnable
 
 
-async def stream_response(graph, messages) -> AsyncGenerator[str, None]:
-    async for chunk in graph.astream({"messages": messages}):
+async def stream_response(graph, messages, config, stream_mode="values") -> AsyncGenerator[str, None]:
+    async for chunk in graph.astream({"messages": messages}, config=config, stream_mode=stream_mode):
         if "messages" in chunk:
-            yield f"data: {json.dumps(chunk)}\n\n"
+            yield f"data: {chunk['messages'][-1].content}\n\n"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -88,41 +118,25 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+origins = [
+    "http://localhost",
+    "http://localhost:3000",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
 
-class ChatRequest(BaseModel):
-    messages: List[Union[HumanMessage, AIMessage, SystemMessage]]
-    thread_id: str
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "messages": [
-                    {
-                        "type": "system",
-                        "content": "You are a helpful assistant"
-                    },
-                    {
-                        "type": "human",
-                        "content": "What's 2+2?"
-                    }
-                ],
-                "thread_id": str(uuid.uuid4())
-            }
-        }
-    )
-
 
 @app.get("/", response_class=HTMLResponse)
 async def get():
     return html
+
 
 @app.post("/chat/invoke")
 async def chat_endpoint(request: ChatRequest):
@@ -132,7 +146,19 @@ async def chat_endpoint(request: ChatRequest):
         response = await graph.ainvoke({"messages": request.messages}, config=config)
         return {"messages": response["messages"][-1].content}
 
-@app.websocket("/chat/ws/{thread_id}")
+
+@app.post("/chat/stream_events")
+async def chat_stream_endpoint(request: ChatRequest):
+    config = {"configurable": {"thread_id": request.thread_id}}
+    async with AsyncExitStack() as stack:
+        graph = await create_graph(stack)
+        return StreamingResponse(
+            stream_response(graph, request.messages, config),
+            media_type="text/event-stream"
+        )
+
+
+@app.websocket("/chat/stream/{thread_id}")
 async def websocket_endpoint(websocket: WebSocket, thread_id: str):
     config = {"configurable": {"thread_id": thread_id}}
     await websocket.accept()
@@ -146,4 +172,3 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
 
 if __name__ == "__main__":
    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
