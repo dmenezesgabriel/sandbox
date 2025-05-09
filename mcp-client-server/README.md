@@ -3,3 +3,4 @@
 - [MCP:SSE](https://apidog.com/pt/blog/untitled-pt-2/)
 - [data anonomization](https://mostly.ai/blog/data-anonymization-in-python)
 - [data anonomization ms presidio](https://ploomber.io/blog/pii-openai/)
+- https://medium.com/@sajith_k/deploying-langgraph-with-fastapi-a-step-by-step-tutorial-b5b7cdc91385
