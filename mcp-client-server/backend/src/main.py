@@ -1,7 +1,8 @@
+import json
 import uuid
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator, List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import uvicorn
 from dotenv import load_dotenv
@@ -99,12 +100,6 @@ async def create_graph(stack: AsyncExitStack):
     return runnable
 
 
-async def stream_response(graph, messages, config, stream_mode="values") -> AsyncGenerator[str, None]:
-    async for chunk in graph.astream({"messages": messages}, config=config, stream_mode=stream_mode):
-        if "messages" in chunk:
-            yield f"data: {chunk['messages'][-1].content}\n\n"
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan event handler for FastAPI."""
@@ -147,8 +142,13 @@ async def chat_endpoint(request: ChatRequest):
         return {"messages": response["messages"][-1].content}
 
 
-@app.post("/chat/stream_events")
-async def chat_stream_endpoint(request: ChatRequest):
+@app.get("/chat/stream_events")
+async def chat_stream_endpoint(
+    messages: str,
+    thread_id: Optional[str] = None
+):
+    messages_data = json.loads(messages)
+    request = ChatRequest(messages=messages_data, thread_id=thread_id)
     config = {"configurable": {"thread_id": request.thread_id}}
     stack = AsyncExitStack()
 
@@ -156,8 +156,10 @@ async def chat_stream_endpoint(request: ChatRequest):
         try:
             async with stack:
                 graph = await create_graph(stack)
-                async for chunk in stream_response(graph, request.messages, config):
-                    yield chunk
+                async for chunk in graph.astream({"messages": request.messages}, config=config, stream_mode="values"):
+                    logger.debug(chunk)
+                    if "messages" in chunk:
+                        yield f"data: {chunk['messages'][-1].content}\n\n"
         finally:
             await stack.aclose()
 
@@ -165,6 +167,7 @@ async def chat_stream_endpoint(request: ChatRequest):
         generate_response(),
         media_type="text/event-stream"
     )
+
 
 @app.websocket("/chat/stream/{thread_id}")
 async def websocket_endpoint(websocket: WebSocket, thread_id: str):
