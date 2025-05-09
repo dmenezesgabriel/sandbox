@@ -150,13 +150,21 @@ async def chat_endpoint(request: ChatRequest):
 @app.post("/chat/stream_events")
 async def chat_stream_endpoint(request: ChatRequest):
     config = {"configurable": {"thread_id": request.thread_id}}
-    async with AsyncExitStack() as stack:
-        graph = await create_graph(stack)
-        return StreamingResponse(
-            stream_response(graph, request.messages, config),
-            media_type="text/event-stream"
-        )
+    stack = AsyncExitStack()
 
+    async def generate_response():
+        try:
+            async with stack:
+                graph = await create_graph(stack)
+                async for chunk in stream_response(graph, request.messages, config):
+                    yield chunk
+        finally:
+            await stack.aclose()
+
+    return StreamingResponse(
+        generate_response(),
+        media_type="text/event-stream"
+    )
 
 @app.websocket("/chat/stream/{thread_id}")
 async def websocket_endpoint(websocket: WebSocket, thread_id: str):
