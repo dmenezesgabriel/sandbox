@@ -1,4 +1,3 @@
-import json
 import uuid
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
@@ -17,7 +16,6 @@ from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
-from langgraph.checkpoint.memory import InMemorySaver
 from template import html
 
 load_dotenv()
@@ -145,7 +143,7 @@ async def create_thread():
     thread_id = str(uuid.uuid4())
     return {"thread_id": thread_id}
 
-@app.post("/chat/thread/{thread_id}/run/stream")
+@app.post("/chat/thread/{thread_id}/ask/stream")
 async def run_thread_stream(
     request: ChatRequest,
 ):
@@ -153,40 +151,51 @@ async def run_thread_stream(
     stack = AsyncExitStack()
 
     async def generate_response():
-        try:
-            async with stack:
-                graph = await create_graph(stack)
-                async for chunk in graph.astream({"messages": request.messages}, config=config, stream_mode="values"):
-                    if "messages" not in chunk:
-                        continue
-                    ai_messages = list(filter(lambda x: isinstance(x, AIMessage), chunk["messages"]))
-                    if not ai_messages:
-                        continue
-                    if len(ai_messages[-1].content) == 0:
-                        continue
-                    logger.debug(ai_messages)
-                    last_message = ai_messages[-1].content if ai_messages else ""
-                    yield f"data: {last_message}\n\n"
-        finally:
-            await stack.aclose()
+        async with stack:
+            graph = await create_graph(stack)
+            async for chunk in graph.astream({"messages": request.messages}, config=config, stream_mode="values"):
+                if "messages" not in chunk:
+                    continue
+                ai_messages = list(filter(lambda x: isinstance(x, AIMessage), chunk["messages"]))
+                if not ai_messages:
+                    continue
+                if len(ai_messages[-1].content) == 0:
+                    continue
+                logger.debug(ai_messages)
+                last_message = ai_messages[-1].content if ai_messages else ""
+                yield f"data: {last_message}\n\n"
 
     return StreamingResponse(
         generate_response(),
         media_type="text/event-stream"
     )
 
-@app.get("/chat/thread/{thread_id}/history")
+@app.get("/chat/thread/{thread_id}/history/stream")
 async def get_thread_history(thread_id: str):
     config = {"configurable": {"thread_id": thread_id}}
-    async with AsyncExitStack() as stack:
-        graph = await create_graph(stack)
-        history = []
-        async for item in graph.aget_state_history(config=config):
-            history.append(item)
-        logger.info(history)
-        return history
+    stack = AsyncExitStack()
 
-@app.post("/chat/invoke")
+    async def generate_history():
+        async with stack:
+            graph = await create_graph(stack)
+            async for state_snapshot in graph.aget_state_history(config=config):
+                if "messages" not in state_snapshot.values:
+                    continue
+                ai_messages = list(filter(lambda x: isinstance(x, AIMessage), state_snapshot.values["messages"]))
+                if not ai_messages:
+                    continue
+                if len(ai_messages[-1].content) == 0:
+                    continue
+                logger.debug(ai_messages)
+                last_message = ai_messages[-1].content if ai_messages else ""
+                yield f"data: {last_message}\n\n"
+
+    return StreamingResponse(
+        generate_history(),
+        media_type="text/event-stream"
+    )
+
+@app.post("/chat/thread/{thread_id}/ask")
 async def chat_endpoint(request: ChatRequest):
     config = {"configurable": {"thread_id": request.thread_id}}
     async with AsyncExitStack() as stack:
@@ -195,7 +204,7 @@ async def chat_endpoint(request: ChatRequest):
         return {"messages": response["messages"][-1].content}
 
 
-@app.websocket("/chat/stream/{thread_id}")
+@app.websocket("/chat/thread/{thread_id}/ask/websocket/stream")
 async def websocket_endpoint(websocket: WebSocket, thread_id: str):
     config = {"configurable": {"thread_id": thread_id}}
     await websocket.accept()

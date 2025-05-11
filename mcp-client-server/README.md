@@ -4,3 +4,10 @@
 - [data anonomization](https://mostly.ai/blog/data-anonymization-in-python)
 - [data anonomization ms presidio](https://ploomber.io/blog/pii-openai/)
 - [langgraph websockets](https://medium.com/@sajith_k/deploying-langgraph-with-fastapi-a-step-by-step-tutorial-b5b7cdc91385)
+- https://langchain-ai.github.io/langgraph/cloud/how-tos/use_stream_react/#loading-states
+- https://github.com/bracesproul/gen-ui-python/blob/main/backend/gen_ui_backend/server.py
+- https://langchain-ai.github.io/langgraph/cloud/how-tos/generative_ui_react/#pass-additional-context-to-the-client-components
+- https://langchain-ai.github.io/langgraph/concepts/persistence/
+- https://langchain-ai.github.io/langgraph/cloud/how-tos/use_stream_react/#installation
+- https://www.youtube.com/watch?v=juzD9h9ewV8
+- https://github.com/Coding-Crashkurse/FastAPI-LangChain-Streaming

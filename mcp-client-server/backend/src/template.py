@@ -12,7 +12,7 @@ html = """
         </form>
         <p id='messages'></p>
         <script>
-            var ws = new WebSocket("ws://localhost:8000/chat/stream/123");
+            var ws = new WebSocket("ws://localhost:8000/chat/thread/123/ask/websocket/stream");
             ws.onmessage = function(event) {
                 var messages = document.getElementById('messages')
                 messages.innerText+=event.data
