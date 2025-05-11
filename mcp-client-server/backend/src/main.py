@@ -54,7 +54,7 @@ class ChatRequest(BaseModel):
                     },
                     {
                         "type": "human",
-                        "content": "What's 2+2?"
+                        "content": "How much is 2+2?"
                     }
                 ],
                 "thread_id": str(uuid.uuid4())
@@ -64,6 +64,9 @@ class ChatRequest(BaseModel):
 
 
 async def create_graph(stack: AsyncExitStack):
+    """
+    @see https://github.com/langchain-ai/langchain-mcp-adapters
+    """
     db_name = f"./checkpointer.db"
 
     checkpointer = await stack.enter_async_context(
@@ -88,7 +91,6 @@ async def create_graph(stack: AsyncExitStack):
 
     def call_model(state: MessagesState):
         response = model.bind_tools(tools).invoke(state["messages"])
-        logger.info(f"Input messages to model: {state['messages']}")
         return {"messages": response}
 
     builder = StateGraph(MessagesState)
@@ -104,6 +106,33 @@ async def create_graph(stack: AsyncExitStack):
     graph = builder.compile(checkpointer=checkpointer)
     runnable = graph.with_types(input_type=ChatRequest, output_type=dict)
     return runnable
+
+
+async def generate_chat_response(
+        stack: AsyncExitStack,
+        messages: List[Union[HumanMessage, AIMessage, SystemMessage]],
+        config: dict,
+    ):
+    """
+    @see https://langchain-ai.github.io/langgraph/how-tos/streaming
+    """
+    async with stack:
+        graph = await create_graph(stack)
+        async for message_chunk, metadata in graph.astream(
+            input={"messages": messages},
+            config=config,
+            stream_mode="messages"
+        ):
+            # logger.debug(message_chunk)
+            # logger.debug(metadata)
+            if (
+                "langgraph_node" in metadata
+                and metadata["langgraph_node"] == "tools"
+            ):
+                continue
+            if not message_chunk.content:
+                continue
+            yield f"data: {message_chunk.content}\n\n"
 
 
 @asynccontextmanager
@@ -138,70 +167,47 @@ app.add_middleware(
 async def get():
     return html
 
-@app.post("/chat/thread")
+
+@app.post("/chat/thread", tags=["chat"])
 async def create_thread():
     thread_id = str(uuid.uuid4())
     return {"thread_id": thread_id}
 
-@app.post("/chat/thread/{thread_id}/ask/stream")
+
+@app.get("/chat/thread/{thread_id}/ask/{messages}", tags=["chat"])
 async def run_thread_stream(
-    request: ChatRequest,
+    thread_id: str,
+    messages: str,
 ):
-    config = {"configurable": {"thread_id": request.thread_id}}
-    stack = AsyncExitStack()
-
-    async def generate_response():
-        async with stack:
-            graph = await create_graph(stack)
-            async for chunk in graph.astream({"messages": request.messages}, config=config, stream_mode="values"):
-                if "messages" not in chunk:
-                    continue
-                ai_messages = list(filter(lambda x: isinstance(x, AIMessage), chunk["messages"]))
-                if not ai_messages:
-                    continue
-                if len(ai_messages[-1].content) == 0:
-                    continue
-                logger.debug(ai_messages)
-                last_message = ai_messages[-1].content if ai_messages else ""
-                yield f"data: {last_message}\n\n"
-
-    return StreamingResponse(
-        generate_response(),
-        media_type="text/event-stream"
-    )
-
-@app.get("/chat/thread/{thread_id}/history/stream")
-async def get_thread_history(thread_id: str):
     config = {"configurable": {"thread_id": thread_id}}
     stack = AsyncExitStack()
-
-    async def generate_history():
-        async with stack:
-            graph = await create_graph(stack)
-            async for state_snapshot in graph.aget_state_history(config=config):
-                if "messages" not in state_snapshot.values:
-                    continue
-                ai_messages = list(filter(lambda x: isinstance(x, AIMessage), state_snapshot.values["messages"]))
-                if not ai_messages:
-                    continue
-                if len(ai_messages[-1].content) == 0:
-                    continue
-                logger.debug(ai_messages)
-                last_message = ai_messages[-1].content if ai_messages else ""
-                yield f"data: {last_message}\n\n"
-
     return StreamingResponse(
-        generate_history(),
+        generate_chat_response(stack=stack, messages=messages, config=config),
         media_type="text/event-stream"
     )
 
-@app.post("/chat/thread/{thread_id}/ask")
+
+@app.post("/chat/thread/{thread_id}/ask", tags=["chat"])
 async def chat_endpoint(request: ChatRequest):
     config = {"configurable": {"thread_id": request.thread_id}}
     async with AsyncExitStack() as stack:
         graph = await create_graph(stack)
         response = await graph.ainvoke({"messages": request.messages}, config=config)
         return {"messages": response["messages"][-1].content}
+
+
+@app.get("/chat/thread/{thread_id}/history", tags=["chat"])
+async def get_thread_history(thread_id: str):
+    config = {"configurable": {"thread_id": thread_id}}
+    stack = AsyncExitStack()
+
+    async with stack:
+        graph = await create_graph(stack)
+        snapshots = []
+        async for state_snapshot in graph.aget_state_history(config=config):
+            snapshots.append(state_snapshot)
+
+        return {"history": snapshots}
 
 
 @app.websocket("/chat/thread/{thread_id}/ask/websocket/stream")
