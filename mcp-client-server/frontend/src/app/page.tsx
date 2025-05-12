@@ -1,32 +1,53 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 
+function ChatMessage({ msg }: { msg: string }) {
+  const isUser = msg.startsWith("You:");
+  return (
+    <div className={isUser ? "text-right" : "text-left"}>
+      <span className={isUser ? "text-blue-700" : "text-green-700"}>{msg}</span>
+    </div>
+  );
+}
+
 export default function Home() {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [chat, setChat] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const evtSourceRef = useRef<EventSource | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  // Create a new thread on mount
+  // Create a new chat thread on mount
   useEffect(() => {
-    fetch("http://localhost:8000/chat/thread", { method: "POST" })
-      .then((res) => res.json())
-      .then((data) => setThreadId(data.thread_id));
+    async function createThread() {
+      const res = await fetch("http://localhost:8000/chat/thread", {
+        method: "POST",
+      });
+      const data = await res.json();
+      setThreadId(data.thread_id);
+    }
+    createThread();
     return () => {
-      if (evtSourceRef.current) evtSourceRef.current.close();
+      evtSourceRef.current?.close();
     };
   }, []);
+
+  // Auto-scroll to bottom when chat updates
+  useEffect(() => {
+    chatContainerRef.current?.scrollTo(
+      0,
+      chatContainerRef.current.scrollHeight
+    );
+  }, [chat]);
 
   const sendMessage = () => {
     if (!input.trim() || !threadId) return;
     setChat((prev) => [...prev, `You: ${input}`]);
     setLoading(true);
 
-    // Close previous stream if open
-    if (evtSourceRef.current) evtSourceRef.current.close();
+    evtSourceRef.current?.close();
 
-    // Stream response from backend
     const url = `http://localhost:8000/chat/thread/${threadId}/ask/${encodeURIComponent(
       input
     )}`;
@@ -37,9 +58,8 @@ export default function Home() {
     evtSource.onmessage = (event) => {
       response += event.data;
       setChat((prev) => {
-        // Replace last AI message or add new
         const last = prev[prev.length - 1];
-        if (last && last.startsWith("AI:")) {
+        if (last?.startsWith("AI:")) {
           return [...prev.slice(0, -1), `AI: ${response}`];
         }
         return [...prev, `AI: ${response}`];
@@ -63,20 +83,10 @@ export default function Home() {
         <div
           className="space-y-2 mb-6 h-64 overflow-y-auto border rounded p-3 bg-blue-gray-100"
           id="data-container"
+          ref={chatContainerRef}
         >
           {chat.map((msg, i) => (
-            <div
-              key={i}
-              className={msg.startsWith("You:") ? "text-right" : "text-left"}
-            >
-              <span
-                className={
-                  msg.startsWith("You:") ? "text-blue-700" : "text-green-700"
-                }
-              >
-                {msg}
-              </span>
-            </div>
+            <ChatMessage key={i} msg={msg} />
           ))}
         </div>
         <div className="flex gap-2">

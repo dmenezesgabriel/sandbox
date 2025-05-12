@@ -8,7 +8,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import (AIMessage, AIMessageChunk, HumanMessage,
+                                     SystemMessage)
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -108,7 +109,7 @@ async def create_graph(stack: AsyncExitStack):
     return runnable
 
 
-async def generate_chat_response(
+async def generate_chat_response_stream(
         stack: AsyncExitStack,
         messages: List[Union[HumanMessage, AIMessage, SystemMessage]],
         config: dict,
@@ -130,6 +131,29 @@ async def generate_chat_response(
                 and metadata["langgraph_node"] == "tools"
             ):
                 continue
+            if not message_chunk.content:
+                continue
+            yield f"data: {message_chunk.content}\n\n"
+
+
+async def generate_chat_response_stream_events(
+    stack: AsyncExitStack,
+    messages: List[Union[HumanMessage, AIMessage, SystemMessage]],
+    config: dict,
+):
+    async with stack:
+        graph = await create_graph(stack)
+        async for event in graph.astream_events(
+            input={"messages": messages},
+            config=config,
+            version="v1",
+        ):
+            # logger.debug(event)
+            if event["event"] != "on_chat_model_stream":
+                continue
+            if not isinstance(event["data"]["chunk"], AIMessageChunk):
+                continue
+            message_chunk = event["data"]["chunk"]
             if not message_chunk.content:
                 continue
             yield f"data: {message_chunk.content}\n\n"
@@ -182,7 +206,27 @@ async def run_thread_stream(
     config = {"configurable": {"thread_id": thread_id}}
     stack = AsyncExitStack()
     return StreamingResponse(
-        generate_chat_response(stack=stack, messages=messages, config=config),
+        generate_chat_response_stream(
+            stack=stack,
+            messages=messages,
+            config=config
+        ),
+        media_type="text/event-stream"
+    )
+
+@app.get("/chat/thread/{thread_id}/ask/{messages}/events", tags=["chat"])
+async def run_thread_stream(
+    thread_id: str,
+    messages: str,
+):
+    config = {"configurable": {"thread_id": thread_id}}
+    stack = AsyncExitStack()
+    return StreamingResponse(
+        generate_chat_response_stream_events(
+            stack=stack,
+            messages=messages,
+            config=config
+        ),
         media_type="text/event-stream"
     )
 
@@ -192,7 +236,8 @@ async def chat_endpoint(request: ChatRequest):
     config = {"configurable": {"thread_id": request.thread_id}}
     async with AsyncExitStack() as stack:
         graph = await create_graph(stack)
-        response = await graph.ainvoke({"messages": request.messages}, config=config)
+        response = await graph.ainvoke(
+            {"messages": request.messages}, config=config)
         return {"messages": response["messages"][-1].content}
 
 
@@ -218,7 +263,8 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
         graph = await create_graph(stack)
         while True:
             data = await websocket.receive_text()
-            async for event in graph.astream({"messages": [data]}, config=config, stream_mode="messages"):
+            async for event in graph.astream(
+                {"messages": [data]}, config=config, stream_mode="messages"):
                 await websocket.send_text(event[0].content)
 
 
