@@ -1,19 +1,27 @@
 import uuid
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Annotated, List, Optional, TypedDict, Union
 
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
-from langchain_core.messages import (AIMessage, AIMessageChunk, HumanMessage,
-                                     SystemMessage)
+from langchain_core.messages import (
+    AIMessage,
+    AIMessageChunk,
+    AnyMessage,
+    HumanMessage,
+    SystemMessage,
+)
+from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.graph import START, StateGraph
+from langgraph.graph.graph import CompiledGraph
+from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
@@ -51,20 +59,27 @@ class ChatRequest(BaseModel):
                             "You're provided with a list of tools, and a input from the user.\n"
                             "Your job is to determine whether or not you have a tool which can handle the users input, "
                             "or respond with plain text.\n"
-                        )
+                        ),
                     },
-                    {
-                        "type": "human",
-                        "content": "How much is 2+2?"
-                    }
+                    {"type": "human", "content": "How much is 2+2?"},
                 ],
-                "thread_id": str(uuid.uuid4())
+                "thread_id": str(uuid.uuid4()),
             }
         }
     )
 
 
-async def create_graph(stack: AsyncExitStack):
+class GraphState(TypedDict, total=False):
+    """
+    @see https://langchain-ai.github.io/langgraph/concepts/low_level/#serialization
+    """
+
+    messages: Annotated[list[AnyMessage], add_messages]
+    tool_calls: Optional[list[dict]]  # TODO
+    tool_results: Optional[dict]  # TODO
+
+
+async def create_graph(stack: AsyncExitStack) -> CompiledGraph:
     """
     @see https://github.com/langchain-ai/langchain-mcp-adapters
     """
@@ -74,27 +89,31 @@ async def create_graph(stack: AsyncExitStack):
         AsyncSqliteSaver.from_conn_string(db_name)
     )
 
-    client = await stack.enter_async_context(MultiServerMCPClient(
-        {
-            "math": {
-                "command": str(venv_python),
-                "args": [str(math_server_script)],
-                "transport": "stdio",
-            },
-            "database": {
-                "command": str(venv_python),
-                "args": [str(db_server_script)],
-                "transport": "stdio",
-            },
-        }
-    ))
+    client = await stack.enter_async_context(
+        MultiServerMCPClient(
+            {
+                "math": {
+                    "command": str(venv_python),
+                    "args": [str(math_server_script)],
+                    "transport": "stdio",
+                },
+                "database": {
+                    "command": str(venv_python),
+                    "args": [str(db_server_script)],
+                    "transport": "stdio",
+                },
+            }
+        )
+    )
     tools = client.get_tools()
 
-    def call_model(state: MessagesState):
+    def call_model(state: GraphState) -> GraphState:
+        logger.info(state)
         response = model.bind_tools(tools).invoke(state["messages"])
+
         return {"messages": response}
 
-    builder = StateGraph(MessagesState)
+    builder = StateGraph(GraphState)
     builder.add_node(call_model)
     builder.add_node(ToolNode(tools))
     builder.add_edge(START, "call_model")
@@ -106,23 +125,22 @@ async def create_graph(stack: AsyncExitStack):
 
     graph = builder.compile(checkpointer=checkpointer)
     runnable = graph.with_types(input_type=ChatRequest, output_type=dict)
+
     return runnable
 
 
 async def generate_chat_response_stream(
-        stack: AsyncExitStack,
-        messages: List[Union[HumanMessage, AIMessage, SystemMessage]],
-        config: dict,
-    ):
+    stack: AsyncExitStack,
+    messages: List[Union[HumanMessage, AIMessage, SystemMessage]],
+    config: RunnableConfig,
+):
     """
     @see https://langchain-ai.github.io/langgraph/how-tos/streaming
     """
     async with stack:
         graph = await create_graph(stack)
         async for message_chunk, metadata in graph.astream(
-            input={"messages": messages},
-            config=config,
-            stream_mode="messages"
+            input={"messages": messages}, config=config, stream_mode="messages"
         ):
             # logger.debug(message_chunk)
             # logger.debug(metadata)
@@ -139,7 +157,7 @@ async def generate_chat_response_stream(
 async def generate_chat_response_stream_events(
     stack: AsyncExitStack,
     messages: List[Union[HumanMessage, AIMessage, SystemMessage]],
-    config: dict,
+    config: RunnableConfig,
 ):
     async with stack:
         graph = await create_graph(stack)
@@ -148,7 +166,7 @@ async def generate_chat_response_stream_events(
             config=config,
             version="v1",
         ):
-            # logger.debug(event)
+            logger.debug(event)
             if event["event"] != "on_chat_model_stream":
                 continue
             if not isinstance(event["data"]["chunk"], AIMessageChunk):
@@ -195,7 +213,21 @@ async def get():
 @app.post("/chat/thread", tags=["chat"])
 async def create_thread():
     thread_id = str(uuid.uuid4())
+
     return {"thread_id": thread_id}
+
+
+@app.get("/chat/thread/{thread_id}", tags=["chat"])
+async def get_thread(thread_id: str):
+    config = {"configurable": {"thread_id": thread_id}}
+    stack = AsyncExitStack()
+    async with stack:
+        graph = await create_graph(stack)
+        threads = []
+        async for thread in graph.checkpointer.alist(config=config):
+            threads.append(thread)
+
+        return {"threads": threads}
 
 
 @app.get("/chat/thread/{thread_id}/ask/{messages}", tags=["chat"])
@@ -207,12 +239,11 @@ async def run_thread_stream(
     stack = AsyncExitStack()
     return StreamingResponse(
         generate_chat_response_stream(
-            stack=stack,
-            messages=messages,
-            config=config
+            stack=stack, messages=messages, config=config
         ),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
     )
+
 
 @app.get("/chat/thread/{thread_id}/ask/{messages}/events", tags=["chat"])
 async def run_thread_stream(
@@ -223,11 +254,9 @@ async def run_thread_stream(
     stack = AsyncExitStack()
     return StreamingResponse(
         generate_chat_response_stream_events(
-            stack=stack,
-            messages=messages,
-            config=config
+            stack=stack, messages=messages, config=config
         ),
-        media_type="text/event-stream"
+        media_type="text/event-stream",
     )
 
 
@@ -237,7 +266,9 @@ async def chat_endpoint(request: ChatRequest):
     async with AsyncExitStack() as stack:
         graph = await create_graph(stack)
         response = await graph.ainvoke(
-            {"messages": request.messages}, config=config)
+            {"messages": request.messages}, config=config
+        )
+
         return {"messages": response["messages"][-1].content}
 
 
@@ -264,9 +295,10 @@ async def websocket_endpoint(websocket: WebSocket, thread_id: str):
         while True:
             data = await websocket.receive_text()
             async for event in graph.astream(
-                {"messages": [data]}, config=config, stream_mode="messages"):
+                {"messages": [data]}, config=config, stream_mode="messages"
+            ):
                 await websocket.send_text(event[0].content)
 
 
 if __name__ == "__main__":
-   uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

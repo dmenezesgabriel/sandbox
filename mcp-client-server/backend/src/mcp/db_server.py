@@ -9,19 +9,23 @@ db_path = current_dir.parent.parent / "database.db"
 
 mcp = FastMCP("SQL Agent Server")
 
+
 @mcp.tool()
 def list_tables() -> str:
     """List all tables in the database."""
     logger.info("Listing all tables in the database.")
     conn = sqlite3.connect(str(db_path))
     try:
-        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table';"
+        )
         tables = cursor.fetchall()
         return "\n".join(table[0] for table in tables)
     except Exception as e:
         return f"Error: {str(e)}"
     finally:
         conn.close()
+
 
 @mcp.tool()
 def describe_table(table_name: str) -> str:
@@ -36,6 +40,7 @@ def describe_table(table_name: str) -> str:
         return f"Error: {str(e)}"
     finally:
         conn.close()
+
 
 @mcp.tool()
 def create_table(sql: str) -> str:
@@ -53,6 +58,7 @@ def create_table(sql: str) -> str:
     finally:
         conn.close()
 
+
 @mcp.tool()
 def insert_data(sql: str) -> str:
     """Insert data into a table."""
@@ -69,6 +75,7 @@ def insert_data(sql: str) -> str:
     finally:
         conn.close()
 
+
 @mcp.tool()
 def select_data(sql: str) -> str:
     """Execute SQL queries safely."""
@@ -84,6 +91,7 @@ def select_data(sql: str) -> str:
         return f"Error: {str(e)}"
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     print("Starting server...")

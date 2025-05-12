@@ -25,6 +25,7 @@ export default function Home() {
         method: "POST",
       });
       const data = await res.json();
+      console.log("Thread created:", data);
       setThreadId(data.thread_id);
     }
     createThread();
