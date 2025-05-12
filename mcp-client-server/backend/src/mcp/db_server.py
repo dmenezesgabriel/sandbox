@@ -9,44 +9,77 @@ db_path = current_dir.parent.parent / "database.db"
 
 mcp = FastMCP("SQL Agent Server")
 
+@mcp.tool()
+def list_tables() -> str:
+    """List all tables in the database."""
+    logger.info("Listing all tables in the database.")
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = cursor.fetchall()
+        return "\n".join(table[0] for table in tables)
+    except Exception as e:
+        return f"Error: {str(e)}"
+    finally:
+        conn.close()
 
 @mcp.tool()
-def create_table(table_name:str, attributes: str) -> str:
+def describe_table(table_name: str) -> str:
+    """Describe a table in the database."""
+    logger.info(f"Describing table {table_name}.")
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cursor = conn.execute(f"PRAGMA table_info({table_name});")
+        columns = cursor.fetchall()
+        return "\n".join(f"{col[1]}: {col[2]}" for col in columns)
+    except Exception as e:
+        return f"Error: {str(e)}"
+    finally:
+        conn.close()
+
+@mcp.tool()
+def create_table(sql: str) -> str:
     """Create a table in the database."""
-    logger.info(f"Creating table {table_name} with attributes {attributes}")
+    if not sql.lower().startswith("create table"):
+        raise ValueError("SQL statement must start with 'CREATE TABLE'")
+    logger.info(f"Creating table with SQL: {sql}")
     conn = sqlite3.connect(str(db_path))
     try:
-        conn.execute(f"CREATE TABLE IF NOT EXISTS {table_name} ({attributes})")
+        conn.execute(sql)
         conn.commit()
-        return f"Table {table_name} created successfully."
+        return "Table created successfully."
     except Exception as e:
         return f"Error: {str(e)}"
     finally:
         conn.close()
 
 @mcp.tool()
-def insert_data(table_name: str, values: str) -> str:
+def insert_data(sql: str) -> str:
     """Insert data into a table."""
-    logger.info(f"Inserting data into {table_name} with values {values}")
+    if not sql.lower().startswith("insert into"):
+        raise ValueError("SQL statement must start with 'INSERT INTO'")
+    logger.info(f"Inserting data with SQL: {sql}")
     conn = sqlite3.connect(str(db_path))
     try:
-        conn.execute(f"INSERT INTO {table_name} VALUES ({values})")
+        conn.execute(sql)
         conn.commit()
-        return f"Data inserted into {table_name} successfully."
+        return "Data inserted successfully."
     except Exception as e:
         return f"Error: {str(e)}"
     finally:
         conn.close()
 
 @mcp.tool()
-def query_data(sql: str) -> str:
+def select_data(sql: str) -> str:
     """Execute SQL queries safely."""
-    logger.info(f"Executing SQL query: {sql}")
+    if not sql.lower().startswith("select"):
+        raise ValueError("SQL statement must start with 'SELECT'")
+    logger.info(f"Selecting data with SQL: {sql}")
     conn = sqlite3.connect(str(db_path))
     try:
-        result = conn.execute(sql).fetchall()
-        conn.commit()
-        return "\n".join(str(row) for row in result)
+        cursor = conn.execute(sql)
+        rows = cursor.fetchall()
+        return "\n".join(str(row) for row in rows)
     except Exception as e:
         return f"Error: {str(e)}"
     finally:
