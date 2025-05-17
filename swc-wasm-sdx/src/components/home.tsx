@@ -51,7 +51,7 @@ div.innerHTML = "Hello, world!" + add(1, 2)
           source: `console.log(add(1, 5));
 console.dir(window);
 const person = new Person("John", 30);
-console.log(person);
+console.log(JSON.stringify(person));
 console.log(x);
 console.log(y);
 
