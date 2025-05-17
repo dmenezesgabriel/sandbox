@@ -27,12 +27,11 @@ export function Iframe({ scriptUrl, onConsoleLog, onIframeLoad }: IframeProps) {
     if (!iframeDocument) {
       return;
     }
+    iframeDocument.body.innerHTML = "";
 
     if (onIframeLoad) {
       onIframeLoad(iframeRef.current!);
     }
-
-    iframeDocument.body.innerHTML = "";
 
     const script = iframeDocument.createElement("script");
     script.type = "module";
@@ -69,7 +68,7 @@ export function Iframe({ scriptUrl, onConsoleLog, onIframeLoad }: IframeProps) {
       },
       warn: (...args: unknown[]) => {
         onConsoleLog(...args);
-        //   (prev) => prev + "Warning: " + args.join(" ") + "\n";
+        // (prev) => prev + "Warning: " + args.join(" ") + "\n";
         // originalConsole.warn(...args);
       },
     };

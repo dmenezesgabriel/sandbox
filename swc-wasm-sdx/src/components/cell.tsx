@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { compile } from "../lib/swc";
 import { Iframe } from "./iframe";
 import type { Cell } from "../types";
@@ -29,7 +29,7 @@ export function Cell({ notebookId, cell }: CellProps) {
     const module = runtime.module;
 
     compiled.declarations.forEach((decl) => {
-      module.addDeclaration(decl.code);
+      module.addDeclaration(decl);
     });
 
     const blob = new Blob([compiled.code], { type: "application/javascript" });
@@ -38,16 +38,19 @@ export function Cell({ notebookId, cell }: CellProps) {
     setModuleUrl(url);
   }
 
-  function handleConsoleLog(...args: unknown[]) {
+  const handleConsoleLog = useCallback((...args: unknown[]) => {
     setOutput((prev) => [...prev, args.join(" ")]);
-  }
+  }, []);
 
-  function handleIframeLoad(iframe: HTMLIFrameElement) {
-    const iframeWindow = iframe.contentWindow;
-    const module = runtime.module;
+  const handleIframeLoad = useCallback(
+    (iframe: HTMLIFrameElement) => {
+      const iframeWindow = iframe.contentWindow;
+      const module = runtime.module;
 
-    module.assignObjects(iframeWindow!);
-  }
+      module.assignObjects(iframeWindow!);
+    },
+    [runtime.module]
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>

@@ -11,3 +11,5 @@
 - https://langchain-ai.github.io/langgraph/cloud/how-tos/use_stream_react/#installation
 - https://www.youtube.com/watch?v=juzD9h9ewV8
 - https://github.com/Coding-Crashkurse/FastAPI-LangChain-Streaming
+- https://ai-sdk.dev/docs/ai-sdk-rsc/streaming-values
+- https://blog.innei.ren/nextjs-rsc-server-action-and-streamable-ui

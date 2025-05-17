@@ -1,24 +1,32 @@
 import { transformSync } from "@swc/wasm-web";
 import { parse } from "acorn";
-import type { Node } from "acorn";
+import type { Program, VariableDeclarator, Pattern } from "acorn";
 
-function getVariableDeclarationName(node: Node) {
-  return node.declarations[0].id.name;
+function extractIdentifiers(pattern: Pattern): string[] {
+  if (pattern.type === "Identifier") {
+    return [pattern.name];
+  }
+  if (pattern.type === "ObjectPattern") {
+    return pattern.properties.flatMap((prop: any) => {
+      if (prop.type === "Property") {
+        return extractIdentifiers(prop.value);
+      }
+      if (prop.type === "RestElement") {
+        return extractIdentifiers(prop.argument);
+      }
+      return [];
+    });
+  }
+  if (pattern.type === "ArrayPattern") {
+    return pattern.elements.flatMap((el: any) =>
+      el ? extractIdentifiers(el) : []
+    );
+  }
+  if (pattern.type === "RestElement") {
+    return extractIdentifiers(pattern.argument);
+  }
+  return [];
 }
-
-function getFunctionDeclarationName(node: Node) {
-  return node.id.name;
-}
-
-function getClassDeclarationName(node: Node) {
-  return node.id.name;
-}
-
-const getDeclarationName = {
-  VariableDeclaration: getVariableDeclarationName,
-  FunctionDeclaration: getFunctionDeclarationName,
-  ClassDeclaration: getClassDeclarationName,
-};
 
 export function compile(code: string) {
   const result = transformSync(code, {
@@ -40,25 +48,42 @@ export function compile(code: string) {
     ecmaVersion: 2018,
     sourceType: "module",
     locations: true,
-  });
+  }) as Program;
 
-  const declarations = ast.body
-    .filter(
-      (node) =>
-        node.type === "VariableDeclaration" ||
-        node.type === "FunctionDeclaration" ||
-        node.type === "ClassDeclaration"
-    )
-    .map((node) => {
-      const code = result.code.slice(node.start, node.end);
+  const declarations: Array<{
+    code: string;
+    type: "FunctionDeclaration" | "VariableDeclaration" | "ClassDeclaration";
+    name: string | string[];
+    kind: "var" | "let" | "const" | undefined;
+  }> = [];
 
-      return {
-        code,
+  for (const node of ast.body) {
+    if (node.type === "VariableDeclaration") {
+      const names = node.declarations.flatMap((decl: VariableDeclarator) =>
+        extractIdentifiers(decl.id)
+      );
+      declarations.push({
+        code: result.code.slice(node.start, node.end),
         type: node.type,
-        name: getDeclarationName[node.type](node),
-        kind: node.type === "VariableDeclaration" ? node.kind : undefined,
-      };
-    });
+        name: names,
+        kind: node.kind,
+      });
+    } else if (node.type === "FunctionDeclaration" && node.id) {
+      declarations.push({
+        code: result.code.slice(node.start, node.end),
+        type: node.type,
+        name: node.id.name,
+        kind: undefined,
+      });
+    } else if (node.type === "ClassDeclaration" && node.id) {
+      declarations.push({
+        code: result.code.slice(node.start, node.end),
+        type: node.type,
+        name: node.id.name,
+        kind: undefined,
+      });
+    }
+  }
 
   return {
     code: result.code,

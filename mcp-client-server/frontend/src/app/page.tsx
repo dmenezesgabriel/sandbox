@@ -1,11 +1,18 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 
-function ChatMessage({ msg }: { msg: string }) {
-  const isUser = msg.startsWith("You:");
+function ChatMessage({
+  msg,
+}: {
+  msg: { sender: string; data: { type: "tool" | "message"; content: string } };
+}) {
+  const isUser = msg.sender === "user";
   return (
     <div className={isUser ? "text-right" : "text-left"}>
-      <span className={isUser ? "text-blue-700" : "text-green-700"}>{msg}</span>
+      <span className={isUser ? "text-blue-700" : "text-green-700"}>
+        {isUser ? "You: " : "AI: "}
+        {msg.data.content}
+      </span>
     </div>
   );
 }
@@ -13,7 +20,12 @@ function ChatMessage({ msg }: { msg: string }) {
 export default function Home() {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [chat, setChat] = useState<string[]>([]);
+  const [chat, setChat] = useState<
+    {
+      sender: string;
+      data: { type: "tool" | "message"; content: string };
+    }[]
+  >([]);
   const [loading, setLoading] = useState(false);
   const evtSourceRef = useRef<EventSource | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -44,7 +56,13 @@ export default function Home() {
 
   const sendMessage = () => {
     if (!input.trim() || !threadId) return;
-    setChat((prev) => [...prev, `You: ${input}`]);
+    setChat((prev) => [
+      ...prev,
+      {
+        sender: "user",
+        data: { type: "message", content: input },
+      },
+    ]);
     setLoading(true);
 
     evtSourceRef.current?.close();
@@ -60,10 +78,22 @@ export default function Home() {
       response += event.data;
       setChat((prev) => {
         const last = prev[prev.length - 1];
-        if (last?.startsWith("AI:")) {
-          return [...prev.slice(0, -1), `AI: ${response}`];
+        if (last?.sender === "ai" && last.data.type === "message") {
+          return [
+            ...prev.slice(0, -1),
+            {
+              sender: "ai",
+              data: { type: "message", content: response },
+            },
+          ];
         }
-        return [...prev, `AI: ${response}`];
+        return [
+          ...prev,
+          {
+            sender: "ai",
+            data: { type: "message", content: response },
+          },
+        ];
       });
     };
 

@@ -1,3 +1,4 @@
+import json
 import uuid
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
@@ -14,6 +15,7 @@ from langchain_core.messages import (
     AnyMessage,
     HumanMessage,
     SystemMessage,
+    ToolMessage,
 )
 from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -75,8 +77,6 @@ class GraphState(TypedDict, total=False):
     """
 
     messages: Annotated[list[AnyMessage], add_messages]
-    tool_calls: Optional[list[dict]]  # TODO
-    tool_results: Optional[dict]  # TODO
 
 
 async def create_graph(stack: AsyncExitStack) -> CompiledGraph:
@@ -108,9 +108,7 @@ async def create_graph(stack: AsyncExitStack) -> CompiledGraph:
     tools = client.get_tools()
 
     def call_model(state: GraphState) -> GraphState:
-        logger.info(state)
         response = model.bind_tools(tools).invoke(state["messages"])
-
         return {"messages": response}
 
     builder = StateGraph(GraphState)
@@ -139,19 +137,27 @@ async def generate_chat_response_stream(
     """
     async with stack:
         graph = await create_graph(stack)
+        tool_calls = []
         async for message_chunk, metadata in graph.astream(
             input={"messages": messages}, config=config, stream_mode="messages"
         ):
-            # logger.debug(message_chunk)
-            # logger.debug(metadata)
+            logger.debug(message_chunk)
+            logger.debug(metadata)
+
+            data = {}
+
+            if hasattr(message_chunk, "tool_calls"):
+                tool_calls.extend(message_chunk.tool_calls)
             if (
                 "langgraph_node" in metadata
                 and metadata["langgraph_node"] == "tools"
             ):
-                continue
-            if not message_chunk.content:
-                continue
-            yield f"data: {message_chunk.content}\n\n"
+                data = {"type": "tool", "content": message_chunk.content}
+                yield f"data: {json.dumps(data)}\n\n"
+
+            elif message_chunk.content:
+                data = {"type": "message", "content": message_chunk.content}
+                yield f"data: {json.dumps(data)}\n\n"
 
 
 async def generate_chat_response_stream_events(
@@ -166,7 +172,7 @@ async def generate_chat_response_stream_events(
             config=config,
             version="v1",
         ):
-            logger.debug(event)
+            # logger.debug(event)
             if event["event"] != "on_chat_model_stream":
                 continue
             if not isinstance(event["data"]["chunk"], AIMessageChunk):
