@@ -26,6 +26,9 @@ importers:
       '@swc/wasm-web':
         specifier: 1.11.16
         version: 1.11.16
+      '@types/mdast':
+        specifier: 4.0.4
+        version: 4.0.4
       acorn:
         specifier: 8.14.1
         version: 8.14.1
@@ -41,6 +44,12 @@ importers:
       install:
         specifier: 0.13.0
         version: 0.13.0
+      mdast:
+        specifier: 3.0.0
+        version: 3.0.0
+      mdast-util-from-markdown:
+        specifier: 2.0.2
+        version: 2.0.2
       npm:
         specifier: 11.2.0
         version: 11.2.0
@@ -1247,6 +1256,10 @@ packages:
 
   mdast-util-to-string@4.0.0:
     resolution: {integrity: sha512-0H44vDimn51F0YwvxSJSm0eCDOJTRlmN0R1yBh4HLj9wiV1Dn0QoXGbvFAWj2hSItVTlCmBF1hqKlIyUBVFLPg==}
+
+  mdast@3.0.0:
+    resolution: {integrity: sha512-xySmf8g4fPKMeC07jXGz971EkLbWAJ83s4US2Tj9lEdnZ142UP5grN73H1Xd3HzrdbU5o9GYYP/y8F9ZSwLE9g==}
+    deprecated: '`mdast` was renamed to `remark`'
 
   mdn-data@2.12.2:
     resolution: {integrity: sha512-IEn+pegP1aManZuckezWCO+XZQDplx1366JoVhTpMpBB1sPey/SbveZQUosKiKiGYjg1wH4pMlNgXbCiYgihQA==}
@@ -2947,6 +2960,8 @@ snapshots:
   mdast-util-to-string@4.0.0:
     dependencies:
       '@types/mdast': 4.0.4
+
+  mdast@3.0.0: {}
 
   mdn-data@2.12.2: {}
 
