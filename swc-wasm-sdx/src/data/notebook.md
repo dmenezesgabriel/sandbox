@@ -1,10 +1,21 @@
 ---
 id: notebook-1
-title: My Notebook
+title: Sample Notebook
 kernel: typescript
 ---
 
-This is a sample TS Notebook
+This is a sample **Typescript** Notebook
+
+## loops
+
+```ts
+for (let step = 0; step < 5; step++) {
+  // Runs 5 times, with values of step 0 through 4.
+  console.log("Walking east one step");
+}
+```
+
+## Functions
 
 ```ts
 function add(a: number, b: number) {
@@ -14,6 +25,12 @@ function add(a: number, b: number) {
 const x = 1;
 let y = 19;
 
+add(1, 2);
+```
+
+## Classes
+
+```ts
 class Person {
   name: string;
   age: number;
@@ -22,18 +39,6 @@ class Person {
     this.age = age;
   }
 }
-
-add(1, 2);
-
-for (let step = 0; step < 5; step++) {
-  // Runs 5 times, with values of step 0 through 4.
-  console.log("Walking east one step");
-}
-
-const div = document.createElement("div");
-document.body.appendChild(div);
-
-div.innerHTML = "Hello, world!" + add(1, 2);
 ```
 
 ```ts
@@ -45,6 +50,8 @@ console.log(x);
 console.log(y);
 ```
 
+## External packages
+
 ```ts
 const math = await import("https://cdn.jsdelivr.net/npm/mathjs@12.3.0/+esm");
 
@@ -55,4 +62,13 @@ console.log(b);
 ```ts
 const h: number = math.sqrt(16);
 console.log(h);
+```
+
+## Dom manipulation
+
+```ts
+const div = document.createElement("div");
+document.body.appendChild(div);
+
+div.innerHTML = "Hello, world!" + add(1, 2);
 ```
