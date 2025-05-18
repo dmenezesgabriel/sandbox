@@ -1,25 +1,43 @@
-import { Cell } from "../components/cell";
+import { CodeCell } from "./code-cell";
+import { MarkdownCell } from "./markdown-cell";
 import { useNotebooks } from "../contexts/notebooks-context";
 import { RuntimeContextProvider } from "../contexts/runtime-context";
-import type { Notebook } from "../types";
+import type { Notebook, Cell } from "../types";
 import styles from "./notebook.module.css";
+import { FC } from "react";
+import React from "react";
 
 interface NotebookProps {
   notebook: Notebook;
 }
 
+const cellComponentMap: Record<
+  string,
+  FC<{ notebookId: string; cell: Cell }>
+> = {
+  code: CodeCell,
+  markdown: MarkdownCell,
+};
+
 export function Notebook({ notebook }: NotebookProps) {
   const { addNotebookCell } = useNotebooks();
 
   function handleAddCell() {
-    const newCell = {
+    const newCell: Cell = {
       id: `cell-${notebook.cells.length + 1}`,
       cellType: "code",
       source: "",
-      type: "code",
     };
-
     addNotebookCell(notebook.id, newCell);
+  }
+
+  function renderNotebookCell(
+    cell: Cell,
+    notebookId: string
+  ): React.JSX.Element {
+    const CellComponent = cellComponentMap[cell.cellType] || CodeCell;
+
+    return <CellComponent key={cell.id} notebookId={notebookId} cell={cell} />;
   }
 
   return (
@@ -33,9 +51,7 @@ export function Notebook({ notebook }: NotebookProps) {
           Add Cell
         </button>
         <div className={styles.notebook__cell_list}>
-          {notebook.cells.map((cell) => (
-            <Cell key={cell.id} notebookId={notebook.id} cell={cell} />
-          ))}
+          {notebook.cells.map((cell) => renderNotebookCell(cell, notebook.id))}
         </div>
       </div>
     </RuntimeContextProvider>

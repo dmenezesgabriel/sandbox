@@ -7,12 +7,12 @@ import { useNotebooks } from "../contexts/notebooks-context";
 import { useRuntime } from "../contexts/runtime-context";
 import styles from "./cell.module.css";
 
-interface CellProps {
+interface CodeCellProps {
   notebookId: string;
   cell: Cell;
 }
 
-export function Cell({ notebookId, cell }: CellProps) {
+export function CodeCell({ notebookId, cell }: CodeCellProps) {
   const { updateNotebookCell } = useNotebooks();
   const { runtime } = useRuntime();
   const [output, setOutput] = useState<string[]>([]);
