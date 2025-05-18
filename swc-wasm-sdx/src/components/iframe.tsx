@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./iframe.module.css";
 
 type WindowWithConsole = Window & {
@@ -15,7 +15,16 @@ interface IframeProps {
 }
 
 export function Iframe({ scriptUrl, onConsoleLog }: IframeProps) {
+  const [iframeHeight, setIframeHeight] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const updateIframeHeight = useCallback(() => {
+    const iframe = iframeRef.current;
+    if (iframe && iframe.contentWindow) {
+      const height = iframe.contentWindow.document.documentElement.scrollHeight;
+      setIframeHeight(height);
+    }
+  }, []);
 
   useEffect(() => {
     if (!scriptUrl) {
@@ -34,10 +43,29 @@ export function Iframe({ scriptUrl, onConsoleLog }: IframeProps) {
     script.src = scriptUrl;
     iframeDocument.body.appendChild(script);
 
+    const resizeObserver = new ResizeObserver(() => {
+      updateIframeHeight();
+    });
+    resizeObserver.observe(document.body);
+
+    setTimeout(updateIframeHeight, 100);
+
     return () => {
       iframeDocument.body.removeChild(script);
     };
-  }, [scriptUrl]);
+  }, [scriptUrl, updateIframeHeight]);
+
+  useEffect(() => {
+    const iframe = iframeRef.current;
+
+    if (iframe) {
+      iframe.addEventListener("load", updateIframeHeight);
+
+      return () => {
+        iframe.removeEventListener("load", updateIframeHeight);
+      };
+    }
+  }, [updateIframeHeight]);
 
   useEffect(() => {
     if (!iframeRef.current) {
@@ -70,5 +98,11 @@ export function Iframe({ scriptUrl, onConsoleLog }: IframeProps) {
     };
   });
 
-  return <iframe ref={iframeRef} className={styles.iframe}></iframe>;
+  return (
+    <iframe
+      ref={iframeRef}
+      className={styles.iframe}
+      style={{ height: `${iframeHeight}px` }}
+    ></iframe>
+  );
 }

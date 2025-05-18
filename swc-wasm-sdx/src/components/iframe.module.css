@@ -1,6 +1,5 @@
 .iframe {
   width: 100%;
-  min-height: 2.5rem;
   border: none;
   background: var(--color-bg);
   margin-top: var(--space-sm);

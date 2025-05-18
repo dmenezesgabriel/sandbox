@@ -17,6 +17,7 @@
     "@codemirror/view": "6.36.8",
     "@swc/wasm-web": "1.11.16",
     "acorn": "8.14.1",
+    "clsx": "2.1.1",
     "codemirror": "6.0.1",
     "immer": "10.1.1",
     "install": "0.13.0",
