@@ -1,0 +1,36 @@
+{
+    "id": "notebook-1",
+    "title": "My Notebook",
+    "cells": [
+        {
+            "id": "cell-1",
+            "cellType": "markdown",
+            "source": "This is a sample TS Notebook\n"
+        },
+        {
+            "id": "cell-2",
+            "cellType": "code",
+            "source": "function add(a: number, b:\n           number) {\n    return a + b;\n            }\n\nconst x = 1;\nlet y = 19;\n\nclass Person {\n    name: string;\n    age: number;\n    constructor(name: string, age: number) {\n        this.name = name;\n        this.age = age;\n                }\n            }\n\nadd(1,\n            2);\n\nfor (let step = 0; step < 5; step++) {\n                // Runs 5 times, with values of step 0 through 4.\n  console.log(\"Walking east one step\");\n            }\n\nconst div = document.createElement(\"div\");\ndocument.body.appendChild(div);\n\ndiv.innerHTML = \"Hello, world!\" + add(1,\n            2)\n"
+        },
+        {
+            "id": "cell-3",
+            "cellType": "code",
+            "source": "console.log(add(1,\n            5));\nconsole.dir(window);\nconst person = new Person(\"John\",\n            30);\nconsole.log(JSON.stringify(person));\nconsole.log(x);\nconsole.log(y);\n\n\n"
+        },
+        {
+            "id": "cell-4",
+            "cellType": "code",
+            "source": "const math = await import(\"https://cdn.jsdelivr.net/npm/mathjs@12.3.0/+esm\");\n\nconst b: number = math.sqrt(16);\nconsole.log(b);\n\n"
+        },
+        {
+            "id": "cell-5",
+            "cellType": "code",
+            "source": "const h: number = math.sqrt(16)\nconsole.log(h);"
+        }
+    ],
+    "metadata": {
+        "kernelSpec": {
+            "language": "typescript"
+        }
+    }
+}
