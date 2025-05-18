@@ -11,10 +11,9 @@ type WindowWithConsole = Window & {
 interface IframeProps {
   scriptUrl: string | null;
   onConsoleLog: (...args: unknown[]) => void;
-  onIframeLoad?: (iframe: HTMLIFrameElement) => void;
 }
 
-export function Iframe({ scriptUrl, onConsoleLog, onIframeLoad }: IframeProps) {
+export function Iframe({ scriptUrl, onConsoleLog }: IframeProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -29,10 +28,6 @@ export function Iframe({ scriptUrl, onConsoleLog, onIframeLoad }: IframeProps) {
     }
     iframeDocument.body.innerHTML = "";
 
-    if (onIframeLoad) {
-      onIframeLoad(iframeRef.current!);
-    }
-
     const script = iframeDocument.createElement("script");
     script.type = "module";
     script.src = scriptUrl;
@@ -41,7 +36,7 @@ export function Iframe({ scriptUrl, onConsoleLog, onIframeLoad }: IframeProps) {
     return () => {
       iframeDocument.body.removeChild(script);
     };
-  }, [onIframeLoad, scriptUrl]);
+  }, [scriptUrl]);
 
   useEffect(() => {
     if (!iframeRef.current) {

@@ -24,6 +24,7 @@ class IdentifierPatternExtractor implements PatternIdentifierExtractor {
     if (pattern.type === "Identifier") {
       return [(pattern as Identifier).name];
     }
+
     return [];
   }
 }
@@ -31,17 +32,20 @@ class IdentifierPatternExtractor implements PatternIdentifierExtractor {
 class ObjectPatternIdentifierExtractor implements PatternIdentifierExtractor {
   extractIdentifiersFromPattern(pattern: Pattern): string[] {
     if (pattern.type !== "ObjectPattern") return [];
+
     return (pattern as ObjectPattern).properties.flatMap((property) => {
       if (property.type === "Property") {
         return extractIdentifiersFromPattern(
           (property as Property).value as Pattern
         );
       }
+
       if (property.type === "RestElement") {
         return extractIdentifiersFromPattern(
           (property as RestElement).argument as Pattern
         );
       }
+
       return [];
     });
   }
@@ -50,6 +54,7 @@ class ObjectPatternIdentifierExtractor implements PatternIdentifierExtractor {
 class ArrayPatternIdentifierExtractor implements PatternIdentifierExtractor {
   extractIdentifiersFromPattern(pattern: Pattern): string[] {
     if (pattern.type !== "ArrayPattern") return [];
+
     return (pattern as ArrayPattern).elements.flatMap((element) =>
       element ? extractIdentifiersFromPattern(element as Pattern) : []
     );
@@ -59,6 +64,7 @@ class ArrayPatternIdentifierExtractor implements PatternIdentifierExtractor {
 class RestElementPatternExtractor implements PatternIdentifierExtractor {
   extractIdentifiersFromPattern(pattern: Pattern): string[] {
     if (pattern.type !== "RestElement") return [];
+
     return extractIdentifiersFromPattern(
       (pattern as RestElement).argument as Pattern
     );
@@ -105,9 +111,10 @@ function transpileSourceCodeWithSwc(sourceCode: string): string {
 
 function parseSourceCodeToAst(sourceCode: string): Program {
   return parse(sourceCode, {
-    ecmaVersion: 2018,
+    ecmaVersion: 2022,
     sourceType: "module",
     locations: true,
+    allowAwaitOutsideFunction: true,
   }) as Program;
 }
 
@@ -133,6 +140,7 @@ class VariableDeclarationExtractor implements SourceDeclarationExtractor {
       (declarator: VariableDeclarator) =>
         extractIdentifiersFromPattern(declarator.id)
     );
+
     return {
       code: code.slice(
         variableDeclarationNode.start,
@@ -153,7 +161,9 @@ class FunctionDeclarationExtractor implements SourceDeclarationExtractor {
   }
   extractDeclaration(node: Node, code: string): SourceDeclarationInfo | null {
     const functionDeclarationNode = node as FunctionDeclaration;
+
     if (!functionDeclarationNode.id) return null;
+
     return {
       code: code.slice(
         functionDeclarationNode.start,
@@ -172,7 +182,9 @@ class ClassDeclarationExtractor implements SourceDeclarationExtractor {
   }
   extractDeclaration(node: Node, code: string): SourceDeclarationInfo | null {
     const classDeclarationNode = node as ClassDeclaration;
+
     if (!classDeclarationNode.id) return null;
+
     return {
       code: code.slice(classDeclarationNode.start, classDeclarationNode.end),
       type: classDeclarationNode.type,
@@ -194,14 +206,19 @@ class SourceDeclarationExtractionService {
     code: string
   ): SourceDeclarationInfo[] {
     const topLevelDeclarations: SourceDeclarationInfo[] = [];
+
     for (const node of ast.body) {
       const extractor = this.declarationExtractors.find(
         (declarationExtractor) =>
           declarationExtractor.canExtractDeclaration(node)
       );
+
       if (!extractor) continue;
+
       const declaration = extractor.extractDeclaration(node, code);
+
       if (!declaration) continue;
+
       topLevelDeclarations.push(declaration);
     }
     return topLevelDeclarations;

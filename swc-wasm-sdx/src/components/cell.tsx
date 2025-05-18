@@ -29,10 +29,11 @@ export function Cell({ notebookId, cell }: CellProps) {
     const module = runtime.module;
 
     compiled.declarations.forEach((decl) => {
-      module.addDeclaration(decl);
+      module.addDeclaration(cell.id, decl);
     });
 
-    const blob = new Blob([compiled.code], { type: "application/javascript" });
+    const fullCode = module.generateModuleCode(compiled.code, cell.id);
+    const blob = new Blob([fullCode], { type: "application/javascript" });
     const url = URL.createObjectURL(blob);
 
     setModuleUrl(url);
@@ -41,16 +42,6 @@ export function Cell({ notebookId, cell }: CellProps) {
   const handleConsoleLog = useCallback((...args: unknown[]) => {
     setOutput((prev) => [...prev, args.join(" ")]);
   }, []);
-
-  const handleIframeLoad = useCallback(
-    (iframe: HTMLIFrameElement) => {
-      const iframeWindow = iframe.contentWindow;
-      const module = runtime.module;
-
-      module.assignObjects(iframeWindow!);
-    },
-    [runtime.module]
-  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
@@ -62,11 +53,7 @@ export function Cell({ notebookId, cell }: CellProps) {
         onChange={handleChange}
       />
 
-      <Iframe
-        scriptUrl={moduleUrl}
-        onConsoleLog={handleConsoleLog}
-        onIframeLoad={handleIframeLoad}
-      />
+      <Iframe scriptUrl={moduleUrl} onConsoleLog={handleConsoleLog} />
 
       <div style={{ border: "1px solid #cecece" }}>
         {output.map((line, i) => (

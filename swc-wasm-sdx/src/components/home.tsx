@@ -59,6 +59,18 @@ console.log(y);
 `,
           type: "code",
         },
+        {
+          id: "cell-3",
+          cellType: "code",
+          source: `// TypeScript cell example:
+const math = await import("https://cdn.jsdelivr.net/npm/mathjs@12.3.0/+esm");
+
+const b: number = math.sqrt(16);
+console.log(b);
+
+`,
+          type: "code",
+        },
       ],
       metadata: {
         kernelSpec: {

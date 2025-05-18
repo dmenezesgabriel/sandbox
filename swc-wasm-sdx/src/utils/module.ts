@@ -1,7 +1,3 @@
-interface WindowWithEval extends Window {
-  eval: (code: string) => unknown;
-}
-
 interface Declaration {
   code: string;
   type: "FunctionDeclaration" | "VariableDeclaration" | "ClassDeclaration";
@@ -72,12 +68,15 @@ const assignmentStrategies: Record<string, AssignmentStrategy> = {
 };
 
 export class Module {
-  declarations: Declaration[] = [];
+  declarations: Record<string, Declaration[]> = {};
 
   constructor() {}
 
-  addDeclaration(declaration: Declaration) {
-    this.declarations.push(declaration);
+  addDeclaration(cellId: string, declaration: Declaration) {
+    if (!this.declarations[cellId]) {
+      this.declarations[cellId] = [];
+    }
+    this.declarations[cellId].push(declaration);
   }
 
   private getAssignmentStrategy(declaration: Declaration): AssignmentStrategy {
@@ -90,35 +89,28 @@ export class Module {
     return assignmentStrategies[declaration.kind];
   }
 
-  private evaluateWithBlockScope(
-    declaration: Declaration,
-    strategy: AssignmentStrategy,
-    iframeWindow: Window
-  ) {
-    (iframeWindow as WindowWithEval).eval(
-      `(function() {\n${strategy.generate(declaration).join("\n")}\n})();`
-    );
+  private generateDeclarationBlock(declaration: Declaration): string {
+    const strategy = this.getAssignmentStrategy(declaration);
+    if (strategy.requiresBlockScope) {
+      return strategy.generate(declaration).join("\n");
+    }
+    return `${declaration.code}\n${strategy.generate(declaration).join("\n")}`;
   }
 
-  private evaluateInGlobalScope(
-    declaration: Declaration,
-    strategy: AssignmentStrategy,
-    iframeWindow: Window
-  ) {
-    (iframeWindow as WindowWithEval).eval(declaration.code);
-    strategy.generate(declaration).forEach((assignment) => {
-      (iframeWindow as WindowWithEval).eval(assignment);
-    });
-  }
+  generateModuleCode(compiledCode: string, currentCellId: string): string {
+    const declarationBlocks = Object.entries(this.declarations)
+      .filter(([cellId]) => cellId !== currentCellId)
+      .flatMap(([, declarations]) =>
+        declarations.map((declaration) =>
+          this.generateDeclarationBlock(declaration)
+        )
+      );
 
-  assignObjects(iframeWindow: Window) {
-    this.declarations.forEach((declaration) => {
-      const strategy = this.getAssignmentStrategy(declaration);
-      if (strategy.requiresBlockScope) {
-        this.evaluateWithBlockScope(declaration, strategy, iframeWindow);
-        return;
+    return `(
+      async function() {
+        ${declarationBlocks.join("\n\n")}
+        ${compiledCode}
       }
-      this.evaluateInGlobalScope(declaration, strategy, iframeWindow);
-    });
+    )();`;
   }
 }
