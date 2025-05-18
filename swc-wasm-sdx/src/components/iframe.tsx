@@ -1,14 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./iframe.module.css";
 
-type WindowWithConsole = Window & {
-  console: {
-    log: (...args: unknown[]) => void;
-    error: (...args: unknown[]) => void;
-    warn: (...args: unknown[]) => void;
-  };
-};
-
 interface IframeProps {
   scriptUrl: string | null;
   onConsoleLog: (...args: unknown[]) => void;
@@ -20,89 +12,67 @@ export function Iframe({ scriptUrl, onConsoleLog }: IframeProps) {
 
   const updateIframeHeight = useCallback(() => {
     const iframe = iframeRef.current;
-    if (iframe && iframe.contentWindow) {
-      const height = iframe.contentWindow.document.documentElement.scrollHeight;
-      setIframeHeight(height);
-    }
+    if (!iframe?.contentWindow) return;
+    const height = iframe.contentWindow.document.documentElement.scrollHeight;
+    setIframeHeight((prev) => (prev !== height ? height : prev));
   }, []);
 
   useEffect(() => {
-    if (!scriptUrl) {
-      return;
-    }
+    const iframe = iframeRef.current;
+    if (!iframe || !scriptUrl) return;
+    const iframeDocument = iframe.contentDocument;
+    if (!iframeDocument) return;
 
-    const iframeDocument = iframeRef.current?.contentDocument;
-
-    if (!iframeDocument) {
-      return;
-    }
     iframeDocument.body.innerHTML = "";
-
     const script = iframeDocument.createElement("script");
     script.type = "module";
     script.src = scriptUrl;
     iframeDocument.body.appendChild(script);
 
-    const resizeObserver = new ResizeObserver(() => {
-      updateIframeHeight();
-    });
-    resizeObserver.observe(document.body);
+    const resizeObserver = new ResizeObserver(updateIframeHeight);
+    resizeObserver.observe(iframeDocument.body);
+    updateIframeHeight();
 
-    setTimeout(updateIframeHeight, 100);
+    const handleLoad = () => updateIframeHeight();
+    iframe.addEventListener("load", handleLoad);
 
-    return () => {
-      iframeDocument.body.removeChild(script);
-    };
-  }, [scriptUrl, updateIframeHeight]);
+    const iframeWindow = iframe.contentWindow as
+      | (Window & { console: Console })
+      | null;
 
-  useEffect(() => {
-    const iframe = iframeRef.current;
-
-    if (iframe) {
-      iframe.addEventListener("load", updateIframeHeight);
-
-      return () => {
-        iframe.removeEventListener("load", updateIframeHeight);
+    if (iframeWindow) {
+      const originalConsole = { ...iframeWindow.console };
+      iframeWindow.console = {
+        ...originalConsole,
+        log: (...args: unknown[]) => {
+          onConsoleLog(...args);
+        },
+        error: (...args: unknown[]) => {
+          onConsoleLog(...args);
+        },
+        warn: (...args: unknown[]) => {
+          onConsoleLog(...args);
+          // keep the below comment as reference
+          // (prev) => prev + "Warning: " + args.join(" ") + "\n";
+          // originalConsole.warn(...args);
+        },
       };
     }
-  }, [updateIframeHeight]);
 
-  useEffect(() => {
-    if (!iframeRef.current) {
-      return;
-    }
-
-    const iframeWindow = iframeRef.current?.contentWindow as WindowWithConsole;
-
-    if (!iframeWindow) {
-      return;
-    }
-
-    const originalConsole = { ...iframeWindow.console };
-
-    iframeWindow.console = {
-      ...originalConsole,
-      log: (...args: unknown[]) => {
-        onConsoleLog(...args);
-        // originalConsole.log(...args);
-      },
-      error: (...args: unknown[]) => {
-        onConsoleLog(...args);
-        // originalConsole.error(...args);
-      },
-      warn: (...args: unknown[]) => {
-        onConsoleLog(...args);
-        // (prev) => prev + "Warning: " + args.join(" ") + "\n";
-        // originalConsole.warn(...args);
-      },
+    return () => {
+      iframe.removeEventListener("load", handleLoad);
+      resizeObserver.disconnect();
+      if (iframeDocument.body.contains(script)) {
+        iframeDocument.body.removeChild(script);
+      }
     };
-  });
+  }, [scriptUrl, onConsoleLog, updateIframeHeight]);
 
   return (
     <iframe
       ref={iframeRef}
       className={styles.iframe}
       style={{ height: `${iframeHeight}px` }}
-    ></iframe>
+    />
   );
 }
