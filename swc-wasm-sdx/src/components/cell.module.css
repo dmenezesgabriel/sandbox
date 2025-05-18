@@ -1,0 +1,37 @@
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.cell__button {
+  align-self: flex-start;
+  padding: 0.25rem 0.75rem;
+  font-size: 1rem;
+  border: 1px solid #bdbdbd;
+  border-radius: 4px;
+  background: #fafafa;
+  cursor: pointer;
+}
+
+.cell__textarea {
+  font-family: monospace;
+  font-size: 1rem;
+  padding: 0.5rem;
+  border: 1px solid #bdbdbd;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.cell__output {
+  border: 1px solid #cecece;
+  background: #f5f5f5;
+  padding: 0.5rem;
+  min-height: 1.5rem;
+  border-radius: 4px;
+  margin-top: 0.5rem;
+}

@@ -1,0 +1,7 @@
+.iframe {
+  width: 100%;
+  min-height: 2.5rem;
+  border: none;
+  background: #fff;
+  margin-top: 0.5rem;
+}

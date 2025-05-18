@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import styles from "./iframe.module.css";
 
 type WindowWithConsole = Window & {
   console: {
@@ -69,5 +70,5 @@ export function Iframe({ scriptUrl, onConsoleLog }: IframeProps) {
     };
   });
 
-  return <iframe ref={iframeRef}></iframe>;
+  return <iframe ref={iframeRef} className={styles.iframe}></iframe>;
 }

@@ -1,3 +1,10 @@
+export type EditorLanguages =
+  | "javascript"
+  | "typescript"
+  | "markdown"
+  | "jsx"
+  | "tsx";
+
 export interface Cell {
   id: string;
   cellType: string;

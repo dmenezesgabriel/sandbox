@@ -10,8 +10,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@codemirror/lang-javascript": "6.2.4",
+    "@codemirror/lang-markdown": "6.3.2",
+    "@codemirror/state": "6.5.2",
+    "@codemirror/theme-one-dark": "6.1.2",
+    "@codemirror/view": "6.36.8",
     "@swc/wasm-web": "1.11.16",
     "acorn": "8.14.1",
+    "codemirror": "6.0.1",
     "immer": "10.1.1",
     "install": "0.13.0",
     "npm": "11.2.0",

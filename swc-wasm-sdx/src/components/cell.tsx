@@ -1,9 +1,11 @@
 import { useCallback, useState } from "react";
 import { compile } from "../lib/swc";
 import { Iframe } from "./iframe";
+import { CodeEditor } from "./code-editor";
 import type { Cell } from "../types";
 import { useNotebooks } from "../contexts/notebooks-context";
 import { useRuntime } from "../contexts/runtime-context";
+import styles from "./cell.module.css";
 
 interface CellProps {
   notebookId: string;
@@ -16,9 +18,7 @@ export function Cell({ notebookId, cell }: CellProps) {
   const [output, setOutput] = useState<string[]>([]);
   const [moduleUrl, setModuleUrl] = useState<string | null>(null);
 
-  function handleChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
-    const newSource = event.target.value;
-
+  function handleCodeChange(newSource: string) {
     updateNotebookCell(notebookId, { ...cell, source: newSource });
   }
 
@@ -44,18 +44,22 @@ export function Cell({ notebookId, cell }: CellProps) {
   }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      <button onClick={handleClick}>execute</button>
-      <textarea
+    <div className={styles.cell}>
+      <button className={styles.cell__button} onClick={handleClick}>
+        execute
+      </button>
+
+      <CodeEditor
         value={cell.source}
-        cols={10}
-        rows={15}
-        onChange={handleChange}
+        language={"typescript"}
+        onChange={handleCodeChange}
+        wordWrap={true}
+        maxHeight="300px"
       />
 
       <Iframe scriptUrl={moduleUrl} onConsoleLog={handleConsoleLog} />
 
-      <div style={{ border: "1px solid #cecece" }}>
+      <div className={styles.cell__output}>
         {output.map((line, i) => (
           <div key={i}>{line}</div>
         ))}
