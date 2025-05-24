@@ -15,7 +15,6 @@ from langchain_core.messages import (
     AnyMessage,
     HumanMessage,
     SystemMessage,
-    ToolMessage,
 )
 from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -26,10 +25,31 @@ from langgraph.graph.graph import CompiledGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
 from loguru import logger
+from openinference.instrumentation.langchain import LangChainInstrumentor
+from opentelemetry import trace as trace_api
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+    OTLPSpanExporter,
+)
+from opentelemetry.sdk import trace as trace_sdk
+from opentelemetry.sdk.trace.export import (
+    ConsoleSpanExporter,
+    SimpleSpanProcessor,
+)
 from pydantic import BaseModel, ConfigDict
 from template import html
 
 load_dotenv()
+
+endpoint = "http://127.0.0.1:6006/v1/traces"
+tracer_provider = trace_sdk.TracerProvider()
+trace_api.set_tracer_provider(tracer_provider)
+tracer_provider.add_span_processor(
+    SimpleSpanProcessor(OTLPSpanExporter(endpoint))
+)
+tracer_provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
+
+LangChainInstrumentor().instrument()
+
 
 current_dir = Path(__file__).parent
 venv_python = current_dir.parent / ".venv/bin/python3"
@@ -252,7 +272,7 @@ async def run_thread_stream(
 
 
 @app.get("/chat/thread/{thread_id}/ask/{messages}/events", tags=["chat"])
-async def run_thread_stream(
+async def run_thread_stream_events(
     thread_id: str,
     messages: str,
 ):
