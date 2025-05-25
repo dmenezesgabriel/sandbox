@@ -18,7 +18,7 @@ from langchain_core.messages import (
 )
 from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_mcp_adapters.client import BaseTool, MultiServerMCPClient
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import START, StateGraph
 from langgraph.graph.graph import CompiledGraph
@@ -40,16 +40,6 @@ from template import html
 
 load_dotenv()
 
-endpoint = "http://127.0.0.1:6006/v1/traces"
-tracer_provider = trace_sdk.TracerProvider()
-trace_api.set_tracer_provider(tracer_provider)
-tracer_provider.add_span_processor(
-    SimpleSpanProcessor(OTLPSpanExporter(endpoint))
-)
-tracer_provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
-
-LangChainInstrumentor().instrument()
-
 
 current_dir = Path(__file__).parent
 venv_python = current_dir.parent / ".venv/bin/python3"
@@ -64,6 +54,20 @@ model = ChatGoogleGenerativeAI(
     timeout=None,
     max_retries=2,
 )
+
+
+def enable_telemetry():
+    endpoint = "http://127.0.0.1:6006/v1/traces"
+    tracer_provider = trace_sdk.TracerProvider()
+    trace_api.set_tracer_provider(tracer_provider)
+    tracer_provider.add_span_processor(
+        SimpleSpanProcessor(OTLPSpanExporter(endpoint))
+    )
+    tracer_provider.add_span_processor(
+        SimpleSpanProcessor(ConsoleSpanExporter())
+    )
+
+    LangChainInstrumentor().instrument()
 
 
 class ChatRequest(BaseModel):
@@ -99,16 +103,7 @@ class GraphState(TypedDict, total=False):
     messages: Annotated[list[AnyMessage], add_messages]
 
 
-async def create_graph(stack: AsyncExitStack) -> CompiledGraph:
-    """
-    @see https://github.com/langchain-ai/langchain-mcp-adapters
-    """
-    db_name = f"./checkpointer.db"
-
-    checkpointer = await stack.enter_async_context(
-        AsyncSqliteSaver.from_conn_string(db_name)
-    )
-
+async def get_tools(stack: AsyncExitStack) -> List[BaseTool]:
     client = await stack.enter_async_context(
         MultiServerMCPClient(
             {
@@ -125,7 +120,20 @@ async def create_graph(stack: AsyncExitStack) -> CompiledGraph:
             }
         )
     )
-    tools = client.get_tools()
+    return client.get_tools()
+
+
+async def create_graph(stack: AsyncExitStack) -> CompiledGraph:
+    """
+    @see https://github.com/langchain-ai/langchain-mcp-adapters
+    """
+    db_name = f"./checkpointer.db"
+
+    checkpointer = await stack.enter_async_context(
+        AsyncSqliteSaver.from_conn_string(db_name)
+    )
+
+    tools = await get_tools(stack)
 
     def call_model(state: GraphState) -> GraphState:
         response = model.bind_tools(tools).invoke(state["messages"])
@@ -161,8 +169,6 @@ async def generate_chat_response_stream(
         async for message_chunk, metadata in graph.astream(
             input={"messages": messages}, config=config, stream_mode="messages"
         ):
-            logger.debug(message_chunk)
-            logger.debug(metadata)
 
             data = {}
 
@@ -206,6 +212,7 @@ async def generate_chat_response_stream_events(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan event handler for FastAPI."""
+    enable_telemetry()
     yield
 
 
@@ -256,6 +263,34 @@ async def get_thread(thread_id: str):
         return {"threads": threads}
 
 
+@app.post("/chat/thread/{thread_id}/ask", tags=["chat"])
+async def chat_endpoint(request: ChatRequest):
+    config = {"configurable": {"thread_id": request.thread_id}}
+    async with AsyncExitStack() as stack:
+        graph = await create_graph(stack)
+        response = await graph.ainvoke(
+            {"messages": request.messages}, config=config
+        )
+
+        # to return only the last message:
+        # return {"messages": response["messages"][-1].content}
+        return response
+
+
+@app.get("/chat/thread/{thread_id}/history", tags=["chat"])
+async def get_thread_history(thread_id: str):
+    config = {"configurable": {"thread_id": thread_id}}
+    stack = AsyncExitStack()
+
+    async with stack:
+        graph = await create_graph(stack)
+        snapshots = []
+        async for state_snapshot in graph.aget_state_history(config=config):
+            snapshots.append(state_snapshot)
+
+        return {"history": snapshots}
+
+
 @app.get("/chat/thread/{thread_id}/ask/{messages}", tags=["chat"])
 async def run_thread_stream(
     thread_id: str,
@@ -284,32 +319,6 @@ async def run_thread_stream_events(
         ),
         media_type="text/event-stream",
     )
-
-
-@app.post("/chat/thread/{thread_id}/ask", tags=["chat"])
-async def chat_endpoint(request: ChatRequest):
-    config = {"configurable": {"thread_id": request.thread_id}}
-    async with AsyncExitStack() as stack:
-        graph = await create_graph(stack)
-        response = await graph.ainvoke(
-            {"messages": request.messages}, config=config
-        )
-
-        return {"messages": response["messages"][-1].content}
-
-
-@app.get("/chat/thread/{thread_id}/history", tags=["chat"])
-async def get_thread_history(thread_id: str):
-    config = {"configurable": {"thread_id": thread_id}}
-    stack = AsyncExitStack()
-
-    async with stack:
-        graph = await create_graph(stack)
-        snapshots = []
-        async for state_snapshot in graph.aget_state_history(config=config):
-            snapshots.append(state_snapshot)
-
-        return {"history": snapshots}
 
 
 @app.websocket("/chat/thread/{thread_id}/ask/websocket/stream")
