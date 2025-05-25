@@ -24,6 +24,7 @@ from langgraph.graph import START, StateGraph
 from langgraph.graph.graph import CompiledGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.types import Command, interrupt
 from loguru import logger
 from openinference.instrumentation.langchain import LangChainInstrumentor
 from opentelemetry import trace as trace_api
@@ -93,6 +94,10 @@ class ChatRequest(BaseModel):
             }
         }
     )
+
+
+class ContinueRequest(BaseModel):
+    response: str
 
 
 class GraphState(TypedDict, total=False):
@@ -270,6 +275,22 @@ async def chat_endpoint(request: ChatRequest):
         graph = await create_graph(stack)
         response = await graph.ainvoke(
             {"messages": request.messages}, config=config
+        )
+
+        # to return only the last message:
+        # return {"messages": response["messages"][-1].content}
+        return response
+
+
+@app.post("/chat/thread/{thread_id}/continue", tags=["chat"])
+async def continue_chat(request: ContinueRequest, thread_id: str):
+    config = {"configurable": {"thread_id": thread_id}}
+    stack = AsyncExitStack()
+    async with stack:
+        graph = await create_graph(stack)
+        response = await graph.ainvoke(
+            Command(resume=request.response),
+            config=config,
         )
 
         # to return only the last message:

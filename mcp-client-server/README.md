@@ -23,3 +23,4 @@ python -m phoenix.server.main serve
 - [vercel ai sdk stream components](https://blog.innei.ren/nextjs-rsc-server-action-and-streamable-ui)
 - [langgraph-human-in-the-loop-hitl-deployment-with-fastapi](https://shaveen12.medium.com/langgraph-human-in-the-loop-hitl-deployment-with-fastapi-be4a9efcd8c0)
 - [HumanInTheLoop](https://github.com/Shaveen12/HumanInTheLoop/blob/main/chatagent.py)
+- [HumanInTheLoop langgraph docs](https://langchain-ai.github.io/langgraph/how-tos/human_in_the_loop/add-human-in-the-loop/#interrupt)
