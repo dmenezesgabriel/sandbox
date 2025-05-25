@@ -3,14 +3,16 @@
 import React, { useEffect, useRef, useState } from "react";
 
 function TableComponent({ data }: { data: any[] }) {
-  if (!data || data.length === 0) return <div>No data</div>;
+  if (!data || (Array.isArray(data) && data.length === 0))
+    return <div>No data</div>;
 
-  let rows = data;
-  if (typeof data[0] === "string") {
+  // Normalize: if data is not an array, wrap it in an array
+  let rows = Array.isArray(data) ? data : [data];
+  if (typeof rows[0] === "string") {
     try {
-      rows = data.map((row) => JSON.parse(row));
+      rows = rows.map((row) => JSON.parse(row));
     } catch {
-      rows = data.map((row) => ({ value: row }));
+      rows = rows.map((row) => ({ value: row }));
     }
   }
 
@@ -54,7 +56,7 @@ function ListComponent({ data }: { data: string[] }) {
   );
 }
 
-const TOOL_NAMES = ["list_tables", "describe_table"] as const;
+const TOOL_NAMES = ["list_tables", "describe_table", "select_data"] as const;
 type ToolName = (typeof TOOL_NAMES)[number];
 
 type ToolComponent = {
@@ -81,6 +83,10 @@ const TOOL_COMPONENT_MAP: ToolComponentMap = {
   },
   describe_table: {
     loading: () => <div>Loading table description...</div>,
+    final: (props: any) => <TableComponent data={props.data} />,
+  },
+  select_data: {
+    loading: () => <div>Loading data...</div>,
     final: (props: any) => <TableComponent data={props.data} />,
   },
 };

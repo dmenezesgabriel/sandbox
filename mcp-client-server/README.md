@@ -21,3 +21,5 @@ python -m phoenix.server.main serve
 - [langchains tream events repo](https://github.com/Coding-Crashkurse/FastAPI-LangChain-Streaming)
 - [vercel ai sdk](https://ai-sdk.dev/docs/ai-sdk-rsc/streaming-values)
 - [vercel ai sdk stream components](https://blog.innei.ren/nextjs-rsc-server-action-and-streamable-ui)
+- [langgraph-human-in-the-loop-hitl-deployment-with-fastapi](https://shaveen12.medium.com/langgraph-human-in-the-loop-hitl-deployment-with-fastapi-be4a9efcd8c0)
+- [HumanInTheLoop](https://github.com/Shaveen12/HumanInTheLoop/blob/main/chatagent.py)
