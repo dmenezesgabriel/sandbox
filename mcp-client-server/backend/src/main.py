@@ -2,13 +2,13 @@ import json
 import uuid
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
-from typing import Annotated, List, Optional, TypedDict, Union
+from typing import Annotated, List, Literal, Optional, TypedDict, Union
 
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from langchain_core.messages import (
     AIMessage,
     AIMessageChunk,
@@ -20,7 +20,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_mcp_adapters.client import BaseTool, MultiServerMCPClient
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-from langgraph.graph import START, StateGraph
+from langgraph.graph import END, START, StateGraph
 from langgraph.graph.graph import CompiledGraph
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -48,7 +48,7 @@ db_server_script = current_dir.parent / "src/mcp/db_server.py"
 math_server_script = current_dir.parent / "src/mcp/math_server.py"
 
 
-model = ChatGoogleGenerativeAI(
+llm = ChatGoogleGenerativeAI(
     model="gemini-2.0-flash",
     temperature=0,
     max_tokens=None,
@@ -128,9 +128,85 @@ async def get_tools(stack: AsyncExitStack) -> List[BaseTool]:
     return client.get_tools()
 
 
+def call_llm(state: GraphState, tools) -> GraphState:
+    response = llm.bind_tools(tools).invoke(state["messages"])
+    return {"messages": response}
+
+
+def human_review_node(
+    state: GraphState,
+) -> Command[Literal["call_llm", "run_tool"]]:
+    last_message = state["messages"][-1]
+    tool_call = last_message.tool_calls[-1]
+
+    human_review = interrupt(
+        {
+            "question": "Continue?",
+            "tool_call": tool_call,
+        }
+    )
+
+    review_action = human_review["action"]
+    review_data = human_review.get("data")
+
+    if review_action == "continue":
+        return Command(goto="run_tool")
+
+    if review_action == "update":
+        updated_message = {
+            "role": "ai",
+            "content": last_message.content,
+            "tool_calls": [
+                {
+                    "id": tool_call["id"],
+                    "name": tool_call["name"],
+                    "args": review_data,
+                }
+            ],
+            "id": last_message.id,
+        }
+        return Command(goto="run_tool", update={"messages": [updated_message]})
+
+    if review_action == "feedback":
+        tool_message = {
+            "role": "tool",
+            "content": review_data,
+            "name": tool_call["name"],
+            "tool_call_id": tool_call["id"],
+        }
+        return Command(goto="call_llm", update={"messages": [tool_message]})
+
+
+async def run_tool(state: GraphState, tools):
+    new_messages = []
+    tool_calls = state["messages"][-1].tool_calls
+
+    for tool_call in tool_calls:
+        tool = next(
+            (tool for tool in tools if tool.name == tool_call["name"]), None
+        )
+        result = await tool.ainvoke(tool_call["args"])
+        new_messages.append(
+            {
+                "role": "tool",
+                "name": tool_call["name"],
+                "content": result,
+                "tool_call_id": tool_call["id"],
+            }
+        )
+    return {"messages": new_messages}
+
+
+def route_after_llm(state) -> Literal[END, "human_review_node"]:
+    if len(state["messages"][-1].tool_calls) == 0:
+        return END
+    return "human_review_node"
+
+
 async def create_graph(stack: AsyncExitStack) -> CompiledGraph:
     """
     @see https://github.com/langchain-ai/langchain-mcp-adapters
+    Implements human-in-the-loop before tool execution using LangGraph's interrupt.
     """
     db_name = f"./checkpointer.db"
 
@@ -140,19 +216,24 @@ async def create_graph(stack: AsyncExitStack) -> CompiledGraph:
 
     tools = await get_tools(stack)
 
-    def call_model(state: GraphState) -> GraphState:
-        response = model.bind_tools(tools).invoke(state["messages"])
-        return {"messages": response}
+    def make_sync_run_tool():
+        async def wrapper(state):
+            return await run_tool(state, tools)
+
+        return wrapper
+
+    sync_run_tools = make_sync_run_tool()
 
     builder = StateGraph(GraphState)
-    builder.add_node(call_model)
-    builder.add_node(ToolNode(tools))
-    builder.add_edge(START, "call_model")
+    builder.add_node("call_llm", lambda state: call_llm(state, tools))
+    builder.add_node("run_tool", sync_run_tools)
+    builder.add_node(human_review_node)
+    builder.add_edge(START, "call_llm")
     builder.add_conditional_edges(
-        "call_model",
-        tools_condition,
+        "call_llm",
+        route_after_llm,
     )
-    builder.add_edge("tools", "call_model")
+    builder.add_edge("run_tool", "call_llm")
 
     graph = builder.compile(checkpointer=checkpointer)
     runnable = graph.with_types(input_type=ChatRequest, output_type=dict)
@@ -289,7 +370,7 @@ async def continue_chat(request: ContinueRequest, thread_id: str):
     async with stack:
         graph = await create_graph(stack)
         response = await graph.ainvoke(
-            Command(resume=request.response),
+            Command(resume={"action": "continue"}),
             config=config,
         )
 
@@ -340,6 +421,15 @@ async def run_thread_stream_events(
         ),
         media_type="text/event-stream",
     )
+
+
+@app.get("/graph/mermaid", tags=["graph"])
+async def get_graph_mermaid():
+    async with AsyncExitStack() as stack:
+        graph = await create_graph(stack)
+        return Response(
+            graph.get_graph().draw_mermaid(), media_type="text/plain"
+        )
 
 
 @app.websocket("/chat/thread/{thread_id}/ask/websocket/stream")
