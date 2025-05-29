@@ -136,22 +136,82 @@ function InterruptMessage({
   question,
   onContinue,
   loading,
+  toolCall,
+  onUpdate,
+  updateLoading,
 }: {
   question: string;
   onContinue: () => Promise<void>;
   loading: boolean;
+  toolCall?: { name: string; args: Record<string, unknown> };
+  onUpdate: (args: Record<string, unknown>) => Promise<void>;
+  updateLoading: boolean;
 }) {
+  const [formArgs, setFormArgs] = React.useState<Record<string, unknown>>(
+    toolCall?.args || {}
+  );
+
+  React.useEffect(() => {
+    setFormArgs(toolCall?.args || {});
+  }, [toolCall]);
+
+  const handleInputChange = (key: string, value: string) => {
+    setFormArgs((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onUpdate(formArgs);
+  };
+
   return (
-    <div className="self-center bg-yellow-100 border border-yellow-300 text-yellow-900 px-4 py-3 rounded-2xl max-w-[80%] flex flex-col items-center gap-2 mt-2">
+    <form
+      className="self-center bg-yellow-100 border border-yellow-300 text-yellow-900 px-4 py-3 rounded-2xl max-w-[80%] flex flex-col items-center gap-2 mt-2"
+      onSubmit={handleUpdate}
+    >
       <div>{question}</div>
-      <button
-        onClick={onContinue}
-        disabled={loading}
-        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
-      >
-        {loading ? "..." : "Continue"}
-      </button>
-    </div>
+      {toolCall && (
+        <div className="w-full text-left text-xs bg-yellow-50 border border-yellow-200 rounded p-2 mt-2">
+          <div className="font-semibold mb-1">
+            Tool Call:{" "}
+            <span className="font-mono font-semibold">{toolCall.name}</span>
+          </div>
+          <div className="mt-1">
+            <span className="font-semibold">Args:</span>
+            <div className="flex flex-col gap-1 mt-1">
+              {Object.entries(formArgs).map(([key, value]) => (
+                <label key={key} className="flex items-center gap-2">
+                  <span className="font-mono">{key}:</span>
+                  <input
+                    className="border border-gray-300 rounded px-1 py-0.5 text-xs w-24"
+                    type="text"
+                    value={value as string}
+                    onChange={(e) => handleInputChange(key, e.target.value)}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="flex gap-2 mt-2">
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={loading || updateLoading}
+          className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+        >
+          {loading ? "..." : "Continue"}
+        </button>
+        <button
+          type="submit"
+          disabled={updateLoading || loading}
+          className="px-4 py-2 bg-yellow-600 text-white rounded disabled:opacity-50"
+        >
+          {updateLoading ? "..." : "Update"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -160,11 +220,18 @@ function MessageList({
   interrupt,
   onContinue,
   continueLoading,
+  onUpdate,
+  updateLoading,
 }: {
   messages: any[];
-  interrupt: { question: string } | null;
+  interrupt: {
+    question: string;
+    tool_call?: { name: string; args: Record<string, unknown> };
+  } | null;
   onContinue: () => Promise<void>;
   continueLoading: boolean;
+  onUpdate: (args: Record<string, unknown>) => Promise<void>;
+  updateLoading: boolean;
 }) {
   return (
     <div className="min-h-[200px] mb-4 flex flex-col gap-2">
@@ -179,6 +246,10 @@ function MessageList({
               <ToolMessage toolInfo={toolInfo} />
             </div>
           );
+        }
+        // Skip rendering if content is empty or whitespace only
+        if (!msg.content || String(msg.content).trim() === "") {
+          return null;
         }
         return (
           <div
@@ -197,8 +268,11 @@ function MessageList({
       {interrupt && (
         <InterruptMessage
           question={interrupt.question}
+          toolCall={interrupt.tool_call}
           onContinue={onContinue}
           loading={continueLoading}
+          onUpdate={onUpdate}
+          updateLoading={updateLoading}
         />
       )}
     </div>
@@ -219,7 +293,7 @@ function MessageInput({
   threadId: string | null;
   onSend: (e: React.FormEvent) => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
-}) {
+}): React.JSX.Element {
   return (
     <form onSubmit={onSend} className="flex gap-2">
       <input
@@ -246,8 +320,12 @@ function Chat() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [interrupt, setInterrupt] = useState<{ question: string } | null>(null);
+  const [interrupt, setInterrupt] = useState<{
+    question: string;
+    tool_call?: { name: string; args: Record<string, unknown> };
+  } | null>(null);
   const [continueLoading, setContinueLoading] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -300,7 +378,10 @@ function Chat() {
         Array.isArray(data.__interrupt__) &&
         data.__interrupt__[0]?.value?.question
       ) {
-        setInterrupt({ question: data.__interrupt__[0].value.question });
+        setInterrupt({
+          question: data.__interrupt__[0].value.question,
+          tool_call: data.__interrupt__[0].value.tool_call,
+        });
       } else {
         setInterrupt(null);
       }
@@ -342,7 +423,10 @@ function Chat() {
         Array.isArray(data.__interrupt__) &&
         data.__interrupt__[0]?.value?.question
       ) {
-        setInterrupt({ question: data.__interrupt__[0].value.question });
+        setInterrupt({
+          question: data.__interrupt__[0].value.question,
+          tool_call: data.__interrupt__[0].value.tool_call,
+        });
       } else {
         setInterrupt(null);
       }
@@ -354,6 +438,50 @@ function Chat() {
     }
   };
 
+  const handleUpdate = async (args: Record<string, unknown>) => {
+    if (!threadId) return;
+    setUpdateLoading(true);
+    try {
+      const res = await fetch(
+        `http://localhost:8000/chat/thread/${threadId}/update`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ args }),
+        }
+      );
+      const data = await res.json();
+      if (data && Array.isArray(data.messages)) {
+        setMessages(
+          data.messages
+            .filter((msg: any) => msg.type !== "system")
+            .map((msg: any) => ({
+              role: msg.type === "human" ? "user" : "assistant",
+              content: msg.content,
+              _raw: msg,
+            }))
+        );
+      }
+      // Interrupt detection: hide interrupt if not present
+      if (
+        data &&
+        Array.isArray(data.__interrupt__) &&
+        data.__interrupt__[0]?.value?.question
+      ) {
+        setInterrupt({
+          question: data.__interrupt__[0].value.question,
+          tool_call: data.__interrupt__[0].value.tool_call,
+        });
+      } else {
+        setInterrupt(null);
+      }
+    } catch {
+      setInterrupt(null);
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-xl mx-auto mt-10 p-6 border border-gray-200 rounded-lg bg-white shadow">
       <MessageList
@@ -361,6 +489,8 @@ function Chat() {
         interrupt={interrupt}
         onContinue={handleContinue}
         continueLoading={continueLoading}
+        onUpdate={handleUpdate}
+        updateLoading={updateLoading}
       />
       <MessageInput
         input={input}

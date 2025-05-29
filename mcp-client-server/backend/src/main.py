@@ -468,7 +468,7 @@ async def get_thread_history(thread_id: str):
         return {"history": snapshots}
 
 
-@app.get("/chat/thread/{thread_id}/ask/{messages}", tags=["chat"])
+@app.get("/chat/thread/{thread_id}/ask/{messages}", tags=["WIP"])
 async def run_thread_stream(
     thread_id: str,
     messages: str,
@@ -483,7 +483,16 @@ async def run_thread_stream(
     )
 
 
-@app.get("/chat/thread/{thread_id}/ask/{messages}/events", tags=["chat"])
+@app.get("/graph/mermaid", tags=["graph"])
+async def get_graph_mermaid():
+    async with AsyncExitStack() as stack:
+        graph = await create_graph(stack)
+        return Response(
+            graph.get_graph().draw_mermaid(), media_type="text/plain"
+        )
+
+
+@app.get("/chat/thread/{thread_id}/ask/{messages}/events", tags=["WIP"])
 async def run_thread_stream_events(
     thread_id: str,
     messages: str,
@@ -496,15 +505,6 @@ async def run_thread_stream_events(
         ),
         media_type="text/event-stream",
     )
-
-
-@app.get("/graph/mermaid", tags=["graph"])
-async def get_graph_mermaid():
-    async with AsyncExitStack() as stack:
-        graph = await create_graph(stack)
-        return Response(
-            graph.get_graph().draw_mermaid(), media_type="text/plain"
-        )
 
 
 @app.websocket("/chat/thread/{thread_id}/ask/websocket/stream")
