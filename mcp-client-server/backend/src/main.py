@@ -3,7 +3,15 @@ import json
 import uuid
 from contextlib import AsyncExitStack, asynccontextmanager
 from pathlib import Path
-from typing import Annotated, List, Literal, Optional, TypedDict, Union
+from typing import (
+    Annotated,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    TypedDict,
+    Union,
+)
 
 import uvicorn
 from dotenv import load_dotenv
@@ -105,6 +113,71 @@ class GraphState(TypedDict, total=False):
     messages: Annotated[list[AnyMessage], add_messages]
 
 
+class UpdateRequest(BaseModel):
+    args: dict
+
+
+class FeedbackRequest(BaseModel):
+    feedback: str
+
+
+class ReviewActionStrategy(Protocol):
+    def execute(self) -> Command: ...
+
+
+class ContinueStrategy:
+    def execute(self) -> Command:
+        return Command(goto="run_tool")
+
+
+class UpdateStrategy:
+    def __init__(self, last_message, tool_call, review_data):
+        self.last_message = last_message
+        self.tool_call = tool_call
+        self.review_data = review_data
+
+    def execute(self) -> Command:
+        updated_message = {
+            "role": "ai",
+            "content": self.last_message.content,
+            "tool_calls": [
+                {
+                    "id": self.tool_call["id"],
+                    "name": self.tool_call["name"],
+                    "args": self.review_data,
+                }
+            ],
+            "id": self.last_message.id,
+        }
+        return Command(goto="run_tool", update={"messages": [updated_message]})
+
+
+class FeedbackStrategy:
+    def __init__(self, tool_call, review_data):
+        self.tool_call = tool_call
+        self.review_data = review_data
+
+    def execute(self) -> Command:
+        tool_message = {
+            "role": "tool",
+            "content": self.review_data,
+            "name": self.tool_call["name"],
+            "tool_call_id": self.tool_call["id"],
+        }
+        return Command(goto="call_llm", update={"messages": [tool_message]})
+
+
+REVIEW_ACTION_STRATEGY_CLASSES = {
+    "continue": ContinueStrategy,
+    "update": UpdateStrategy,
+    "feedback": FeedbackStrategy,
+}
+
+
+def get_review_action_strategy_class(review_action: str):
+    return REVIEW_ACTION_STRATEGY_CLASSES.get(review_action)
+
+
 async def get_tools(stack: AsyncExitStack) -> List[BaseTool]:
     client = await stack.enter_async_context(
         MultiServerMCPClient(
@@ -146,39 +219,17 @@ def human_review_node(
     review_action = human_review["action"]
     review_data = human_review.get("data")
 
-    if review_action == "continue":
-        return Command(goto="run_tool")
+    strategy_cls = get_review_action_strategy_class(review_action)
+    if not strategy_cls:
+        raise ValueError(f"Unknown review_action: {review_action}")
 
-    if review_action == "update":
-        updated_message = {
-            "role": "ai",
-            "content": last_message.content,
-            "tool_calls": [
-                {
-                    "id": tool_call["id"],
-                    "name": tool_call["name"],
-                    # This the update provided by the human
-                    "args": review_data,
-                }
-            ],
-            # This is important - this needs to be the same as the message you replacing!
-            # Otherwise, it will show up as a separate message
-            "id": last_message.id,
-        }
-        return Command(goto="run_tool", update={"messages": [updated_message]})
-
-    if review_action == "feedback":
-        # NOTE: we're adding feedback message as a ToolMessage
-        # to preserve the correct order in the message history
-        # (AI messages with tool calls need to be followed by tool call messages)
-        tool_message = {
-            "role": "tool",
-            # This is our natural language feedback
-            "content": review_data,
-            "name": tool_call["name"],
-            "tool_call_id": tool_call["id"],
-        }
-        return Command(goto="call_llm", update={"messages": [tool_message]})
+    strategy_args = {
+        "continue": (),
+        "update": (last_message, tool_call, review_data),
+        "feedback": (tool_call, review_data),
+    }
+    strategy = strategy_cls(*strategy_args[review_action])
+    return strategy.execute()
 
 
 async def run_tool(state: GraphState, tools):
@@ -360,6 +411,30 @@ async def chat_endpoint(request: ChatRequest):
 
         # to return only the last message:
         # return {"messages": response["messages"][-1].content}
+        return response
+
+
+@app.post("/chat/thread/{thread_id}/update", tags=["chat"])
+async def update_tool_call(thread_id: str, request: UpdateRequest):
+    config = {"configurable": {"thread_id": thread_id}}
+    async with AsyncExitStack() as stack:
+        graph = await create_graph(stack)
+        response = await graph.ainvoke(
+            Command(resume={"action": "update", "data": request.args}),
+            config=config,
+        )
+        return response
+
+
+@app.post("/chat/thread/{thread_id}/feedback", tags=["chat"])
+async def feedback_tool_call(thread_id: str, request: FeedbackRequest):
+    config = {"configurable": {"thread_id": thread_id}}
+    async with AsyncExitStack() as stack:
+        graph = await create_graph(stack)
+        response = await graph.ainvoke(
+            Command(resume={"action": "feedback", "data": request.feedback}),
+            config=config,
+        )
         return response
 
 

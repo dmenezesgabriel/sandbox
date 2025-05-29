@@ -131,10 +131,44 @@ function ToolMessage({
   return TOOL_COMPONENT_MAP[tool].final({ data: toolInfo.data });
 }
 
-function MessageList({ messages }: { messages: any[] }) {
+// InterruptMessage component for __interrupt__ blocks
+function InterruptMessage({
+  question,
+  onContinue,
+  loading,
+}: {
+  question: string;
+  onContinue: () => Promise<void>;
+  loading: boolean;
+}) {
+  return (
+    <div className="self-center bg-yellow-100 border border-yellow-300 text-yellow-900 px-4 py-3 rounded-2xl max-w-[80%] flex flex-col items-center gap-2 mt-2">
+      <div>{question}</div>
+      <button
+        onClick={onContinue}
+        disabled={loading}
+        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
+      >
+        {loading ? "..." : "Continue"}
+      </button>
+    </div>
+  );
+}
+
+function MessageList({
+  messages,
+  interrupt,
+  onContinue,
+  continueLoading,
+}: {
+  messages: any[];
+  interrupt: { question: string } | null;
+  onContinue: () => Promise<void>;
+  continueLoading: boolean;
+}) {
   return (
     <div className="min-h-[200px] mb-4 flex flex-col gap-2">
-      {messages.map((msg: any, i) => {
+      {messages.map((msg: any, i: number) => {
         const toolInfo = msg._raw ? parseToolMessage(msg._raw) : null;
         if (toolInfo && TOOL_NAMES.includes(toolInfo.tool)) {
           return (
@@ -160,6 +194,13 @@ function MessageList({ messages }: { messages: any[] }) {
           </div>
         );
       })}
+      {interrupt && (
+        <InterruptMessage
+          question={interrupt.question}
+          onContinue={onContinue}
+          loading={continueLoading}
+        />
+      )}
     </div>
   );
 }
@@ -205,6 +246,8 @@ function Chat() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [interrupt, setInterrupt] = useState<{ question: string } | null>(null);
+  const [continueLoading, setContinueLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -218,6 +261,7 @@ function Chat() {
     e.preventDefault();
     if (!input.trim() || !threadId) return;
     setLoading(true);
+    setInterrupt(null);
     const userMsg = input;
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
@@ -250,20 +294,74 @@ function Chat() {
           { role: "assistant", content: "[No response]" },
         ]);
       }
+      // Interrupt detection
+      if (
+        data &&
+        Array.isArray(data.__interrupt__) &&
+        data.__interrupt__[0]?.value?.question
+      ) {
+        setInterrupt({ question: data.__interrupt__[0].value.question });
+      } else {
+        setInterrupt(null);
+      }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: "[Error sending message]" },
       ]);
+      setInterrupt(null);
     } finally {
       setLoading(false);
       inputRef.current?.focus();
     }
   };
 
+  const handleContinue = async () => {
+    if (!threadId) return;
+    setContinueLoading(true);
+    try {
+      const res = await fetch(
+        `http://localhost:8000/chat/thread/${threadId}/continue`,
+        { method: "GET" }
+      );
+      const data = await res.json();
+      if (data && Array.isArray(data.messages)) {
+        setMessages(
+          data.messages
+            .filter((msg: any) => msg.type !== "system")
+            .map((msg: any) => ({
+              role: msg.type === "human" ? "user" : "assistant",
+              content: msg.content,
+              _raw: msg,
+            }))
+        );
+      }
+      // Check for further interrupt
+      if (
+        data &&
+        Array.isArray(data.__interrupt__) &&
+        data.__interrupt__[0]?.value?.question
+      ) {
+        setInterrupt({ question: data.__interrupt__[0].value.question });
+      } else {
+        setInterrupt(null);
+      }
+    } catch {
+      // Optionally handle error
+      setInterrupt(null);
+    } finally {
+      setContinueLoading(false);
+    }
+  };
+
   return (
     <div className="max-w-xl mx-auto mt-10 p-6 border border-gray-200 rounded-lg bg-white shadow">
-      <MessageList messages={messages} />
+      <MessageList
+        messages={messages}
+        interrupt={interrupt}
+        onContinue={handleContinue}
+        continueLoading={continueLoading}
+      />
       <MessageInput
         input={input}
         setInput={setInput}
