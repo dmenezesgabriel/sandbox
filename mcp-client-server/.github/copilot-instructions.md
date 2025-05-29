@@ -8,17 +8,6 @@ Minimalist and concise.
 It's a conversation among senior software architects.
 I'll explicitly ask for deep explanations.
 
-## Project Awareness and Context
-
-- Always read **PLANNING.md** (_if the file exists_) to understand the project's architecture, goals, style, and constraints
-- Check **TASKS.md** (_if the file exists_) before starting a new task. If the task isn't listed, add it with a brief description and today's date
-- **Use consistent naming conventions, file structure, and architecture patterns** as described in **PLANNING.md**
-
-## Task Completion
-
-- **Mark completed tasks in `TASKS.md` immediately after finishing them**.
-- Add new sub-tasks or TODOS discovered during development to `TASKS.md` under a "Discovered During Work" section
-
 ## Key Principles
 
 - **Never** assume missing context. Ask questions if uncertain.
@@ -78,8 +67,3 @@ You have two modes of operation:
 
 - **Always use the playwright mcp server** to reference documentation for installed libraries. **Only search three times maximum for any specific piece of documentation**
 - **Go to** https://langchain-ai.github.io/langgraph/llms.txt to find the latest version of Langgraph and Langchain docs, and usage.
-
-## Documentation and Explainability
-
-- **Update `README.md`** when new features are added, dependency changes, or setup steps are modified.
-- **Update `CHANGELOG.md`** when new features are added, dependency changes, or setup steps are modified within a section with the date of modification inside of a version section if a version tag exists in the `git` repository
