@@ -1,3 +1,4 @@
+import functools
 import json
 import uuid
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -96,10 +97,6 @@ class ChatRequest(BaseModel):
     )
 
 
-class ContinueRequest(BaseModel):
-    response: str
-
-
 class GraphState(TypedDict, total=False):
     """
     @see https://langchain-ai.github.io/langgraph/concepts/low_level/#serialization
@@ -160,16 +157,23 @@ def human_review_node(
                 {
                     "id": tool_call["id"],
                     "name": tool_call["name"],
+                    # This the update provided by the human
                     "args": review_data,
                 }
             ],
+            # This is important - this needs to be the same as the message you replacing!
+            # Otherwise, it will show up as a separate message
             "id": last_message.id,
         }
         return Command(goto="run_tool", update={"messages": [updated_message]})
 
     if review_action == "feedback":
+        # NOTE: we're adding feedback message as a ToolMessage
+        # to preserve the correct order in the message history
+        # (AI messages with tool calls need to be followed by tool call messages)
         tool_message = {
             "role": "tool",
+            # This is our natural language feedback
             "content": review_data,
             "name": tool_call["name"],
             "tool_call_id": tool_call["id"],
@@ -216,13 +220,9 @@ async def create_graph(stack: AsyncExitStack) -> CompiledGraph:
 
     tools = await get_tools(stack)
 
-    def make_sync_run_tool():
-        async def wrapper(state):
-            return await run_tool(state, tools)
-
-        return wrapper
-
-    sync_run_tools = make_sync_run_tool()
+    sync_run_tools = functools.partial(
+        run_tool, tools=tools
+    )  # langgraph only accept sync nodes
 
     builder = StateGraph(GraphState)
     builder.add_node("call_llm", lambda state: call_llm(state, tools))
@@ -363,8 +363,8 @@ async def chat_endpoint(request: ChatRequest):
         return response
 
 
-@app.post("/chat/thread/{thread_id}/continue", tags=["chat"])
-async def continue_chat(request: ContinueRequest, thread_id: str):
+@app.get("/chat/thread/{thread_id}/continue", tags=["chat"])
+async def continue_chat(thread_id: str):
     config = {"configurable": {"thread_id": thread_id}}
     stack = AsyncExitStack()
     async with stack:
