@@ -1,0 +1,121 @@
+from typing import Literal, Protocol
+
+from langgraph.types import Command, interrupt
+from src.domain.chat.interfaces import GraphNodeService
+from src.domain.llm.interfaces import LLMProvider, LLMService
+from src.type_definitions import GraphState
+
+
+class ReviewActionStrategy(Protocol):
+    def execute(self) -> Command: ...
+
+
+class ContinueStrategy:
+    def execute(self) -> Command:
+        return Command(goto="run_tool")
+
+
+class UpdateStrategy:
+    def __init__(self, last_message, tool_call, review_data):
+        self.last_message = last_message
+        self.tool_call = tool_call
+        self.review_data = review_data
+
+    def execute(self) -> Command:
+        updated_message = {
+            "role": "ai",
+            "content": self.last_message.content,
+            "tool_calls": [
+                {
+                    "id": self.tool_call["id"],
+                    "name": self.tool_call["name"],
+                    "args": self.review_data,
+                }
+            ],
+            "id": self.last_message.id,
+        }
+        return Command(goto="run_tool", update={"messages": [updated_message]})
+
+
+class FeedbackStrategy:
+    def __init__(self, tool_call, review_data):
+        self.tool_call = tool_call
+        self.review_data = review_data
+
+    def execute(self) -> Command:
+        tool_message = {
+            "role": "tool",
+            "content": self.review_data,
+            "name": self.tool_call["name"],
+            "tool_call_id": self.tool_call["id"],
+        }
+        return Command(goto="call_llm", update={"messages": [tool_message]})
+
+
+def get_review_action_strategy_class(review_action: str):
+    review_action_strategy_classes = {
+        "continue": ContinueStrategy,
+        "update": UpdateStrategy,
+        "feedback": FeedbackStrategy,
+    }
+
+    return review_action_strategy_classes.get(review_action)
+
+
+class GraphNodeServiceImpl(GraphNodeService):
+    def __init__(self, llm_service: LLMService):
+        self._llm_service = llm_service
+
+    def call_llm(self, state: GraphState, tools) -> GraphState:
+        llm = self._llm_service.get_chat_model(LLMProvider.GOOGLE)
+        response = llm.bind_tools(tools).invoke(state["messages"])
+        return {"messages": response}
+
+    def human_review_node(
+        self,
+        state: GraphState,
+    ) -> Command[Literal["call_llm", "run_tool"]]:
+        last_message = state["messages"][-1]
+        tool_call = last_message.tool_calls[-1]
+
+        human_review = interrupt(
+            {
+                "question": "Continue?",
+                "tool_call": tool_call,
+            }
+        )
+
+        review_action = human_review["action"]
+        review_data = human_review.get("data")
+
+        strategy_cls = get_review_action_strategy_class(review_action)
+        if not strategy_cls:
+            raise ValueError(f"Unknown review_action: {review_action}")
+
+        strategy_args = {
+            "continue": (),
+            "update": (last_message, tool_call, review_data),
+            "feedback": (tool_call, review_data),
+        }
+        strategy = strategy_cls(*strategy_args[review_action])
+        return strategy.execute()
+
+    async def run_tool(self, state: GraphState, tools):
+        new_messages = []
+        tool_calls = state["messages"][-1].tool_calls
+
+        for tool_call in tool_calls:
+            tool = next(
+                (tool for tool in tools if tool.name == tool_call["name"]),
+                None,
+            )
+            result = await tool.ainvoke(tool_call["args"])
+            new_messages.append(
+                {
+                    "role": "tool",
+                    "name": tool_call["name"],
+                    "content": result,
+                    "tool_call_id": tool_call["id"],
+                }
+            )
+        return {"messages": new_messages}

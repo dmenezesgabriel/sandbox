@@ -36,3 +36,5 @@ python -m phoenix.server.main serve
 - [Langgraph](https://www.youtube.com/watch?v=1w5cCXlh7JQ&t=44s&pp=ygURbGFuZ2dyYXBoIGZhc3RhcGk%3D)
 - [Agentes em paralelo](https://www.youtube.com/watch?v=AgN3RHSZGwI)
 - [review-tool-calls](https://langchain-ai.github.io/langgraph/how-tos/human_in_the_loop/review-tool-calls/)
+- [copilot kit + langgraph](https://docs.copilotkit.ai/guides/backend-actions/remote-backend-endpoint?hosting=self-hosted)
+- [sse-with-fastapi-react-langgraph](https://www.softgrade.org/sse-with-fastapi-react-langgraph/)
