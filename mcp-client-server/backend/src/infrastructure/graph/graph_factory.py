@@ -14,13 +14,17 @@ from src.type_definitions import GraphState
 class GraphFactory:
 
     def __init__(
-        self, node_service: GraphNodeService, checkpointer: AsyncSqliteSaver
+        self,
+        node_service: GraphNodeService,
+        checkpointer: AsyncSqliteSaver,
+        stack: AsyncExitStack,
     ):
         self._node_service = node_service
         self._checkpointer = checkpointer
+        self._stack = stack
 
-    async def create_graph(self, stack: AsyncExitStack) -> CompiledGraph:
-        tools = await get_tools(stack)
+    async def create_graph(self) -> CompiledGraph:
+        tools = await get_tools(self._stack)
 
         call_llm_bound = lambda state: self._node_service.call_llm(
             state, tools

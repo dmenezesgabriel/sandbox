@@ -1,6 +1,8 @@
+import json
 from typing import Literal, Protocol
 
 from langgraph.types import Command, interrupt
+from loguru import logger
 from src.domain.chat.interfaces import GraphNodeService
 from src.domain.llm.interfaces import LLMProvider, LLMService
 from src.type_definitions import GraphState
@@ -84,6 +86,10 @@ class GraphNodeServiceImpl(GraphNodeService):
                 "tool_call": tool_call,
             }
         )
+
+        if isinstance(human_review, str):
+            json_review = json.loads(human_review)
+            human_review = json_review
 
         review_action = human_review["action"]
         review_data = human_review.get("data")

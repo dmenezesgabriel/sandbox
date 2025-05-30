@@ -1,8 +1,12 @@
 "use client";
 
 import { CopilotSidebar } from "@copilotkit/react-ui";
-import { useEffect, useState } from "react";
-import { useLangGraphInterrupt } from "@copilotkit/react-core";
+import {
+  useCopilotAction,
+  useLangGraphInterrupt,
+  useCoAgent,
+} from "@copilotkit/react-core";
+import { Suspense, useEffect, useState } from "react";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -11,23 +15,30 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        Loading...
-      </div>
-    );
-  }
+  useCoAgent({
+    name: "agent",
+  });
 
-  // useLangGraphInterrupt({
-  //   render: ({ event, resolve }) => (
-  //     <div className="p-4 border rounded">
-  //       <h3>Interrupt Event:</h3>
-  //       <pre>{JSON.stringify(event, null, 2)}</pre>
-  //       <button onClick={() => resolve()}>Continue</button>
-  //     </div>
-  //   ),
-  // });
+  useLangGraphInterrupt({
+    render: ({ event, resolve }) => {
+      return (
+        <div className="p-4 bg-gray-100 rounded shadow">
+          <h2 className="text-lg font-semibold mb-2">Interrupt</h2>
+          <p>{JSON.stringify(event)}</p>
+          <button
+            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded"
+            onClick={() => resolve(JSON.stringify({ action: "continue" }))}
+          >
+            Resolve
+          </button>
+        </div>
+      );
+    },
+  });
+
+  if (!mounted) {
+    return <div className="p-6">Loading...</div>;
+  }
 
   return (
     <CopilotSidebar

@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from copilotkit import CopilotKitRemoteEndpoint
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
@@ -21,21 +21,22 @@ load_dotenv()
 async def lifespan(app: FastAPI):
     db_name = "./checkpointer.db"
     async with AsyncSqliteSaver.from_conn_string(db_name) as checkpointer:
+        async with AsyncExitStack() as stack:
 
-        enable_telemetry()
+            enable_telemetry()
 
-        llm_service = LLMServiceImpl()
-        node_service = GraphNodeServiceImpl(llm_service)
-        graph_factory = GraphFactory(node_service, checkpointer)
-        chat_service = ChatServiceImpl(graph_factory)
-        chat_api_adapter = ChatApiAdapter(chat_service)
+            llm_service = LLMServiceImpl()
+            node_service = GraphNodeServiceImpl(llm_service)
+            graph_factory = GraphFactory(node_service, checkpointer, stack)
+            chat_service = ChatServiceImpl(graph_factory)
+            chat_api_adapter = ChatApiAdapter(chat_service)
 
-        app.state.agents = await build_agents({}, graph_factory)
+            app.state.agents = await build_agents({}, graph_factory)
 
-        app.include_router(chat_api_adapter.router)
-        sdk = CopilotKitRemoteEndpoint(agents=lambda _: app.state.agents)
-        add_fastapi_endpoint(app, sdk, "/copilotkit")
-        yield
+            app.include_router(chat_api_adapter.router)
+            sdk = CopilotKitRemoteEndpoint(agents=lambda _: app.state.agents)
+            add_fastapi_endpoint(app, sdk, "/copilotkit")
+            yield
 
 
 app = FastAPI(
