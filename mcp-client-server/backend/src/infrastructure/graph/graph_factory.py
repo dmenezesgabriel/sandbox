@@ -50,4 +50,9 @@ class GraphFactory:
     def _route_after_llm(self, state):
         if len(state["messages"][-1].tool_calls) == 0:
             return "END"
-        return "human_review_node"
+        if state["messages"][-1].tool_calls[-1]["name"] in [
+            "create_Table",
+            "insert_data",
+        ]:
+            return "human_review_node"
+        return "run_tool"

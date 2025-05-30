@@ -70,7 +70,11 @@ class GraphNodeServiceImpl(GraphNodeService):
 
     def call_llm(self, state: GraphState, tools) -> GraphState:
         llm = self._llm_service.get_chat_model(LLMProvider.GOOGLE)
-        response = llm.bind_tools(tools).invoke(state["messages"])
+        _tools = tools
+        if state.get("copilotkit", {}).get("actions", []):
+            _tools = [*state["copilotkit"]["actions"], *tools]
+
+        response = llm.bind_tools(_tools).invoke(state["messages"])
         return {"messages": response}
 
     def human_review_node(
@@ -82,6 +86,7 @@ class GraphNodeServiceImpl(GraphNodeService):
 
         human_review = interrupt(
             {
+                "type": "human_review",
                 "question": "Continue?",
                 "tool_call": tool_call,
             }
