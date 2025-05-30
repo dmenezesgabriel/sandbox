@@ -6,7 +6,8 @@ import {
   useLangGraphInterrupt,
   useCoAgent,
 } from "@copilotkit/react-core";
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { InterruptForm } from "./interrupt-form";
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
@@ -15,23 +16,38 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  useCoAgent({
+  const { state, running, threadId, nodeName } = useCoAgent({
     name: "agent",
   });
 
+  // useCopilotAction({
+  //   name: "sayHello",
+  //   description: "Say hello to the user",
+  //   available: "remote",
+  //   parameters: [
+  //     {
+  //       name: "name",
+  //       type: "string",
+  //       description: "The name of the user to say hello to",
+  //       required: true,
+  //     },
+  //   ],
+  //   handler: async ({ name }) => {
+  //     alert(`Hello, ${name}!`);
+  //   },
+  // });
+
   useLangGraphInterrupt({
+    enabled: ({ eventValue }) => eventValue.type === "human_review",
     render: ({ event, resolve }) => {
+      const { question, tool_call } = event.value;
+
       return (
-        <div className="p-4 bg-gray-100 rounded shadow">
-          <h2 className="text-lg font-semibold mb-2">Interrupt</h2>
-          <p>{JSON.stringify(event)}</p>
-          <button
-            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded"
-            onClick={() => resolve(JSON.stringify({ action: "continue" }))}
-          >
-            Resolve
-          </button>
-        </div>
+        <InterruptForm
+          question={question}
+          tool_call={tool_call}
+          onConfirm={(data) => resolve(data)}
+        />
       );
     },
   });
@@ -42,6 +58,7 @@ export default function Home() {
 
   return (
     <CopilotSidebar
+      clickOutsideToClose={false}
       instructions={
         "You are assisting the user as best as you can. Answer in the best way possible given the data you have."
       }
@@ -57,6 +74,10 @@ export default function Home() {
           This is your main content area. The assistant is available in the
           sidebar.
         </p>
+        <p>Thread ID: {threadId}</p>
+        <p>Node Name: {nodeName}</p>
+        <p>Running: {running ? "Yes" : "No"}</p>
+        <p>{JSON.stringify(state, null, 2)}</p>
       </div>
     </CopilotSidebar>
   );
