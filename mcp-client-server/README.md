@@ -38,3 +38,6 @@ python -m phoenix.server.main serve
 - [review-tool-calls](https://langchain-ai.github.io/langgraph/how-tos/human_in_the_loop/review-tool-calls/)
 - [copilot kit + langgraph](https://docs.copilotkit.ai/guides/backend-actions/remote-backend-endpoint?hosting=self-hosted)
 - [sse-with-fastapi-react-langgraph](https://www.softgrade.org/sse-with-fastapi-react-langgraph/)
+- [build-an-ai-travel-planner-with-copilotkit](https://dev.to/copilotkit/build-an-ai-travel-planner-with-copilotkit-langgraph-google-maps-api-32fm)
+- [spreadsheet-app-nextjs-langchain-copilotkit](https://dev.to/copilotkit/build-an-ai-powered-spreadsheet-app-nextjs-langchain-copilotkit-109d)
+- [langgraph-ai-agent-in-minutes-with-copilotkit](https://dev.to/copilotkit/easily-build-a-ui-for-your-langgraph-ai-agent-in-minutes-with-copilotkit-1khj)

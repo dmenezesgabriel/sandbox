@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
         chat_service = ChatServiceImpl(graph_factory)
         chat_api_adapter = ChatApiAdapter(chat_service)
 
-        app.state.agents = await build_agents({}, checkpointer)
+        app.state.agents = await build_agents({}, graph_factory)
 
         app.include_router(chat_api_adapter.router)
         sdk = CopilotKitRemoteEndpoint(agents=lambda _: app.state.agents)
