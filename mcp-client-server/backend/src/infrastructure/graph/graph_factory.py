@@ -2,6 +2,7 @@
 import functools
 from contextlib import AsyncExitStack
 
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import START, StateGraph
 from langgraph.graph.graph import CompiledGraph
@@ -11,16 +12,14 @@ from src.type_definitions import GraphState
 
 
 class GraphFactory:
-    def __init__(self, node_service: GraphNodeService):
+
+    def __init__(
+        self, node_service: GraphNodeService, checkpointer: AsyncSqliteSaver
+    ):
         self._node_service = node_service
+        self._checkpointer = checkpointer
 
     async def create_graph(self, stack: AsyncExitStack) -> CompiledGraph:
-        db_name = f"./checkpointer.db"
-
-        checkpointer = await stack.enter_async_context(
-            AsyncSqliteSaver.from_conn_string(db_name)
-        )
-
         tools = await get_tools(stack)
 
         call_llm_bound = lambda state: self._node_service.call_llm(
@@ -41,7 +40,7 @@ class GraphFactory:
         builder.add_conditional_edges("call_llm", self._route_after_llm)
         builder.add_edge("run_tool", "call_llm")
 
-        graph = builder.compile(checkpointer=checkpointer)
+        graph = builder.compile(checkpointer=self._checkpointer)
         return graph
 
     def _route_after_llm(self, state):
