@@ -20,22 +20,22 @@ export default function Home() {
     name: "agent",
   });
 
-  // useCopilotAction({
-  //   name: "sayHello",
-  //   description: "Say hello to the user",
-  //   available: "remote",
-  //   parameters: [
-  //     {
-  //       name: "name",
-  //       type: "string",
-  //       description: "The name of the user to say hello to",
-  //       required: true,
-  //     },
-  //   ],
-  //   handler: async ({ name }) => {
-  //     alert(`Hello, ${name}!`);
-  //   },
-  // });
+  useCopilotAction({
+    name: "sayHello",
+    description: "Say hello to the user",
+    available: "remote",
+    parameters: [
+      {
+        name: "name",
+        type: "string",
+        description: "The name of the user to say hello to",
+        required: true,
+      },
+    ],
+    handler: async ({ name }) => {
+      alert(`Hello, ${name}!`);
+    },
+  });
 
   useCopilotAction({
     name: "add",

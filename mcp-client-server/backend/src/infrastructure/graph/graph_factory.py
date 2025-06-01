@@ -41,18 +41,10 @@ class GraphFactory:
         )
 
         builder.add_edge(START, "call_llm")
-        builder.add_conditional_edges("call_llm", self._route_after_llm)
+        builder.add_conditional_edges(
+            "call_llm", self._node_service.route_after_llm
+        )
         builder.add_edge("run_tool", "call_llm")
 
         graph = builder.compile(checkpointer=self._checkpointer)
         return graph
-
-    def _route_after_llm(self, state):
-        if len(state["messages"][-1].tool_calls) == 0:
-            return "END"
-        if state["messages"][-1].tool_calls[-1]["name"] in [
-            "create_Table",
-            "insert_data",
-        ]:
-            return "human_review_node"
-        return "run_tool"

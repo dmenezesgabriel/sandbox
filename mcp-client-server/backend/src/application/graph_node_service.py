@@ -67,14 +67,25 @@ def get_review_action_strategy_class(review_action: str):
 class GraphNodeServiceImpl(GraphNodeService):
     def __init__(self, llm_service: LLMService):
         self._llm_service = llm_service
+        self._tools = None
+        self._frontend_actions = None
+
+    def get_frontend_actions(self, state: GraphState):
+        if self._frontend_actions is not None:
+            return self._frontend_actions
+
+        copilotkit = state.get("copilotkit", {})
+        self._frontend_actions = copilotkit.get("actions", [])
+        return self._frontend_actions
 
     def call_llm(self, state: GraphState, tools) -> GraphState:
         llm = self._llm_service.get_chat_model(LLMProvider.GOOGLE)
-        _tools = tools
-        if state.get("copilotkit", {}).get("actions", []):
-            _tools = [*state["copilotkit"]["actions"], *tools]
+        self._tools = tools
 
-        response = llm.bind_tools(_tools).invoke(state["messages"])
+        copilotkit_actions = self.get_frontend_actions(state)
+        self._tools = [*copilotkit_actions, *tools]
+
+        response = llm.bind_tools(self._tools).invoke(state["messages"])
         return {"messages": response}
 
     def human_review_node(
@@ -130,3 +141,24 @@ class GraphNodeServiceImpl(GraphNodeService):
                 }
             )
         return {"messages": new_messages}
+
+    def route_after_llm(self, state):
+        if len(state["messages"][-1].tool_calls) == 0:
+            return "END"
+
+        frontend_actions_names = [
+            action["name"] for action in self.get_frontend_actions(state)
+        ]
+
+        if (
+            state["messages"][-1].tool_calls[-1]["name"]
+            in frontend_actions_names
+        ):
+            return "END"
+
+        if state["messages"][-1].tool_calls[-1]["name"] in [
+            "create_Table",
+            "insert_data",
+        ]:
+            return "human_review_node"
+        return "run_tool"
