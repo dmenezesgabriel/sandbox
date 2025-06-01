@@ -37,6 +37,24 @@ export default function Home() {
   //   },
   // });
 
+  useCopilotAction({
+    name: "add",
+    description: "Add two numbers together",
+    available: "disabled", // Don't allow the agent or UI to call this tool as its only for rendering
+    render({ result, args, status }) {
+      return (
+        <div className="p-4 bg-gray-100 rounded shadow">
+          <h2 className="text-lg font-bold">Add Result</h2>
+          <p>
+            {status === "complete"
+              ? `The result of adding ${args.a} and ${args.b} is ${result}.`
+              : "This tool is not available for use."}
+          </p>
+        </div>
+      );
+    },
+  });
+
   useLangGraphInterrupt({
     enabled: ({ eventValue }) => eventValue.type === "human_review",
     render: ({ event, resolve }) => {
