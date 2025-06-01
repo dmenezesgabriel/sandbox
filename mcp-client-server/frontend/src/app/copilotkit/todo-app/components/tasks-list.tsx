@@ -2,8 +2,8 @@
 
 import { AddTodo } from "./add-todo";
 import { Task } from "./task";
-import { useTasks } from "../lib/hooks/use-tasks";
-import { TaskStatus } from "../lib/task.types";
+import { useTasks } from "../../lib/hooks/use-tasks";
+import { TaskStatus } from "../../lib/task.types";
 import { AnimatePresence } from "framer-motion";
 
 export function TasksList() {

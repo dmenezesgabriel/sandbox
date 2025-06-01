@@ -1,6 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useTasks } from "../lib/hooks/use-tasks";
+import { useTasks } from "../../lib/hooks/use-tasks";
 import { useState } from "react";
 
 export function AddTodo() {
