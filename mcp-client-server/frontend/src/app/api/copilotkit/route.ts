@@ -1,8 +1,8 @@
 import {
-  CopilotRuntime,
-  EmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
   copilotKitEndpoint,
+  CopilotRuntime,
+  copilotRuntimeNextJSAppRouterEndpoint,
+  EmptyAdapter,
 } from "@copilotkit/runtime";
 import { NextRequest } from "next/server";
 

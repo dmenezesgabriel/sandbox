@@ -1,12 +1,13 @@
 "use client";
 
-import { CopilotSidebar } from "@copilotkit/react-ui";
 import {
+  useCoAgent,
   useCopilotAction,
   useLangGraphInterrupt,
-  useCoAgent,
 } from "@copilotkit/react-core";
+import { CopilotSidebar } from "@copilotkit/react-ui";
 import { useEffect, useState } from "react";
+
 import { InterruptForm } from "./interrupt-form";
 
 export default function Home() {

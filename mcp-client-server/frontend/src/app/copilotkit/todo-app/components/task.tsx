@@ -1,11 +1,13 @@
+import { motion } from "framer-motion";
+import { TrashIcon } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { TrashIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+
 import { useTasks } from "../../lib/hooks/use-tasks";
-import { motion } from "framer-motion";
-import { TaskStatus, type Task } from "../../lib/task.types";
+import { type Task, TaskStatus } from "../../lib/task.types";
 
 export function Task({ task: { id, title, status } }: { task: Task }) {
   const { setTaskStatus, deleteTask } = useTasks();

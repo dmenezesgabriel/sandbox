@@ -1,11 +1,13 @@
 "use client";
 
-import { ReactNode, Suspense } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import "@copilotkit/react-ui/styles.css";
-import { TasksProvider } from "./lib/hooks/use-tasks";
+
+import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotSidebar } from "@copilotkit/react-ui";
+import { ReactNode, Suspense } from "react";
 import { useEffect, useState } from "react";
+
+import { TasksProvider } from "./lib/hooks/use-tasks";
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   const [mounted, setMounted] = useState(false);
