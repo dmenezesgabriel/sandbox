@@ -1,0 +1,10 @@
+[project]
+name = "ai-crawling"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "crawl4ai>=0.6.3",
+    "rich>=14.0.0",
+]

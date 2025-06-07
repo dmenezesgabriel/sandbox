@@ -19,11 +19,11 @@ async def get_tools(stack: AsyncExitStack) -> List[BaseTool]:
                     "args": [str(math_server_script)],
                     "transport": "stdio",
                 },
-                # "database": {
-                #     "command": str(venv_python),
-                #     "args": [str(db_server_script)],
-                #     "transport": "stdio",
-                # },
+                "database": {
+                    "command": str(venv_python),
+                    "args": [str(db_server_script)],
+                    "transport": "stdio",
+                },
             }
         )
     )

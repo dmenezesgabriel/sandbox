@@ -545,3 +545,624 @@ Output:
   ]
 }
 ```
+
+## Multiple Tools
+
+### Ask
+
+```sh
+curl -X 'POST' \
+  'http://localhost:8000/chat/thread/{thread_id}/ask' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "messages": [
+    {
+      "content": "You are a helpful assistant. \nYou'\''re provided with a list of tools, and a input from the user.\nYour job is to determine whether or not you have a tool which can handle the users input, or respond with plain text.\n",
+      "type": "system"
+    },
+    {
+      "content": "Can you insert a new user in table user with Id 22 and email example22@example.com?",
+      "type": "human"
+    }
+  ],
+  "thread_id": "9ad6f82d-eb0d-4012-bf7c-1245125"
+}'
+```
+
+Output:
+
+```json
+{
+  "messages": [
+    {
+      "content": "You are a helpful assistant. \nYou're provided with a list of tools, and a input from the user.\nYour job is to determine whether or not you have a tool which can handle the users input, or respond with plain text.\n",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "system",
+      "name": null,
+      "id": "42cfd049-4a43-4b95-9cfe-9e2445786766"
+    },
+    {
+      "content": "Can you list my tables?",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "human",
+      "name": null,
+      "id": "461f7495-1255-4f83-84fa-4fe73949406d",
+      "example": false
+    },
+    {
+      "content": "",
+      "additional_kwargs": {
+        "function_call": {
+          "name": "list_tables",
+          "arguments": "{}"
+        }
+      },
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--22bfc37d-f1da-469c-a3ef-1e4df97ecb1d-0",
+      "example": false,
+      "tool_calls": [
+        {
+          "name": "list_tables",
+          "args": {},
+          "id": "146b9302-8a5b-4df5-aa38-d047f42a46f1",
+          "type": "tool_call"
+        }
+      ],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 160,
+        "output_tokens": 3,
+        "total_tokens": 163,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": [
+        "{\n  \"name\": \"test\"\n}",
+        "{\n  \"name\": \"test2\"\n}",
+        "{\n  \"name\": \"example\"\n}",
+        "{\n  \"name\": \"user\"\n}",
+        "{\n  \"name\": \"test3\"\n}"
+      ],
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "tool",
+      "name": "list_tables",
+      "id": "0b7b110d-7a7a-410c-88f7-14ee17802a91",
+      "tool_call_id": "146b9302-8a5b-4df5-aa38-d047f42a46f1",
+      "artifact": null,
+      "status": "success"
+    },
+    {
+      "content": "OK. I see the following tables: test, test2, example, user, and test3.",
+      "additional_kwargs": {},
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--480a402b-b7bf-458f-912e-a4222dff2b29-0",
+      "example": false,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 224,
+        "output_tokens": 22,
+        "total_tokens": 246,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": "You are a helpful assistant. \nYou're provided with a list of tools, and a input from the user.\nYour job is to determine whether or not you have a tool which can handle the users input, or respond with plain text.\n",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "system",
+      "name": null,
+      "id": "7c83361a-da06-45cc-b9aa-4aa007c9e422"
+    },
+    {
+      "content": "Can you describe the table user?",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "human",
+      "name": null,
+      "id": "e2a7aca2-372a-47c9-9370-d9e7e2e892d1",
+      "example": false
+    },
+    {
+      "content": "",
+      "additional_kwargs": {
+        "function_call": {
+          "name": "describe_table",
+          "arguments": "{\"table_name\": \"user\"}"
+        }
+      },
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--8b37f7c7-4f0f-4bf1-8f86-242d83c77584-0",
+      "example": false,
+      "tool_calls": [
+        {
+          "name": "describe_table",
+          "args": {
+            "table_name": "user"
+          },
+          "id": "768b2a94-99d2-4cfa-89b3-2557488e59d6",
+          "type": "tool_call"
+        }
+      ],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 304,
+        "output_tokens": 7,
+        "total_tokens": 311,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": [
+        "{\n  \"cid\": 0,\n  \"name\": \"id\",\n  \"type\": \"\",\n  \"notnull\": 0,\n  \"dflt_value\": null,\n  \"pk\": 0\n}",
+        "{\n  \"cid\": 1,\n  \"name\": \"email\",\n  \"type\": \"\",\n  \"notnull\": 0,\n  \"dflt_value\": null,\n  \"pk\": 0\n}"
+      ],
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "tool",
+      "name": "describe_table",
+      "id": "9f48cacb-0c23-439b-8951-926ff0f655d9",
+      "tool_call_id": "768b2a94-99d2-4cfa-89b3-2557488e59d6",
+      "artifact": null,
+      "status": "success"
+    },
+    {
+      "content": "OK. The user table has the columns id and email.",
+      "additional_kwargs": {},
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--b0430471-a428-473d-a570-1cbd5a8dbe1d-0",
+      "example": false,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 417,
+        "output_tokens": 12,
+        "total_tokens": 429,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": "You are a helpful assistant. \nYou're provided with a list of tools, and a input from the user.\nYour job is to determine whether or not you have a tool which can handle the users input, or respond with plain text.\n",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "system",
+      "name": null,
+      "id": "d0e20a21-6c62-4438-afb1-ea50b4b2cbe3"
+    },
+    {
+      "content": "Can you insert a new user in table user with Id 22 and email example22@example.com?",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "human",
+      "name": null,
+      "id": "515b8940-519a-4cab-a705-890f4a950b0f",
+      "example": false
+    },
+    {
+      "content": "",
+      "additional_kwargs": {
+        "function_call": {
+          "name": "insert_data",
+          "arguments": "{\"sql\": \"INSERT INTO user (id, email) VALUES (22, 'example22@example.com')\"}"
+        }
+      },
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--1dcbfe3a-aa0c-487c-a612-50385889b384-0",
+      "example": false,
+      "tool_calls": [
+        {
+          "name": "insert_data",
+          "args": {
+            "sql": "INSERT INTO user (id, email) VALUES (22, 'example22@example.com')"
+          },
+          "id": "d78280ea-da85-4af3-afb8-7cfe3749c471",
+          "type": "tool_call"
+        }
+      ],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 505,
+        "output_tokens": 26,
+        "total_tokens": 531,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    }
+  ],
+  "__interrupt__": [
+    {
+      "value": {
+        "type": "human_review",
+        "question": "Continue?",
+        "tool_call": {
+          "name": "insert_data",
+          "args": {
+            "sql": "INSERT INTO user (id, email) VALUES (22, 'example22@example.com')"
+          },
+          "id": "d78280ea-da85-4af3-afb8-7cfe3749c471",
+          "type": "tool_call"
+        }
+      },
+      "resumable": true,
+      "ns": ["human_review_node:e04daa92-433a-7b2f-7715-0d016e802bd7"],
+      "when": "during"
+    }
+  ]
+}
+```
+
+### Continue
+
+```sh
+curl -X 'GET' \
+  'http://localhost:8000/chat/thread/9ad6f82d-eb0d-4012-bf7c-1245125/continue' \
+  -H 'accept: application/json'
+```
+
+Output:
+
+```json
+{
+  "messages": [
+    {
+      "content": "You are a helpful assistant. \nYou're provided with a list of tools, and a input from the user.\nYour job is to determine whether or not you have a tool which can handle the users input, or respond with plain text.\n",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "system",
+      "name": null,
+      "id": "42cfd049-4a43-4b95-9cfe-9e2445786766"
+    },
+    {
+      "content": "Can you list my tables?",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "human",
+      "name": null,
+      "id": "461f7495-1255-4f83-84fa-4fe73949406d",
+      "example": false
+    },
+    {
+      "content": "",
+      "additional_kwargs": {
+        "function_call": {
+          "name": "list_tables",
+          "arguments": "{}"
+        }
+      },
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--22bfc37d-f1da-469c-a3ef-1e4df97ecb1d-0",
+      "example": false,
+      "tool_calls": [
+        {
+          "name": "list_tables",
+          "args": {},
+          "id": "146b9302-8a5b-4df5-aa38-d047f42a46f1",
+          "type": "tool_call"
+        }
+      ],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 160,
+        "output_tokens": 3,
+        "total_tokens": 163,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": [
+        "{\n  \"name\": \"test\"\n}",
+        "{\n  \"name\": \"test2\"\n}",
+        "{\n  \"name\": \"example\"\n}",
+        "{\n  \"name\": \"user\"\n}",
+        "{\n  \"name\": \"test3\"\n}"
+      ],
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "tool",
+      "name": "list_tables",
+      "id": "0b7b110d-7a7a-410c-88f7-14ee17802a91",
+      "tool_call_id": "146b9302-8a5b-4df5-aa38-d047f42a46f1",
+      "artifact": null,
+      "status": "success"
+    },
+    {
+      "content": "OK. I see the following tables: test, test2, example, user, and test3.",
+      "additional_kwargs": {},
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--480a402b-b7bf-458f-912e-a4222dff2b29-0",
+      "example": false,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 224,
+        "output_tokens": 22,
+        "total_tokens": 246,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": "You are a helpful assistant. \nYou're provided with a list of tools, and a input from the user.\nYour job is to determine whether or not you have a tool which can handle the users input, or respond with plain text.\n",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "system",
+      "name": null,
+      "id": "7c83361a-da06-45cc-b9aa-4aa007c9e422"
+    },
+    {
+      "content": "Can you describe the table user?",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "human",
+      "name": null,
+      "id": "e2a7aca2-372a-47c9-9370-d9e7e2e892d1",
+      "example": false
+    },
+    {
+      "content": "",
+      "additional_kwargs": {
+        "function_call": {
+          "name": "describe_table",
+          "arguments": "{\"table_name\": \"user\"}"
+        }
+      },
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--8b37f7c7-4f0f-4bf1-8f86-242d83c77584-0",
+      "example": false,
+      "tool_calls": [
+        {
+          "name": "describe_table",
+          "args": {
+            "table_name": "user"
+          },
+          "id": "768b2a94-99d2-4cfa-89b3-2557488e59d6",
+          "type": "tool_call"
+        }
+      ],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 304,
+        "output_tokens": 7,
+        "total_tokens": 311,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": [
+        "{\n  \"cid\": 0,\n  \"name\": \"id\",\n  \"type\": \"\",\n  \"notnull\": 0,\n  \"dflt_value\": null,\n  \"pk\": 0\n}",
+        "{\n  \"cid\": 1,\n  \"name\": \"email\",\n  \"type\": \"\",\n  \"notnull\": 0,\n  \"dflt_value\": null,\n  \"pk\": 0\n}"
+      ],
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "tool",
+      "name": "describe_table",
+      "id": "9f48cacb-0c23-439b-8951-926ff0f655d9",
+      "tool_call_id": "768b2a94-99d2-4cfa-89b3-2557488e59d6",
+      "artifact": null,
+      "status": "success"
+    },
+    {
+      "content": "OK. The user table has the columns id and email.",
+      "additional_kwargs": {},
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--b0430471-a428-473d-a570-1cbd5a8dbe1d-0",
+      "example": false,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 417,
+        "output_tokens": 12,
+        "total_tokens": 429,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": "You are a helpful assistant. \nYou're provided with a list of tools, and a input from the user.\nYour job is to determine whether or not you have a tool which can handle the users input, or respond with plain text.\n",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "system",
+      "name": null,
+      "id": "d0e20a21-6c62-4438-afb1-ea50b4b2cbe3"
+    },
+    {
+      "content": "Can you insert a new user in table user with Id 22 and email example22@example.com?",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "human",
+      "name": null,
+      "id": "515b8940-519a-4cab-a705-890f4a950b0f",
+      "example": false
+    },
+    {
+      "content": "",
+      "additional_kwargs": {
+        "function_call": {
+          "name": "insert_data",
+          "arguments": "{\"sql\": \"INSERT INTO user (id, email) VALUES (22, 'example22@example.com')\"}"
+        }
+      },
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--1dcbfe3a-aa0c-487c-a612-50385889b384-0",
+      "example": false,
+      "tool_calls": [
+        {
+          "name": "insert_data",
+          "args": {
+            "sql": "INSERT INTO user (id, email) VALUES (22, 'example22@example.com')"
+          },
+          "id": "d78280ea-da85-4af3-afb8-7cfe3749c471",
+          "type": "tool_call"
+        }
+      ],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 505,
+        "output_tokens": 26,
+        "total_tokens": 531,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    },
+    {
+      "content": "Data inserted successfully.",
+      "additional_kwargs": {},
+      "response_metadata": {},
+      "type": "tool",
+      "name": "insert_data",
+      "id": "b8819717-87ae-4ace-afc0-4786a34c6236",
+      "tool_call_id": "d78280ea-da85-4af3-afb8-7cfe3749c471",
+      "artifact": null,
+      "status": "success"
+    },
+    {
+      "content": "OK. I've inserted a new user into the user table with ID 22 and email example22@example.com.",
+      "additional_kwargs": {},
+      "response_metadata": {
+        "prompt_feedback": {
+          "block_reason": 0,
+          "safety_ratings": []
+        },
+        "finish_reason": "STOP",
+        "model_name": "gemini-2.0-flash",
+        "safety_ratings": []
+      },
+      "type": "ai",
+      "name": null,
+      "id": "run--e3161b89-c3d8-4a04-a3e8-5455ed8708a7-0",
+      "example": false,
+      "tool_calls": [],
+      "invalid_tool_calls": [],
+      "usage_metadata": {
+        "input_tokens": 539,
+        "output_tokens": 28,
+        "total_tokens": 567,
+        "input_token_details": {
+          "cache_read": 0
+        }
+      }
+    }
+  ]
+}
+```

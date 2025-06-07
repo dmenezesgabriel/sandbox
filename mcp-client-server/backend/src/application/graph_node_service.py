@@ -157,7 +157,7 @@ class GraphNodeServiceImpl(GraphNodeService):
             return "END"
 
         if state["messages"][-1].tool_calls[-1]["name"] in [
-            "create_Table",
+            "create_table",
             "insert_data",
         ]:
             return "human_review_node"
