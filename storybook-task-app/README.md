@@ -16,6 +16,23 @@ pnpm create storybook@latest
 pnpm install -D @storybook/addon-interactions @storybook/addon-links msw msw-storybook-addon
 ```
 
+## Usage
+
+### Storybook
+
+#### Build
+
+```sh
+npx http-server ./storybook-static
+```
+
+or
+
+```sh
+python3 -m http.server 5000
+# then go to http://localhost:5000/storybook-static
+```
+
 ## TODO
 
 - [screen](https://storybook.js.org/tutorials/intro-to-storybook/react/en/test/)
