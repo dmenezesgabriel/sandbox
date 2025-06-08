@@ -18,9 +18,10 @@ pnpm install -D @storybook/addon-interactions @storybook/addon-links msw msw-sto
 
 ## TODO
 
-- [screen](https://storybook.js.org/tutorials/intro-to-storybook/react/en/screen/)
+- [screen](https://storybook.js.org/tutorials/intro-to-storybook/react/en/test/)
 
 ## Related
 
 - [intro-storybook-react-template](https://github.com/chromaui/intro-storybook-react-template/tree/master)
 - [intro-to-storybook](https://storybook.js.org/tutorials/intro-to-storybook/react/en/simple-component/)
+- [using-storybook-and-mock-service-worker-for-mocked-api-responses](https://blog.logrocket.com/using-storybook-and-mock-service-worker-for-mocked-api-responses/)

@@ -2,18 +2,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { updateTaskState } from "../../lib/store";
 import type { RootState, AppDispatch } from "../../lib/store";
 import { Task } from "../task";
+import { selectVisibleTasks } from "../../lib/selectors";
 
 export function TaskList() {
-  const tasks = useSelector((state: RootState) => {
-    const tasksInOrder = [
-      ...state.taskbox.tasks.filter((t) => t.state === "TASK_PINNED"),
-      ...state.taskbox.tasks.filter((t) => t.state !== "TASK_PINNED"),
-    ];
-    const filteredTasks = tasksInOrder.filter(
-      (t) => t.state === "TASK_INBOX" || t.state === "TASK_PINNED"
-    );
-    return filteredTasks;
-  });
+  const tasks = useSelector(selectVisibleTasks);
 
   const { status } = useSelector((state: RootState) => state.taskbox);
   const dispatch = useDispatch<AppDispatch>();

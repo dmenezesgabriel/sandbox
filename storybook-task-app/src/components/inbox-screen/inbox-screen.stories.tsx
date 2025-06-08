@@ -1,8 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react";
 
 import { InboxScreen } from "./inbox-screen";
-import { http, HttpResponse } from "msw";
-import { MockedState } from "../task-list/task-list.stories";
+
 import { store } from "../../lib/store";
 
 import { Provider } from "react-redux";
@@ -13,12 +12,16 @@ import {
   within,
   waitForElementToBeRemoved,
 } from "@storybook/test";
+import {
+  getTodosErrorHandler,
+  getTodosSuccessHandler,
+} from "../../mocks/handlers";
 
 const meta = {
   component: InboxScreen,
   title: "InboxScreen",
   decorators: [(story) => <Provider store={store}>{story()}</Provider>],
-  tags: ["autodocs"],
+  // tags: ["autodocs"], // Storybook Docs leak msw handlers between stories on docs
 } satisfies Meta<typeof InboxScreen>;
 
 export default meta;
@@ -28,13 +31,10 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   parameters: {
     msw: {
-      handlers: [
-        http.get("https://jsonplaceholder.typicode.com/todos?userId=1", () => {
-          return HttpResponse.json(MockedState.tasks);
-        }),
-      ],
+      handlers: [getTodosSuccessHandler()],
     },
   },
+
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
@@ -50,11 +50,7 @@ export const Default: Story = {
 export const Error: Story = {
   parameters: {
     msw: {
-      handlers: [
-        http.get("https://jsonplaceholder.typicode.com/todos?userId=1", () => {
-          return new HttpResponse(null, { status: 403 });
-        }),
-      ],
+      handlers: [getTodosErrorHandler()],
     },
   },
 };
