@@ -25,7 +25,7 @@ function add(a: number, b: number) {
 const x = 1;
 let y = 19;
 
-add(1, 2);
+console.log(add(1, 2));
 ```
 
 ## Classes

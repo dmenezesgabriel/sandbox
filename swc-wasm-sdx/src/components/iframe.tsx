@@ -27,6 +27,7 @@ export function Iframe({ scriptUrl, onConsoleLog }: IframeProps) {
     const script = iframeDocument.createElement("script");
     script.type = "module";
     script.src = scriptUrl;
+
     iframeDocument.body.appendChild(script);
 
     const resizeObserver = new ResizeObserver(updateIframeHeight);

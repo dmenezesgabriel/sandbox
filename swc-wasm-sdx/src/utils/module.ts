@@ -76,7 +76,24 @@ export class Module {
     if (!this.declarations[cellId]) {
       this.declarations[cellId] = [];
     }
-    this.declarations[cellId].push(declaration);
+
+    const declarationNames = Array.isArray(declaration.name)
+      ? declaration.name
+      : [declaration.name];
+
+    const existingIndex = this.declarations[cellId].findIndex((existing) => {
+      const existingNames = Array.isArray(existing.name)
+        ? existing.name
+        : [existing.name];
+
+      return declarationNames.some((name) => existingNames.includes(name));
+    });
+
+    if (existingIndex !== -1) {
+      this.declarations[cellId][existingIndex] = declaration;
+    } else {
+      this.declarations[cellId].push(declaration);
+    }
   }
 
   private getAssignmentStrategy(declaration: Declaration): AssignmentStrategy {
@@ -98,6 +115,7 @@ export class Module {
   }
 
   generateModuleCode(compiledCode: string, currentCellId: string): string {
+    console.log(this.declarations);
     const declarationBlocks = Object.entries(this.declarations)
       .filter(([cellId]) => cellId !== currentCellId)
       .flatMap(([, declarations]) =>
@@ -106,11 +124,14 @@ export class Module {
         )
       );
 
-    return `(
+    const moduleCode = `(
       async function() {
         ${declarationBlocks.join("\n\n")}
         ${compiledCode}
       }
     )();`;
+    console.log(moduleCode);
+
+    return moduleCode;
   }
 }

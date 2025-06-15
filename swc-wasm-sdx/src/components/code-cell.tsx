@@ -37,6 +37,8 @@ export function CodeCell({ notebookId, cell }: CodeCellProps) {
     const url = URL.createObjectURL(blob);
 
     setModuleUrl(url);
+
+    console.log(module.declarations[cell.id]);
   }
 
   const handleConsoleLog = useCallback((...args: unknown[]) => {
