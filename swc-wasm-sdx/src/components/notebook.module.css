@@ -74,3 +74,25 @@
 .notebook__add_cell_button:hover {
   background: var(--color-bg-alt);
 }
+
+.notebook__toolbar {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+  padding: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.notebook__toolbar_button {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-base);
+  border: 1px solid var(--color-border-alt);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-button);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.notebook__toolbar_button:hover {
+  background: var(--color-bg-alt);
+}
