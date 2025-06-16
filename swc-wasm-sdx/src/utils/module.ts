@@ -124,13 +124,14 @@ export class Module {
   }
 
   generateModuleCode(currentCellId: string): string {
-    console.log(this.declarations);
     const declarationBlocks = Object.entries(this.declarations).flatMap(
       ([, declarations]) =>
         declarations.map((declaration) =>
           this.generateDeclarationBlock(declaration)
         )
     );
+
+    console.log(declarationBlocks);
 
     const statementBlocks = Object.entries(this.statements)
       .filter(([cellId]) => cellId === currentCellId)

@@ -238,19 +238,24 @@ class SourceStatementExtractionService {
     const topLevelStatements: SourceStatementInfo[] = [];
 
     for (const node of ast.body) {
-      console.log(node.type);
-      if (
-        ["ExpressionStatement", "ForStatement", "BlockStatement"].includes(
-          node.type
-        )
-      ) {
+      const statementType = node.type;
+
+      if (this.isValidStatementType(statementType)) {
         topLevelStatements.push({
           code: code.slice(node.start, node.end),
-          type: node.type,
+          type: statementType,
         });
       }
     }
     return topLevelStatements;
+  }
+
+  private isValidStatementType(
+    type: string
+  ): type is SourceStatementInfo["type"] {
+    return ["ExpressionStatement", "ForStatement", "BlockStatement"].includes(
+      type
+    );
   }
 }
 
