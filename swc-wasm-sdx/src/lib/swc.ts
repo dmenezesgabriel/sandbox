@@ -225,6 +225,35 @@ class SourceDeclarationExtractionService {
   }
 }
 
+interface SourceStatementInfo {
+  code: string;
+  type: "ExpressionStatement" | "ForStatement" | "BlockStatement";
+}
+
+class SourceStatementExtractionService {
+  extractAllTopLevelStatements(
+    ast: Program,
+    code: string
+  ): SourceStatementInfo[] {
+    const topLevelStatements: SourceStatementInfo[] = [];
+
+    for (const node of ast.body) {
+      console.log(node.type);
+      if (
+        ["ExpressionStatement", "ForStatement", "BlockStatement"].includes(
+          node.type
+        )
+      ) {
+        topLevelStatements.push({
+          code: code.slice(node.start, node.end),
+          type: node.type,
+        });
+      }
+    }
+    return topLevelStatements;
+  }
+}
+
 export function compile(sourceCode: string) {
   const transpiledCode = transpileSourceCodeWithSwc(sourceCode);
   const ast = parseSourceCodeToAst(transpiledCode);
@@ -234,8 +263,15 @@ export function compile(sourceCode: string) {
       ast,
       transpiledCode
     );
+  const statementExtractionService = new SourceStatementExtractionService();
+  const statements = statementExtractionService.extractAllTopLevelStatements(
+    ast,
+    transpiledCode
+  );
+
   return {
     code: transpiledCode,
     declarations,
+    statements,
   };
 }

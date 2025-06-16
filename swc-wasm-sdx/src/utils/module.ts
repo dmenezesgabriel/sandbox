@@ -69,6 +69,7 @@ const assignmentStrategies: Record<string, AssignmentStrategy> = {
 
 export class Module {
   declarations: Record<string, Declaration[]> = {};
+  statements: Record<string, string[]> = {};
 
   constructor() {}
 
@@ -96,6 +97,14 @@ export class Module {
     }
   }
 
+  addStatements(cellId: string, statements: { code: string }[]) {
+    if (!this.statements[cellId]) {
+      this.statements[cellId] = [];
+    }
+
+    this.statements[cellId] = statements.map((statement) => statement.code);
+  }
+
   private getAssignmentStrategy(declaration: Declaration): AssignmentStrategy {
     if (declaration.type !== "VariableDeclaration") {
       return assignmentStrategies[declaration.type];
@@ -114,20 +123,25 @@ export class Module {
     return `${declaration.code}\n${strategy.generate(declaration).join("\n")}`;
   }
 
-  generateModuleCode(compiledCode: string, currentCellId: string): string {
+  generateModuleCode(currentCellId: string): string {
     console.log(this.declarations);
-    const declarationBlocks = Object.entries(this.declarations)
-      .filter(([cellId]) => cellId !== currentCellId)
-      .flatMap(([, declarations]) =>
+    const declarationBlocks = Object.entries(this.declarations).flatMap(
+      ([, declarations]) =>
         declarations.map((declaration) =>
           this.generateDeclarationBlock(declaration)
         )
-      );
+    );
+
+    const statementBlocks = Object.entries(this.statements)
+      .filter(([cellId]) => cellId === currentCellId)
+      .flatMap(([, statements]) => statements);
+
+    console.log(statementBlocks);
 
     const moduleCode = `(
       async function() {
         ${declarationBlocks.join("\n\n")}
-        ${compiledCode}
+        ${statementBlocks.join("\n\n")}
       }
     )();`;
     console.log(moduleCode);

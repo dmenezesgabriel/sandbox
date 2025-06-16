@@ -32,13 +32,13 @@ export function CodeCell({ notebookId, cell }: CodeCellProps) {
       module.addDeclaration(cell.id, decl);
     });
 
-    const fullCode = module.generateModuleCode(compiled.code, cell.id);
+    module.addStatements(cell.id, compiled.statements);
+
+    const fullCode = module.generateModuleCode(cell.id);
     const blob = new Blob([fullCode], { type: "application/javascript" });
     const url = URL.createObjectURL(blob);
 
     setModuleUrl(url);
-
-    console.log(module.declarations[cell.id]);
   }
 
   const handleConsoleLog = useCallback((...args: unknown[]) => {
