@@ -1,3 +1,21 @@
+#!/usr/bin/env -S uv run --script
+
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "duckdb>=1.3.1",
+#     "litellm>=1.72.6.post1",
+#     "python-dotenv>=1.1.0",
+#     "rich>=14.0.0",
+# ]
+# ///
+
+"""
+Usage:
+
+./sfa.py -c 10 -p"what can you tell me about this dataset?" -f"./iris.csv"
+"""
+
 import argparse
 import json
 import os
@@ -169,13 +187,14 @@ def run_test_sql_query(reasoning: str, sql_query: str) -> str:
     Returns:
         str: The result of the SQL query execution.
     """
+    console.print(f"[dim]Query: {sql_query}[/dim]")
+
     try:
         con.execute(sql_query)
         result = con.fetchall()
         console.log(
             f"[blue]Run Test SQL Query Tool[/blue] - Query: {sql_query} - Reasoning: {reasoning}"
         )
-        console.log(f"[dim]Query: {sql_query}[/dim]")
         return "\n".join([str(row) for row in result])
     except Exception as e:
         console.log(f"[red]Error in Run Test SQL Query Tool: {str(e)}[/red]")
@@ -194,6 +213,8 @@ def run_final_sql_query(reasoning: str, sql_query: str) -> str:
     Returns:
         str: The result of the final SQL query execution.
     """
+    console.print(f"[dim]Query: {sql_query}[/dim]")
+
     try:
         con.execute(sql_query)
         result = con.fetchall()
@@ -202,7 +223,6 @@ def run_final_sql_query(reasoning: str, sql_query: str) -> str:
                 f"[green]Final Query Tool[/green]\nReasoning: {reasoning}\nQuery: {sql_query}"
             )
         )
-        console.log(f"[dim]Query: {sql_query}[/dim]")
         return "\n".join([str(row) for row in result])
     except Exception as e:
         console.log(f"[red]Error in Run Final SQL Query Tool: {str(e)}[/red]")
@@ -223,6 +243,7 @@ AGENT_PROMPT = """<purpose>
     <instruction>Sample tables to see actual data patterns.</instruction>
     <instruction>Test queries before finalizing them.</instruction>
     <instruction>Only call run_final_sql_query when you're confident the query is perfect.</instruction>
+    <instruction>Only call run_final_sql_query after had called run_test_sql_query. at least once</instruction>
     <instruction>Be thorough but efficient with tool usage.</instruction>
     <instruction>If you find your run_test_sql_query tool call returns an error or won't satisfy the user request, try to fix the query or try a different query.</instruction>
     <instruction>Think step by step about what information you need.</instruction>
@@ -473,7 +494,6 @@ def main():
         console.print(
             "[red]Error: GEMINI_API_KEY environment variable is not set[/red]"
         )
-    os.environ["GEMINI_API_KEY"] = GEMINI_API_KEY
 
     file_paths = parse_file_paths(args.files)
     for file_path in file_paths:
@@ -508,12 +528,11 @@ def main():
             model="gemini/gemini-2.0-flash",
             messages=messages,
             tools=tools,
-            tool_choice="required",
+            # tool_choice="required",
         )
 
         choice = response.choices[0].message
         tool_calls = getattr(choice, "tool_calls", None)
-
         if tool_calls:
             messages.append(
                 {
@@ -555,6 +574,12 @@ def main():
                         {
                             "role": "tool",
                             "tool_call_id": tool_call.id,
+                            "content": json.dumps({"result": result}),
+                        }
+                    )
+                    messages.append(
+                        {
+                            "role": "assistant",
                             "content": json.dumps({"result": result}),
                         }
                     )
