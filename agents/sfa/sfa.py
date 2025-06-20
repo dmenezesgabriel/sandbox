@@ -13,13 +13,12 @@
 """
 Usage:
 
-./sfa.py -c 10 -p"what can you tell me about this dataset?" -f"./iris.csv"
+./sfa.py -c 10 -p"who is the fire type pokemon with most attack power?" -f "./Pokemon.csv"
 """
 
 import argparse
 import json
 import os
-from abc import ABC
 from enum import Enum
 from typing import Any, Dict, List
 
@@ -43,21 +42,6 @@ class FileTypes(Enum):
     JSON = "json"
     PARQUET = "parquet"
     AVRO = "avro"
-
-
-class LLMConfig:
-    model_name: str
-    temperature: float
-    max_tokens: int | None
-    timeout: int | None
-    max_retries: int
-
-
-class LLMProviderStrategy(ABC):
-    def create_model(self, config: LLMConfig) -> Any:
-        raise NotImplementedError(
-            "This method should be overridden by subclasses."
-        )
 
 
 def parse_file_paths(file_paths_string: str) -> List[str]:
