@@ -18,6 +18,7 @@ or
 """
 
 import asyncio
+import os
 
 from crawl4ai import (
     AsyncWebCrawler,
@@ -45,7 +46,8 @@ async def main():
 
     async with AsyncWebCrawler(config=browser_conf) as crawler:
         result = await crawler.arun(
-            url="https://crawl4ai.com", config=run_conf
+            url="https://duckdb.org/docs/stable/clients/python/function.html",
+            config=run_conf,
         )
         console.print(
             "Raw Markdown length:", len(result.markdown.raw_markdown)
@@ -53,6 +55,12 @@ async def main():
         console.print(
             "Fit Markdown length:", len(result.markdown.fit_markdown)
         )
+
+        if not os.path.exists("./extracted"):
+            os.makedirs("./extracted")
+
+        with open("./extracted/result.md", "w") as f:
+            f.write(result.markdown.fit_markdown)
 
 
 if __name__ == "__main__":
