@@ -11,21 +11,17 @@ export const RemotionRoot = () => {
       .then(setMarkdown);
   }, []);
 
-  if (!markdown) return null; // or a loading spinner
-
   return (
-    <>
-      <Composition
-        id="MarkdownVideo"
-        component={Video}
-        durationInFrames={300}
-        fps={30}
-        width={1280}
-        height={720}
-        defaultProps={{
-          markdown,
-        }}
-      />
-    </>
+    <Composition
+      id="MarkdownVideo"
+      component={Video}
+      durationInFrames={300}
+      fps={30}
+      width={1280}
+      height={720}
+      defaultProps={{
+        markdown: markdown || "# Loading...",
+      }}
+    />
   );
 };
