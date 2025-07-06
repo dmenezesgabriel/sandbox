@@ -1,0 +1,17 @@
+[project]
+name = "effective-agents"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "litellm>=1.74.0",
+    "pydantic>=2.11.7",
+    "requests>=2.32.4",
+    "rich>=14.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]
