@@ -1,0 +1,139 @@
+# Sales Analytics Dashboard
+
+This dashboard demonstrates SQL query execution and data visualization within MDX content.
+
+<Slider
+  min={2020}
+  max={2024}
+  name="report_year"
+  title="Select Report Year"
+  defaultValue={2024}
+  size="full"
+/>
+
+## Sample Data Setup
+
+First, let's create some sample sales data:
+
+```sql id="create_sales_table"
+DROP TABLE IF EXISTS sales;
+CREATE TABLE sales AS
+SELECT * FROM VALUES
+  ('2024-01-01'::DATE, 'Product A', 'Electronics', 1200, 5),
+  ('2024-01-01'::DATE, 'Product B', 'Clothing', 800, 12),
+  ('2024-01-02'::DATE, 'Product A', 'Electronics', 1500, 7),
+  ('2024-01-02'::DATE, 'Product C', 'Books', 300, 15),
+  ('2024-01-03'::DATE, 'Product B', 'Clothing', 950, 8),
+  ('2024-01-03'::DATE, 'Product D', 'Electronics', 2200, 3),
+  ('2024-01-04'::DATE, 'Product A', 'Electronics', 1100, 6),
+  ('2024-01-04'::DATE, 'Product C', 'Books', 450, 18),
+  ('2024-01-05'::DATE, 'Product B', 'Clothing', 1200, 10),
+  ('2024-01-05'::DATE, 'Product D', 'Electronics', 1800, 4)
+AS t(date, product, category, revenue, quantity);
+```
+
+## Sales Overview
+
+Let's look at our sales data:
+
+```sql id="sales_overview"
+SELECT
+  date,
+  product,
+  category,
+  revenue,
+  quantity
+FROM sales
+WHERE STRFTIME('%Y', date) = '${inputs.report_year}'
+ORDER BY date, product;
+```
+
+<DataTable queryId="sales_overview" title="Sales Overview" maxRows={15} />
+
+## Revenue by Category
+
+Now let's analyze revenue by category:
+
+```sql id="revenue_by_category"
+SELECT
+  category,
+  SUM(revenue) as total_revenue,
+  SUM(quantity) as total_quantity,
+  COUNT(*) as transaction_count,
+  ROUND(AVG(revenue), 2) as avg_revenue
+FROM sales
+GROUP BY category
+ORDER BY total_revenue DESC;
+```
+
+<DataTable queryId="revenue_by_category" title="Revenue by Category" />
+
+<DataChart
+  queryId="revenue_by_category"
+  type="bar"
+  xField="category"
+  yField="total_revenue"
+  title="Total Revenue by Category"
+  height={350}
+/>
+
+## Daily Sales Trends
+
+Let's examine daily sales trends:
+
+```sql id="daily_sales"
+SELECT
+  date,
+  SUM(revenue) as daily_revenue,
+  SUM(quantity) as daily_quantity
+FROM sales
+GROUP BY date
+ORDER BY date;
+```
+
+<DataChart
+  queryId="daily_sales"
+  type="line"
+  xField="date"
+  yField="daily_revenue"
+  title="Daily Revenue Trend"
+  height={300}
+/>
+
+## Product Performance
+
+Finally, let's see which products are performing best:
+
+```sql id="product_performance"
+SELECT
+  product,
+  SUM(revenue * quantity) as total_value,
+  SUM(quantity) as total_sold,
+  COUNT(*) as sales_count,
+  ROUND(AVG(revenue), 2) as avg_price
+FROM sales
+GROUP BY product
+ORDER BY total_value DESC;
+```
+
+<DataTable queryId="product_performance" title="Product Performance Analysis" />
+
+<DataChart
+  queryId="product_performance"
+  type="bar"
+  xField="product"
+  yField="total_value"
+  title="Total Value by Product"
+  height={350}
+/>
+
+## Summary
+
+This dashboard shows how MDX can seamlessly integrate with SQL queries and data visualizations:
+
+- **SQL Execution**: Each ```sql code block is executed automatically
+- **Query Results**: Results are stored and can be referenced by visualization components
+- **Interactive Components**: Tables and charts update dynamically based on query results
+- **Error Handling**: Robust error handling for both SQL execution and rendering
+
+The system supports complex analytical workflows while maintaining clean, readable documentation.
