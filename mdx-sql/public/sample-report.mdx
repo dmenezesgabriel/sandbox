@@ -15,7 +15,7 @@ This dashboard demonstrates SQL query execution and data visualization within MD
 
 First, let's create some sample sales data:
 
-```sql id="create_sales_table"
+```sql { id="create_sales_table" }
 DROP TABLE IF EXISTS sales;
 CREATE TABLE sales AS
 SELECT * FROM VALUES
@@ -36,7 +36,7 @@ AS t(date, product, category, revenue, quantity);
 
 Let's look at our sales data:
 
-```sql id="sales_overview"
+```sql { id="sales_overview" }
 SELECT
   date,
   product,
@@ -54,7 +54,7 @@ ORDER BY date, product;
 
 Now let's analyze revenue by category:
 
-```sql id="revenue_by_category"
+```sql { id="revenue_by_category" }
 SELECT
   category,
   SUM(revenue) as total_revenue,
@@ -81,7 +81,7 @@ ORDER BY total_revenue DESC;
 
 Let's examine daily sales trends:
 
-```sql id="daily_sales"
+```sql { id="daily_sales" }
 SELECT
   date,
   SUM(revenue) as daily_revenue,
@@ -104,7 +104,7 @@ ORDER BY date;
 
 Finally, let's see which products are performing best:
 
-```sql id="product_performance"
+```sql { id="product_performance" }
 SELECT
   product,
   SUM(revenue * quantity) as total_value,

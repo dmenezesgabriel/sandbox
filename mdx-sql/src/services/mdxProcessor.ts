@@ -9,8 +9,21 @@ import type { Code } from "mdast";
 export interface SqlBlock {
   id: string;
   sql: string;
-  meta?: string;
+  meta: string;
 }
+
+const parseMeta = (meta: string): Record<string, string> => {
+  const result: Record<string, string> = {};
+  if (!meta) return result;
+
+  const regex = /(\w+)="([^"]+)"/g;
+  let match;
+  while ((match = regex.exec(meta))) {
+    result[match[1]] = match[2];
+  }
+
+  return result;
+};
 
 export const extractSqlBlocks = (mdxContent: string): SqlBlock[] => {
   const sqlBlocks: SqlBlock[] = [];
@@ -19,13 +32,13 @@ export const extractSqlBlocks = (mdxContent: string): SqlBlock[] => {
 
   visit(ast, "code", (node: Code) => {
     if (node.lang === "sql") {
-      const idMatch = node.meta?.match(/id=["']([^"']+)["']/);
-      const id = idMatch?.[1] || `query_${sqlBlocks.length + 1}`;
+      const metaInfo = parseMeta(node.meta!);
+      const id = metaInfo.id;
 
       sqlBlocks.push({
         id,
         sql: node.value.trim(),
-        meta: node.meta || undefined,
+        meta: node.meta!,
       });
     }
   });
