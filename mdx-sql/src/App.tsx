@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { QueryProvider } from "./context/QueryContext";
 import { MdxRenderer } from "./components/MdxRenderer";
-import { CodeEditor } from "./components/CodeEditor";
+import { CodeEditor } from "./components/code-editor";
 import { useMdxLoader } from "./hooks/useMdxLoader";
 import { Play, FileText } from "lucide-react";
 

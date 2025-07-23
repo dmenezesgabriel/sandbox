@@ -5,6 +5,8 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { foldGutter } from "@codemirror/language";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { useEffect, useRef } from "react";
+import { sql } from "@codemirror/lang-sql";
+import { LanguageDescription } from "@codemirror/language";
 
 interface CodeEditorProps {
   value: string;
@@ -38,6 +40,13 @@ export function CodeEditor({
           languageCompartment.current.of(
             markdown({
               base: markdownLanguage,
+              codeLanguages: [
+                LanguageDescription.of({
+                  name: "sql",
+                  alias: ["postgres", "sqlite"],
+                  support: sql(),
+                }),
+              ],
             })
           ),
           foldGutter(),
@@ -84,6 +93,7 @@ export function CodeEditor({
     const editorView = editorViewRef.current;
     if (editorView) {
       const currentValue = editorView.state.doc.toString();
+
       if (currentValue !== value) {
         editorView.dispatch({
           changes: { from: 0, to: currentValue.length, insert: value },

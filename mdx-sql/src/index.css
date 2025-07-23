@@ -1,3 +1,26 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  .shiki {
+    @apply relative overflow-x-auto p-6 leading-relaxed;
+    counter-reset: line;
+  }
+
+  .shiki code > span {
+    @apply relative inline-block w-full pl-12 align-baseline leading-[inherit];
+    counter-increment: line;
+  }
+
+  .shiki code > span::before {
+    content: counter(line);
+    @apply absolute left-0 top-0 w-10 text-right pr-2 text-gray-300 text-sm opacity-50 select-none;
+    line-height: inherit;
+    top: 0.125em;
+  }
+
+  .shiki code > span:empty::before {
+    content: "";
+  }
+}

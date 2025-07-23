@@ -44,7 +44,7 @@ SELECT
   revenue,
   quantity
 FROM sales
-WHERE STRFTIME('%Y', date) = '${inputs.report_year}'
+WHERE STRFTIME('%Y', date) = '{{report_year}}'
 ORDER BY date, product;
 ```
 

@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { QueryResult } from "../hooks/useDuckDB";
 import { useDuckDB } from "../hooks/useDuckDB";
+import Handlebars from "handlebars";
 
 // Deep comparison function for QueryResult objects
 const areQueryResultsEqual = (a: QueryResult, b: QueryResult): boolean => {
@@ -96,21 +97,10 @@ export const QueryProvider: React.FC<{ children: ReactNode }> = ({
         throw new Error("DuckDB not initialized");
       }
 
-      // Perform parameter substitution (use HandlerBars?)
-      let processedSql = sql;
-      for (const paramName in inputParams) {
-        const placeholder = new RegExp(
-          `\\$\\{\\s*inputs\\.${paramName}\\s*\\}`,
-          "g"
-        );
-
-        processedSql = processedSql.replace(
-          placeholder,
-          String(inputParams[paramName])
-        );
-      }
-
       try {
+        const template = Handlebars.compile(sql);
+        const processedSql = template(inputParams);
+
         const result = await executeQuery(processedSql);
         return result;
       } catch (err) {

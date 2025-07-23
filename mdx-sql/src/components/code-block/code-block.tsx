@@ -62,7 +62,7 @@ export function CodeBlock({
 
       <div className="border-l border-r border-b border-gray-300 rounded-b-lg overflow-hidden">
         <div className="bg-gray-900">
-          <div className="p-4 overflow-x-auto">
+          <div className="overflow-x-auto">
             {nodes ?? <p className="text-gray-400">Loading code...</p>}
           </div>
         </div>
