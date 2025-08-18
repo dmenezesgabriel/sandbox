@@ -8,13 +8,14 @@
 
 
 import logging
+from argparse import ArgumentParser
+from pathlib import Path
 
-import textual
 from textual import events
 from textual.app import App, ComposeResult
-from textual.containers import Container
+from textual.containers import Container, Horizontal
 from textual.logging import TextualHandler
-from textual.widgets import Footer, Header, TextArea
+from textual.widgets import DirectoryTree, Footer, Header, TextArea
 
 logging.basicConfig(
     level="NOTSET",
@@ -22,13 +23,16 @@ logging.basicConfig(
 )
 
 
-class File:
-    def __init__(self, content: str = ""):
-        self.content = content
-
-    def save(self, filename: str) -> None:
-        with open(filename, "w") as f:
-            f.write(self.content)
+extensions = {
+    ".py": "python",
+    ".js": "javascript",
+    ".html": "html",
+    ".css": "css",
+    ".txt": "text",
+    ".md": "markdown",
+    ".json": "json",
+    ".xml": "xml",
+}
 
 
 class ExtendedTextArea(TextArea):
@@ -39,27 +43,59 @@ class ExtendedTextArea(TextArea):
             event.prevent_default()
 
 
-class TextEditor(App):
-    BINDINGS = [("ctrl+s", "save", "Save File")]
+class Editor(App[None]):
+    BINDINGS = [
+        ("ctrl+s", "save_file", "Save File"),
+        ("q", "quit", "Quit"),
+    ]
+
+    def __init__(self, folder: Path) -> None:
+        super().__init__()
+        self.folder = folder
+        self.file = None
 
     def compose(self) -> ComposeResult:
         self.current_editor = ExtendedTextArea.code_editor(
-            text="", language=""
+            id="editor", text="", language=""
         )
         with Container():
             yield Header()
-            yield self.current_editor
+            yield Horizontal(
+                DirectoryTree(self.folder),
+                self.current_editor,
+            )
             yield Footer()
 
-    def action_save(self) -> None:
-        content = self.current_editor.text
-        file = File(content)
-        file.save("output.txt")
-        self.notify("File saved")
+    def _on_directory_tree_file_selected(self, event) -> None:
+        path: Path = event.path
+        if not path.is_file():
+            return
+
+        self.file = path
+        text_editor = self.query_one("#editor")
+        text_editor.text = self.file.read_text()
+        text_editor.language = extensions.get(self.file.suffix, "text")
+
+    def action_save_file(self) -> None:
+        if self.file is None:
+            return
+
+        editor = self.query_one("#editor")
+        self.file.write_text(editor.text)
+        self.notify(f"Saved {self.file.name}")
 
 
 if __name__ == "__main__":
-    print(textual.__version__)
+    parser = ArgumentParser(description="Text Editor")
+    parser.add_argument("folder", type=Path, help="Folder to open")
 
-    app = TextEditor()
+    args = parser.parse_args()
+    folder: Path = args.folder
+
+    if not folder.exists():
+        raise FileNotFoundError(f"Folder {folder} does not exist")
+    if not folder.is_dir():
+        folder = folder.parent
+
+    app = Editor(folder=args.folder)
     app.run()
