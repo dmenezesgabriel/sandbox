@@ -10,6 +10,7 @@
 import logging
 from argparse import ArgumentParser
 from pathlib import Path
+from typing import Optional
 
 from textual import events
 from textual.app import App, ComposeResult
@@ -52,7 +53,7 @@ class Editor(App[None]):
     def __init__(self, folder: Path) -> None:
         super().__init__()
         self.folder = folder
-        self.file = None
+        self.file: Optional[Path] = None
 
     def compose(self) -> ComposeResult:
         self.current_editor = ExtendedTextArea.code_editor(
@@ -66,7 +67,9 @@ class Editor(App[None]):
             )
             yield Footer()
 
-    def _on_directory_tree_file_selected(self, event) -> None:
+    def _on_directory_tree_file_selected(
+        self, event: DirectoryTree.FileSelected
+    ) -> None:
         path: Path = event.path
         if not path.is_file():
             return
