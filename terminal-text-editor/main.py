@@ -53,7 +53,7 @@ class Commands(Provider):
                     paths.append(p)
         return paths
 
-    async def search(self, query: string):
+    async def search(self, query: str):
         matcher = self.matcher(query)
         for path in self.read_files():
             command = f"open {path}"
