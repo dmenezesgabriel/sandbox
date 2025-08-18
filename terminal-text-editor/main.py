@@ -7,28 +7,55 @@
 # usage: uv run main.py
 
 
-import sys
+import logging
 
 import textual
+from textual import events
 from textual.app import App, ComposeResult
+from textual.containers import Container
+from textual.logging import TextualHandler
 from textual.widgets import Footer, Header, TextArea
+
+logging.basicConfig(
+    level="NOTSET",
+    handlers=[TextualHandler()],
+)
+
+
+class File:
+    def __init__(self, content: str = ""):
+        self.content = content
+
+    def save(self, filename: str) -> None:
+        with open(filename, "w") as f:
+            f.write(self.content)
+
+
+class ExtendedTextArea(TextArea):
+    async def _on_key(self, event: events.Key) -> None:
+        if event.character == "(":
+            self.insert("()")
+            self.move_cursor_relative(columns=-1)
+            event.prevent_default()
 
 
 class TextEditor(App):
-    BINDINGS = [("d", "toggle_dark", "Toggle dark mode")]
+    BINDINGS = [("ctrl+s", "save", "Save File")]
 
     def compose(self) -> ComposeResult:
-        yield Header()
-        yield TextArea.code_editor()
-        yield Footer()
-
-    def action_toggle_dark(self) -> None:
-        """An action to toggle dark mode."""
-        self.theme = (
-            "textual-dark"
-            if self.theme == "textual-light"
-            else "textual-light"
+        self.current_editor = ExtendedTextArea.code_editor(
+            text="", language=""
         )
+        with Container():
+            yield Header()
+            yield self.current_editor
+            yield Footer()
+
+    def action_save(self) -> None:
+        content = self.current_editor.text
+        file = File(content)
+        file.save("output.txt")
+        self.notify("File saved")
 
 
 if __name__ == "__main__":
@@ -36,5 +63,3 @@ if __name__ == "__main__":
 
     app = TextEditor()
     app.run()
-
-    path = sys.argv[1] if len(sys.argv) > 1 else "."
