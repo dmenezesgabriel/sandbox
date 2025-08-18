@@ -126,7 +126,7 @@ class Editor(App[None]):
         self.file = path
         text_editor = cast(ExtendedTextArea, self.query_one("#editor"))
         text_editor.text = self.file.read_text()
-        text_editor.language = EXTENSIONS.get(self.file.suffix, "md")
+        text_editor.language = EXTENSIONS.get(self.file.suffix, "markdown")
         text_editor.read_only = False
         text_editor.focus()
 
