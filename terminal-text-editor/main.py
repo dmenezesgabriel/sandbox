@@ -68,9 +68,20 @@ class Commands(Provider):
 
 
 class ExtendedTextArea(TextArea):
+    bracket_pairs = {
+        "(": "()",
+        "{": "{}",
+        "[": "[]",
+        '"': '""',
+        "'": "''",
+    }
+
     async def _on_key(self, event: events.Key) -> None:
-        if event.character == "(":
-            self.insert("()")
+        if not event.character:
+            return
+
+        if event.character in self.bracket_pairs.keys():
+            self.insert(self.bracket_pairs[event.character])
             self.move_cursor_relative(columns=-1)
             event.prevent_default()
 
