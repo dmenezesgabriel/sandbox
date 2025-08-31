@@ -10,6 +10,7 @@ const pyodideReadyPromise = (async () => {
   await pyodide.loadPackage("micropip");
   const micropip = pyodide.pyimport("micropip");
   await micropip.install("flask");
+  await micropip.install("sqlite3");
   return pyodide;
 })();
 
