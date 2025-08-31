@@ -23,27 +23,28 @@
 
   <script>
     let swReady = false;
-    let serviceWorker;
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js')
-        .then(reg => {
-          console.log('Service Worker registered');
-          serviceWorker = reg.installing || reg.waiting || reg.active;
+      // Unregister old SWs on every refresh (development-friendly)
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (const reg of registrations) reg.unregister();
 
-          // Listen for messages from the Service Worker
-          navigator.serviceWorker.addEventListener('message', (event) => {
-            if (event.data.command === 'appReady') {
-              console.log('Flask app ready inside Service Worker');
-              swReady = true;
+        // Register SW with version query to force reload
+        navigator.serviceWorker.register(`service-worker.js?v=${Date.now()}`)
+          .then(reg => {
+            console.log('Service Worker registered');
 
-              // Enable buttons
-              document.getElementById("run-hello").disabled = false;
-              document.getElementById("run-data").disabled = false;
-            }
-          });
-        })
-        .catch(err => console.error('Service Worker registration failed:', err));
+            navigator.serviceWorker.addEventListener('message', (event) => {
+              if (event.data.command === 'appReady') {
+                console.log('Flask app ready inside Service Worker');
+                swReady = true;
+                document.getElementById("run-hello").disabled = false;
+                document.getElementById("run-data").disabled = false;
+              }
+            });
+          })
+          .catch(err => console.error('Service Worker registration failed:', err));
+      });
     }
 
     async function fetchApi(path) {

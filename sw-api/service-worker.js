@@ -1,41 +1,37 @@
-// service-worker.js
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.28.2/full/pyodide.js");
 
-let pyodide;
-let app, requestStatus, headers;
+let pyodide; // <-- global pyodide instance
+let app;
+let requestStatus, headers;
 
-async function startPyodide() {
+// Load Pyodide once
+const pyodideReadyPromise = (async () => {
   pyodide = await loadPyodide();
-
   await pyodide.loadPackage("micropip");
   const micropip = pyodide.pyimport("micropip");
   await micropip.install("flask");
+  return pyodide;
+})();
 
-  // Minimal Flask app with multiple /api routes
-  pyodide.runPython(`
-from flask import Flask, jsonify
+// Initialize Flask app dynamically
+let flaskReadyPromise;
+async function startFlaskApp() {
+  await pyodideReadyPromise;
 
-app = Flask(__name__)
-
-@app.route("/api/hello")
-def hello_world():
-    return "<p>Hello, World from /api/hello!</p>"
-
-@app.route("/api/data")
-def data():
-    return jsonify({"message": "This is JSON from /api/data"})
-`);
+  const res = await fetch("app.py");
+  const appSrc = await res.text();
+  pyodide.runPython(appSrc);
 
   app = pyodide.globals.get("app").toJs();
 
-  self.clients.matchAll().then((clients) => {
-    clients.forEach((client) => {
-      client.postMessage({ command: "appReady" });
-    });
-  });
+  // notify clients
+  self.clients
+    .matchAll()
+    .then((clients) =>
+      clients.forEach((c) => c.postMessage({ command: "appReady" }))
+    );
 }
-
-startPyodide();
+flaskReadyPromise = startFlaskApp();
 
 function start_response(status, responseHeaders, exc_info) {
   requestStatus = status;
@@ -43,7 +39,10 @@ function start_response(status, responseHeaders, exc_info) {
   responseHeaders.toJs().forEach(([key, value]) => (headers[key] = value));
 }
 
-function handleRequest(path) {
+async function handleRequest(path) {
+  // Wait until Flask is ready
+  await flaskReadyPromise;
+
   const environ = {
     "wsgi.url_scheme": "http",
     REQUEST_METHOD: "GET",
@@ -51,17 +50,13 @@ function handleRequest(path) {
   };
 
   const result = app(pyodide.toPy(environ), start_response).toJs();
-  let response = result.__next__(); // WSGI iterable
+  let response = result.__next__();
 
-  // Check if response is bytes (Pyodide returns Python bytes)
   if (response.constructor.name === "PyProxy") {
-    // Convert to Uint8Array
     response = new Uint8Array(response.toJs());
     return new Response(response, { status: parseInt(requestStatus), headers });
   } else {
-    // Otherwise convert to string (HTML)
-    response = response.toString();
-    const body = new TextEncoder().encode(response);
+    const body = new TextEncoder().encode(response.toString());
     return new Response(body, { status: parseInt(requestStatus), headers });
   }
 }
@@ -79,7 +74,6 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.pathname.startsWith("/api")) {
-    const flaskPath = url.pathname; // pass full /api path
-    event.respondWith(handleRequest(flaskPath));
+    event.respondWith(handleRequest(url.pathname));
   }
 });
