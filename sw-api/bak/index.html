@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>SW Mock API Example</title>
+</head>
+
+<body>
+  <h1>Service Worker Mock API</h1>
+  <button id="getUser">Get User</button>
+  <button id="createUser">Create User</button>
+
+  <pre id="output"></pre>
+
+  <script>
+    // Register the service worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("sw.js").then(() => {
+        console.log("SW registered");
+      });
+    }
+
+    const output = document.getElementById("output");
+
+    document.getElementById("getUser").onclick = async () => {
+      const res = await fetch("/api/users/123");
+      const data = await res.json();
+      output.textContent = JSON.stringify(data, null, 2);
+    };
+
+    document.getElementById("createUser").onclick = async () => {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Alice" })
+      });
+      const data = await res.json();
+      output.textContent = JSON.stringify(data, null, 2);
+    };
+  </script>
+</body>
+
+</html>

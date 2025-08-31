@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>Flask in Service Worker</title>
+</head>
+
+<body>
+  <h1>Flask in Service Worker Demo</h1>
+
+  <button
+    id="run-hello"
+    disabled
+  >Fetch /api/hello</button>
+  <button
+    id="run-data"
+    disabled
+  >Fetch /api/data</button>
+
+  <h2>Output:</h2>
+  <pre id="output"></pre>
+
+  <script>
+    let swReady = false;
+    let serviceWorker;
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => {
+          console.log('Service Worker registered');
+          serviceWorker = reg.installing || reg.waiting || reg.active;
+
+          // Listen for messages from the Service Worker
+          navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data.command === 'appReady') {
+              console.log('Flask app ready inside Service Worker');
+              swReady = true;
+
+              // Enable buttons
+              document.getElementById("run-hello").disabled = false;
+              document.getElementById("run-data").disabled = false;
+            }
+          });
+        })
+        .catch(err => console.error('Service Worker registration failed:', err));
+    }
+
+    async function fetchApi(path) {
+      if (!swReady) {
+        alert("Flask app is not ready yet!");
+        return;
+      }
+
+      const res = await fetch(path);
+      const contentType = res.headers.get("Content-Type");
+      let text;
+      if (contentType && contentType.includes("application/json")) {
+        text = JSON.stringify(await res.json(), null, 2);
+      } else {
+        text = await res.text();
+      }
+      document.getElementById("output").textContent = text;
+    }
+
+    document.getElementById("run-hello").onclick = () => fetchApi("/api/hello");
+    document.getElementById("run-data").onclick = () => fetchApi("/api/data");
+  </script>
+</body>
+
+</html>
