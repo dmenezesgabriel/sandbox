@@ -5,8 +5,9 @@ import {
   ViewChild,
   type AfterViewInit,
   type OnChanges,
-  ViewContainerRef,
   type SimpleChanges,
+  CUSTOM_ELEMENTS_SCHEMA,
+  ElementRef,
 } from '@angular/core';
 import { MarkdownService } from './markdown.service';
 
@@ -16,33 +17,34 @@ import { MarkdownService } from './markdown.service';
   imports: [CommonModule],
   templateUrl: './markdown-renderer.component.html',
   styleUrl: './markdown-renderer.component.css',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class MarkdownRendererComponent implements OnChanges, AfterViewInit {
   @Input() content: string = '';
-  @ViewChild('componentContainer', { read: ViewContainerRef })
-  componentContainer!: ViewContainerRef;
+  @ViewChild('markdownContent', { read: ElementRef })
+  markdownContainer!: ElementRef<HTMLDivElement>;
 
   constructor(private markdownService: MarkdownService) {}
 
   ngAfterViewInit(): void {
-    if (this.content) {
+    if (this.content && this.markdownContainer) {
       this.renderContent();
     }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['content'] && this.componentContainer) {
+    if (changes['content'] && this.markdownContainer) {
       this.renderContent();
     }
   }
 
   private async renderContent(): Promise<void> {
-    if (!this.content || !this.componentContainer) return;
+    if (!this.content || !this.markdownContainer) return;
 
     try {
       await this.markdownService.renderMarkdown(
         this.content,
-        this.componentContainer
+        this.markdownContainer.nativeElement
       );
     } catch (error) {
       console.error('Error rendering markdown content:', error);
