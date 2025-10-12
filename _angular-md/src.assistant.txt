@@ -1,0 +1,913 @@
+--- global_styles.css (9 lines)
+/* Global styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}--- index.html (11 lines)
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>My app</title>
+    <meta charset="UTF-8" />
+    <base href="/">
+  </head>
+  <body>
+    <app-root>Loading...</app-root>
+  </body>
+</html>
+--- components/alert.component.ts (93 lines)
+import { Component, Input } from "@angular/core";
+import { CommonModule } from "@angular/common";
+
+@Component({
+  selector: "custom-alert",
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div [class]="alertClass" role="alert">
+      <div class="alert-icon">{{ icon }}</div>
+      <div class="alert-content">
+        <h4 class="alert-title" *ngIf="title">{{ title }}</h4>
+        <p class="alert-message">{{ message }}</p>
+      </div>
+    </div>
+  `,
+  styles: [
+    `
+      .alert {
+        display: flex;
+        align-items: flex-start;
+        padding: 16px;
+        border-radius: 8px;
+        margin: 16px 0;
+        border-left: 4px solid;
+      }
+
+      .alert-icon {
+        font-size: 20px;
+        margin-right: 12px;
+        margin-top: 2px;
+      }
+
+      .alert-content {
+        flex: 1;
+      }
+
+      .alert-title {
+        margin: 0 0 8px 0;
+        font-size: 16px;
+        font-weight: 600;
+      }
+
+      .alert-message {
+        margin: 0;
+        line-height: 1.5;
+      }
+
+      .alert-info {
+        background: #ebf8ff;
+        border-color: #3182ce;
+        color: #2c5282;
+      }
+
+      .alert-success {
+        background: #f0fff4;
+        border-color: #38a169;
+        color: #276749;
+      }
+
+      .alert-warning {
+        background: #fffbeb;
+        border-color: #d69e2e;
+        color: #b7791f;
+      }
+
+      .alert-error {
+        background: #fed7d7;
+        border-color: #e53e3e;
+        color: #c53030;
+      }
+    `,
+  ],
+})
+export class CustomAlertComponent {
+  @Input() type: "info" | "success" | "warning" | "error" = "info";
+  @Input() title?: string;
+  @Input() message: string = "";
+
+  get alertClass(): string {
+    return `alert alert-${this.type}`;
+  }
+
+  get icon(): string {
+    const icons = {
+      info: "ℹ️",
+      success: "✅",
+      warning: "⚠️",
+      error: "❌",
+    };
+    return icons[this.type];
+  }
+}
+--- components/markdown-renderer.component.ts (147 lines)
+import {
+  Component,
+  Input,
+  ViewChild,
+  ViewContainerRef,
+  OnChanges,
+  SimpleChanges,
+  AfterViewInit,
+} from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { MarkdownService } from "../services/markdown.service";
+
+@Component({
+  selector: "markdown-renderer",
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div class="markdown-container">
+      <div #markdownContent class="markdown-content"></div>
+      <div #componentContainer></div>
+    </div>
+  `,
+  styles: [
+    `
+      .markdown-container {
+        position: relative;
+      }
+
+      .markdown-content {
+        line-height: 1.6;
+        color: #2d3748;
+      }
+
+      .markdown-content h1,
+      .markdown-content h2,
+      .markdown-content h3,
+      .markdown-content h4,
+      .markdown-content h5,
+      .markdown-content h6 {
+        margin-top: 24px;
+        margin-bottom: 16px;
+        font-weight: 600;
+        line-height: 1.25;
+      }
+
+      .markdown-content h1 {
+        font-size: 2rem;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 8px;
+      }
+
+      .markdown-content h2 {
+        font-size: 1.5rem;
+      }
+
+      .markdown-content h3 {
+        font-size: 1.25rem;
+      }
+
+      .markdown-content p {
+        margin-bottom: 16px;
+      }
+
+      .markdown-content code {
+        background: #f7fafc;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+        font-size: 0.9em;
+      }
+
+      .markdown-content pre {
+        background: #2d3748;
+        color: #e2e8f0;
+        padding: 16px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin: 16px 0;
+      }
+
+      .markdown-content pre code {
+        background: none;
+        padding: 0;
+        color: inherit;
+      }
+
+      .markdown-content blockquote {
+        border-left: 4px solid #667eea;
+        padding-left: 16px;
+        margin: 16px 0;
+        color: #718096;
+        font-style: italic;
+      }
+
+      .markdown-content ul,
+      .markdown-content ol {
+        padding-left: 24px;
+        margin-bottom: 16px;
+      }
+
+      .markdown-content li {
+        margin-bottom: 4px;
+      }
+
+      .markdown-content a {
+        color: #667eea;
+        text-decoration: none;
+      }
+
+      .markdown-content a:hover {
+        text-decoration: underline;
+      }
+    `,
+  ],
+})
+export class MarkdownRendererComponent implements OnChanges, AfterViewInit {
+  @Input() content: string = "";
+  @ViewChild("componentContainer", { read: ViewContainerRef })
+  componentContainer!: ViewContainerRef;
+
+  constructor(private markdownService: MarkdownService) {}
+
+  ngAfterViewInit(): void {
+    if (this.content) {
+      this.renderContent();
+    }
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes["content"] && this.componentContainer) {
+      this.renderContent();
+    }
+  }
+
+  private async renderContent(): Promise<void> {
+    if (!this.content || !this.componentContainer) return;
+
+    try {
+      await this.markdownService.renderMarkdown(
+        this.content,
+        this.componentContainer
+      );
+    } catch (error) {
+      console.error("Error rendering markdown content:", error);
+    }
+  }
+}
+--- components/button.component.ts (66 lines)
+import { Component, Input, Output, EventEmitter } from '@angular/core';
+
+@Component({
+  selector: 'custom-button',
+  standalone: true,
+  template: `
+    <button 
+      [class]="buttonClass" 
+      (click)="handleClick()"
+      [disabled]="disabled">
+      {{ label }}
+    </button>
+  `,
+  styles: [`
+    .btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+    }
+    
+    .btn-secondary {
+      background: #f7fafc;
+      color: #4a5568;
+      border: 2px solid #e2e8f0;
+    }
+    
+    .btn-secondary:hover:not(:disabled) {
+      background: #edf2f7;
+      border-color: #cbd5e0;
+    }
+    
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  `]
+})
+export class CustomButtonComponent {
+  @Input() label: string = 'Click me';
+  @Input() variant: 'primary' | 'secondary' = 'primary';
+  @Input() disabled: boolean = false;
+  @Output() onClick = new EventEmitter<void>();
+
+  get buttonClass(): string {
+    return `btn btn-${this.variant}`;
+  }
+
+  handleClick(): void {
+    if (!this.disabled) {
+      this.onClick.emit();
+    }
+  }
+}--- components/card.component.ts (58 lines)
+import { Component, Input } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+@Component({
+  selector: 'custom-card',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <div class="card">
+      <div class="card-header" *ngIf="title">
+        <h3 class="card-title">{{ title }}</h3>
+        <p class="card-subtitle" *ngIf="subtitle">{{ subtitle }}</p>
+      </div>
+      <div class="card-content">
+        <ng-content></ng-content>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      margin: 20px 0;
+      overflow: hidden;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    }
+    
+    .card-header {
+      padding: 24px 24px 0 24px;
+    }
+    
+    .card-title {
+      margin: 0 0 8px 0;
+      font-size: 20px;
+      font-weight: 700;
+      color: #2d3748;
+    }
+    
+    .card-subtitle {
+      margin: 0;
+      color: #718096;
+      font-size: 14px;
+    }
+    
+    .card-content {
+      padding: 24px;
+    }
+  `]
+})
+export class CustomCardComponent {
+  @Input() title?: string;
+  @Input() subtitle?: string;
+}--- services/markdown.service.ts (250 lines)
+import {
+  Injectable,
+  ComponentRef,
+  ViewContainerRef,
+  Type,
+  createComponent,
+  EnvironmentInjector,
+  inject,
+} from "@angular/core";
+import { marked } from "marked";
+import { CustomButtonComponent } from "../components/button.component";
+import { CustomAlertComponent } from "../components/alert.component";
+import { CustomCardComponent } from "../components/card.component";
+
+interface ComponentConfig {
+  component: Type<any>;
+  selector: string;
+}
+
+interface ComponentPlaceholder {
+  id: string;
+  tagName: string;
+  attributes: Record<string, any>;
+  innerContent: string;
+}
+
+@Injectable({
+  providedIn: "root",
+})
+export class MarkdownService {
+  private componentRegistry: Map<string, ComponentConfig> = new Map();
+  private environmentInjector = inject(EnvironmentInjector);
+
+  constructor() {
+    this.registerComponents();
+    this.configureMarked();
+  }
+
+  private registerComponents(): void {
+    this.componentRegistry.set("custom-button", {
+      component: CustomButtonComponent,
+      selector: "custom-button",
+    });
+
+    this.componentRegistry.set("custom-alert", {
+      component: CustomAlertComponent,
+      selector: "custom-alert",
+    });
+
+    this.componentRegistry.set("custom-card", {
+      component: CustomCardComponent,
+      selector: "custom-card",
+    });
+  }
+
+  private configureMarked(): void {
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+    });
+  }
+
+  async renderMarkdown(
+    content: string,
+    container: ViewContainerRef
+  ): Promise<void> {
+    // Clear existing content
+    container.clear();
+    const containerElement = container.element.nativeElement;
+    containerElement.innerHTML = "";
+
+    if (!content.trim()) return;
+
+    try {
+      // Step 1: Extract components and replace with placeholders
+      const { processedContent, components } = this.extractComponents(content);
+
+      // Step 2: Convert markdown to HTML (with placeholders intact)
+      const html = await marked(processedContent);
+
+      // Step 3: Set the HTML content
+      containerElement.innerHTML = html;
+
+      // Step 4: Replace placeholders with actual Angular components
+      await this.replacePlaceholdersWithComponents(
+        containerElement,
+        components,
+        container
+      );
+    } catch (error) {
+      console.error("Error rendering markdown content:", error);
+    }
+  }
+
+  private extractComponents(content: string): {
+    processedContent: string;
+    components: ComponentPlaceholder[];
+  } {
+    const components: ComponentPlaceholder[] = [];
+    let processedContent = content;
+    let componentIndex = 0;
+
+    // Find all component tags - updated regex to properly capture inner content
+    const componentRegex = /<(custom-\w+)([^>]*?)(?:\s*\/>|>([\s\S]*?)<\/\1>)/g;
+
+    processedContent = processedContent.replace(
+      componentRegex,
+      (match, tagName, attributes, innerContent) => {
+        const placeholderId = `component-placeholder-${componentIndex++}`;
+
+        components.push({
+          id: placeholderId,
+          tagName,
+          attributes: this.parseAttributes(attributes),
+          innerContent: innerContent || "",
+        });
+
+        // Return a placeholder div that will survive markdown processing
+        return `<div data-component-id="${placeholderId}" class="component-placeholder"></div>`;
+      }
+    );
+
+    return { processedContent, components };
+  }
+
+  private parseAttributes(attributeString: string): Record<string, any> {
+    const attributes: Record<string, any> = {};
+    const attrRegex = /(\w+)=["']([^"']*?)["']/g;
+
+    let match;
+    while ((match = attrRegex.exec(attributeString)) !== null) {
+      const [, name, value] = match;
+      // Try to parse as JSON for complex values, otherwise use as string
+      try {
+        attributes[name] = JSON.parse(value);
+      } catch {
+        attributes[name] = value;
+      }
+    }
+
+    return attributes;
+  }
+
+  private async replacePlaceholdersWithComponents(
+    containerElement: HTMLElement,
+    components: ComponentPlaceholder[],
+    viewContainer: ViewContainerRef
+  ): Promise<void> {
+    for (const component of components) {
+      const placeholderElement = containerElement.querySelector(
+        `[data-component-id="${component.id}"]`
+      );
+
+      if (placeholderElement) {
+        try {
+          // Create the Angular component
+          const componentRef = await this.createAngularComponent(
+            component,
+            viewContainer
+          );
+
+          if (componentRef) {
+            // Replace the placeholder with the actual component element
+            placeholderElement.parentNode?.replaceChild(
+              componentRef.location.nativeElement,
+              placeholderElement
+            );
+          }
+        } catch (error) {
+          console.error("Error creating component:", error);
+          // Keep the placeholder if component creation fails
+        }
+      }
+    }
+  }
+
+  private async createAngularComponent(
+    componentData: ComponentPlaceholder,
+    viewContainer: ViewContainerRef
+  ): Promise<ComponentRef<any> | null> {
+    const config = this.componentRegistry.get(componentData.tagName);
+    if (!config) return null;
+
+    try {
+      // Create the Angular component
+      const componentRef = createComponent(config.component, {
+        environmentInjector: this.environmentInjector,
+      });
+
+      // Set component inputs
+      if (componentData.attributes) {
+        Object.keys(componentData.attributes).forEach((key) => {
+          if (componentRef.instance.hasOwnProperty(key)) {
+            componentRef.instance[key] = componentData.attributes[key];
+          }
+        });
+      }
+
+      // Handle click events for buttons
+      if (
+        componentData.tagName === "custom-button" &&
+        componentRef.instance.onClick
+      ) {
+        componentRef.instance.onClick.subscribe(() => {
+          console.log("Button clicked!", componentData.attributes);
+        });
+      }
+
+      // Attach to view container for proper lifecycle management
+      viewContainer.insert(componentRef.hostView);
+
+      // Trigger change detection
+      componentRef.changeDetectorRef.detectChanges();
+
+      // Handle content projection for components with inner content
+      await this.handleContentProjection(componentRef, componentData);
+
+      return componentRef;
+    } catch (error) {
+      console.error("Error creating component:", error);
+      return null;
+    }
+  }
+
+  private async handleContentProjection(
+    componentRef: ComponentRef<any>,
+    componentData: ComponentPlaceholder
+  ): Promise<void> {
+    if (!componentData.innerContent || !componentData.innerContent.trim()) {
+      return;
+    }
+
+    if (componentData.tagName === "custom-card") {
+      // Process inner markdown content
+      const innerHtml = await marked(componentData.innerContent.trim());
+
+      // Use setTimeout to ensure the component is fully rendered
+      setTimeout(() => {
+        const cardElement = componentRef.location.nativeElement;
+        const contentArea = cardElement.querySelector(".card-content");
+        if (contentArea) {
+          // Clear existing content and add processed markdown
+          contentArea.innerHTML = innerHtml;
+        } else {
+          console.warn("Card content area not found");
+        }
+      }, 50); // Increased timeout to ensure component is fully rendered
+    }
+  }
+}
+--- main.ts (271 lines)
+import { Component } from "@angular/core";
+import { bootstrapApplication } from "@angular/platform-browser";
+import { CommonModule } from "@angular/common";
+import { FormsModule } from "@angular/forms";
+import { MarkdownRendererComponent } from "./components/markdown-renderer.component";
+
+@Component({
+  selector: "app-root",
+  standalone: true,
+  imports: [CommonModule, FormsModule, MarkdownRendererComponent],
+  template: `
+    <div class="app-container">
+      <header class="app-header">
+        <h1>Angular Markdown Renderer</h1>
+        <p>Render markdown with embedded Angular components</p>
+      </header>
+
+      <main class="app-main">
+        <div class="editor-section">
+          <h2>Markdown Input</h2>
+          <textarea
+            [(ngModel)]="markdownContent"
+            class="markdown-editor"
+            placeholder="Enter your markdown with Angular components..."
+          >
+          </textarea>
+          <div class="editor-actions">
+            <button (click)="loadExample()" class="load-example-btn">
+              Load Example
+            </button>
+            <button (click)="clearContent()" class="clear-btn">Clear</button>
+          </div>
+        </div>
+
+        <div class="preview-section">
+          <h2>Rendered Output</h2>
+          <div class="preview-container">
+            <markdown-renderer [content]="markdownContent"></markdown-renderer>
+          </div>
+        </div>
+      </main>
+    </div>
+  `,
+  styles: [
+    `
+      .app-container {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      }
+
+      .app-header {
+        background: white;
+        padding: 32px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .app-header h1 {
+        margin: 0 0 8px 0;
+        font-size: 2.5rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .app-header p {
+        margin: 0;
+        color: #718096;
+        font-size: 1.1rem;
+      }
+
+      .app-main {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 32px;
+        padding: 32px;
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      .editor-section,
+      .preview-section {
+        background: white;
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
+
+      .editor-section h2,
+      .preview-section h2 {
+        margin: 0 0 20px 0;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #2d3748;
+      }
+
+      .markdown-editor {
+        width: 100%;
+        height: 400px;
+        padding: 16px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+        font-size: 14px;
+        line-height: 1.5;
+        resize: vertical;
+        outline: none;
+        transition: border-color 0.3s ease;
+      }
+
+      .markdown-editor:focus {
+        border-color: #667eea;
+      }
+
+      .editor-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 16px;
+      }
+
+      .load-example-btn,
+      .clear-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .load-example-btn {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+      }
+
+      .load-example-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+      }
+
+      .clear-btn {
+        background: #f7fafc;
+        color: #4a5568;
+        border: 2px solid #e2e8f0;
+      }
+
+      .clear-btn:hover {
+        background: #edf2f7;
+        border-color: #cbd5e0;
+      }
+
+      .preview-container {
+        min-height: 400px;
+        border: 2px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 20px;
+        background: #fafafa;
+      }
+
+      @media (max-width: 1024px) {
+        .app-main {
+          grid-template-columns: 1fr;
+          gap: 24px;
+          padding: 24px 16px;
+        }
+      }
+    `,
+  ],
+})
+export class App {
+  markdownContent = `# Welcome to Angular Markdown Renderer
+
+This is a **powerful** markdown renderer that supports embedded Angular components!
+
+## Features
+
+- Standard markdown rendering
+- Embedded Angular components
+- Interactive elements
+- Real-time preview
+
+## Try the Components
+
+### Custom Button
+<custom-button label="Click Me!" variant="primary"></custom-button>
+
+<custom-button label="Secondary Button" variant="secondary"></custom-button>
+
+### Custom Alert
+<custom-alert type="info" title="Information" message="This is an info alert with Angular components!"></custom-alert>
+
+<custom-alert type="success" message="Success! Your markdown is rendering perfectly."></custom-alert>
+
+<custom-alert type="warning" title="Warning" message="Be careful when mixing markdown and components."></custom-alert>
+
+### Custom Card
+<custom-card title="Amazing Card" subtitle="This card is rendered as an Angular component">
+
+You can put **any markdown content** inside the card component!
+
+- List item 1
+- List item 2
+- List item 3
+
+\`\`\`typescript
+const example = "This is code inside a card!";
+console.log(example);
+\`\`\`
+
+</custom-card>
+
+## Code Example
+
+\`\`\`typescript
+// This is how you embed components in markdown
+<custom-button label="My Button" variant="primary"></custom-button>
+\`\`\`
+
+> This is a blockquote. You can mix standard markdown with Angular components seamlessly!
+
+---
+
+**Try editing the markdown on the left to see real-time updates!**`;
+
+  loadExample(): void {
+    this.markdownContent = `# Interactive Example
+
+Let's create something interactive!
+
+<custom-alert type="info" title="Interactive Demo" message="Click the buttons below to see Angular components in action!"></custom-alert>
+
+<custom-card title="User Profile" subtitle="This could be a dynamic user card">
+
+## John Doe
+**Software Developer**
+
+- 🌟 5 years experience
+- 💻 Angular Expert
+- 🚀 Loves building cool stuff
+
+<custom-button label="View Profile" variant="primary"></custom-button>
+<custom-button label="Send Message" variant="secondary"></custom-button>
+
+</custom-card>
+
+<custom-alert type="success" message="Components are fully interactive and maintain their Angular functionality!"></custom-alert>
+
+## More Examples
+
+You can create complex layouts:
+
+<custom-card title="Project Statistics">
+
+### This Month
+- **127** commits
+- **23** pull requests
+- **8** releases
+
+<custom-alert type="warning" message="Don't forget to update your documentation!"></custom-alert>
+
+</custom-card>`;
+  }
+
+  clearContent(): void {
+    this.markdownContent = "";
+  }
+}
+
+bootstrapApplication(App);

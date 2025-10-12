@@ -1,0 +1,13 @@
+<div
+  [class]="alertClass"
+  role="alert"
+>
+  <div class="alert-icon">{{ icon }}</div>
+  <div class="alert-content">
+    <h4
+      class="alert-title"
+      *ngIf="title"
+    >{{ title }}</h4>
+    <p class="alert-message">{{ message }}</p>
+  </div>
+</div>
