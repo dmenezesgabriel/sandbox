@@ -8,6 +8,7 @@ import { AlertComponent } from './app/shared/alert/alert.component';
 import { CardComponent } from './app/shared/card/card.component';
 import './app/shared/markdown-renderer/markdown-renderer.element';
 import './app/shared/codemirror-editor/codemirror-editor.element';
+import './app/shared/echarts-chart/echarts-chart.element';
 
 (async () => {
   const appRef = await createApplication(appConfig);

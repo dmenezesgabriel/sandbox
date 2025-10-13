@@ -22,7 +22,32 @@ This is a **powerful** markdown renderer that supports embedded Angular componen
 - Interactive elements
 - Real-time preview
 
+## SQL Data Source 🚀
+
+\`\`\`sql:product_sales
+SELECT *
+FROM (VALUES
+('Shirt', 5),
+('Jumper', 20),
+('Cardigan', 36),
+('Jacket', 10),
+('Vest', 10)
+) AS products(item, sales);
+\`\`\`
+
 ## Try the Components
+
+### Data Visualization (ECharts)
+
+<lit-echarts-chart
+  options='{
+    "title": {"text": "Simple Bar Chart", "left": "center"},
+    "tooltip": {},
+    "legend": {"data": ["Sales"]},
+    "xAxis": {"data": ["Shirt", "Jumper", "Cardigan", "Jacket", "Vest"]},
+    "yAxis": {},
+    "series": [{"name": "Sales", "type": "bar", "data": [5, 20, 36, 10, 10]}]
+  }'/>
 
 ### Custom Button
 <app-button label="Click Me!" variant="primary"></app-button>
@@ -64,49 +89,6 @@ console.log(example);
 ---
 
 **Try editing the markdown on the left to see real-time updates!**`;
-
-  loadExample(): void {
-    this.markdownContent = `# Interactive Example
-
-Let's create something interactive!
-
-<app-alert type="info" title="Interactive Demo" message="Click the buttons below to see Angular components in action!"></app-alert>
-
-<app-card title="User Profile" subtitle="This could be a dynamic user card">
-
-## John Doe
-**Software Developer**
-
-- 🌟 5 years experience
-- 💻 Angular Expert
-- 🚀 Loves building cool stuff
-
-<app-button label="View Profile" variant="primary"></app-button>
-<app-button label="Send Message" variant="secondary"></app-button>
-
-</app-card>
-
-<app-alert type="success" message="Components are fully interactive and maintain their Angular functionality!"></app-alert>
-
-## More Examples
-
-You can create complex layouts:
-
-<app-card title="Project Statistics">
-
-### This Month
-- **127** commits
-- **23** pull requests
-- **8** releases
-
-<app-alert type="warning" message="Don't forget to update your documentation!"></app-alert>
-
-</app-card>`;
-  }
-
-  clearContent(): void {
-    this.markdownContent = '';
-  }
 
   handleEditorInput(event: Event | CustomEvent): void {
     // Safely cast the event to CustomEvent and get the detail property

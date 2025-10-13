@@ -1,9 +1,4 @@
 <div class="app-container">
-  <header class="app-header">
-    <h1>Angular Markdown Renderer</h1>
-    <p>Render markdown with embedded Angular components</p>
-  </header>
-
   <main class="app-main">
     <div class="editor-section">
       <h2>Markdown Input</h2>
@@ -13,18 +8,6 @@
         (input)="handleEditorInput($event)"
         maxHeight="400px"
       ></lit-codemirror-editor>
-      <div class="editor-actions">
-        <button
-          (click)="loadExample()"
-          class="load-example-btn"
-        >
-          Load Example
-        </button>
-        <button
-          (click)="clearContent()"
-          class="clear-btn"
-        >Clear</button>
-      </div>
     </div>
 
     <div class="preview-section">

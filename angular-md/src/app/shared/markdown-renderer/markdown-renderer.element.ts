@@ -102,7 +102,7 @@ const STYLES = `
 
 @customElement('lit-markdown-renderer')
 export class MarkdownRendererElement extends LitElement {
-  public static override = unsafeCSS(STYLES);
+  public static style = unsafeCSS(STYLES);
 
   @property({ type: String })
   content: string = '';
