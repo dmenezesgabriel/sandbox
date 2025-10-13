@@ -1,4 +1,3 @@
-// app/shared/codemirror-editor/codemirror-editor.element.ts
 import { LitElement, html } from 'lit';
 import { property, customElement, query } from 'lit/decorators.js';
 import {
@@ -27,7 +26,6 @@ const markdownExtension = markdown({
 
 @customElement('lit-codemirror-editor')
 export class CodeMirrorEditorElement extends LitElement {
-  // Use a query to get the container div for CodeMirror
   @query('#editor')
   private editorDiv!: HTMLDivElement;
 
@@ -37,43 +35,35 @@ export class CodeMirrorEditorElement extends LitElement {
   @property({ type: String })
   maxHeight: string = '400px';
 
-  // CodeMirror instance and dynamic configuration compartments
   private view: EditorView | null = null;
   private lineWrapping = new Compartment();
   private themeCompartment = new Compartment();
   private skipNextUpdate = false; // Flag to skip view update when change originates from user input
 
-  // Remove the shadow root for easier external styling
   protected override createRenderRoot() {
     return this;
   }
 
-  // Lifecycle method called after the element is attached
   public override connectedCallback(): void {
     super.connectedCallback();
     this.initCodeMirror();
   }
 
-  // Initialize CodeMirror editor instance
   private initCodeMirror(): void {
     if (this.view || !this.editorDiv) return;
 
     const extensions: Extension[] = [
       basicSetup,
-      // Initial theme setting (defaulting to dark)
+
       this.themeCompartment.of(oneDark),
-      // Language setup
       markdownExtension,
       foldGutter(),
-      // Editor change listener: dispatches a custom 'input' event for Angular binding
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
           const text = update.state.doc.toString();
 
-          // 1. Set the flag: This change originated internally
           this.skipNextUpdate = true;
 
-          // 2. Dispatch event to Angular
           // CRUCIAL FIX: DO NOT update this.value internally.
           // Angular is the source of truth and will update this property later.
           this.dispatchEvent(
@@ -85,16 +75,14 @@ export class CodeMirrorEditorElement extends LitElement {
           );
         }
       }),
-      // Line wrapping setting
       this.lineWrapping.of(EditorView.lineWrapping),
-      // Custom styling for the editor container
       EditorView.theme({
         '&': {
           fontSize: '14px',
         },
         '.cm-editor': {
           maxHeight: this.maxHeight,
-          height: this.maxHeight, // Ensure it fills the container height
+          height: this.maxHeight,
         },
         '.cm-scroller': {
           fontFamily:
@@ -117,7 +105,6 @@ export class CodeMirrorEditorElement extends LitElement {
     });
   }
 
-  // Lit lifecycle hook for property changes
   public override updated(
     changedProperties: Map<string | number | symbol, unknown>
   ): void {
@@ -126,7 +113,6 @@ export class CodeMirrorEditorElement extends LitElement {
       return;
     }
 
-    // Check if the 'value' property changed
     if (changedProperties.has('value')) {
       // If the change was caused by our own dispatched 'input' event
       // (Angular reacting to user input), skip applying the update
@@ -136,12 +122,10 @@ export class CodeMirrorEditorElement extends LitElement {
         return;
       }
 
-      // Handle external value changes (e.g., Load Example or Clear button clicked)
       const currentValue = this.view.state.doc.toString();
       const newValue = this.value;
 
       if (currentValue !== newValue) {
-        // Dispatch changes to CodeMirror's state
         this.view.dispatch({
           changes: { from: 0, to: currentValue.length, insert: newValue },
           selection: { anchor: newValue.length, head: newValue.length }, // Move cursor to end
@@ -149,9 +133,7 @@ export class CodeMirrorEditorElement extends LitElement {
       }
     }
 
-    // Handle maxHeight changes
     if (changedProperties.has('maxHeight')) {
-      // Re-apply the custom theme extension with the new maxHeight
       this.view.dispatch({
         effects: StateEffect.reconfigure.of(
           EditorView.theme({
@@ -171,9 +153,7 @@ export class CodeMirrorEditorElement extends LitElement {
     this.view = null;
   }
 
-  // Lit's render function: provides the container for CodeMirror
   public override render() {
-    // The Lit component itself serves as the container
     return html`<div id="editor" style="height: 100%;"></div>`;
   }
 }

@@ -31,18 +31,15 @@ const STYLES = `
 export class SimpleTableElement extends LitElement {
   public static style = unsafeCSS(STYLES);
 
-  // Receives the data (either array of objects or object of arrays) as a JSON string
   @property({ type: String })
   data: string = '[]';
 
-  // Receives column configuration (optional) as a JSON string
   @property({ type: String })
   columnconfig: string = '[]';
 
   private parsedData: Record<string, any>[] = [];
   private columns: string[] = [];
 
-  // Lifecycle method called before render to process properties
   protected override willUpdate(
     changedProperties: Map<string | number | symbol, unknown>
   ): void {

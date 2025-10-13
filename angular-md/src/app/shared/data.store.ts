@@ -16,7 +16,6 @@ export class DataStore {
     user: {
       name: 'Angular User',
     },
-    // NEW: Table Data (Object of Arrays format)
     table: {
       salesData: {
         Product: ['Laptop', 'Monitor', 'Keyboard', 'Mouse'],

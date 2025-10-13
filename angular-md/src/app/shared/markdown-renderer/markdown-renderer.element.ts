@@ -116,11 +116,8 @@ export class MarkdownRendererElement extends LitElement {
       return rawContent;
     }
 
-    // Regex to find $store.path, including inside single or double quotes
-    // We look for $store followed by one or more (word characters or dots)
     const storeRegex = /\$store\.([a-zA-Z0-9.]+)/g;
 
-    // This is a complex replacement, so we use a replacer function
     const processedContent = rawContent.replace(storeRegex, (match, path) => {
       const value = this.store!.get(path);
 
@@ -129,13 +126,10 @@ export class MarkdownRendererElement extends LitElement {
         return `UNRESOLVED_STORE_PATH:${path}`;
       }
 
-      // 1. If the value is an array or object (like chart data), stringify it.
-      // This is perfect for array/object values inside JSON attributes (e.g., options='{...}')
       if (typeof value === 'object' && value !== null) {
         return JSON.stringify(value);
       }
 
-      // 2. If it's a string or number (like a button label), return it.
       return String(value);
     });
 
@@ -147,7 +141,6 @@ export class MarkdownRendererElement extends LitElement {
       return html`<div class="markdown-content"></div>`;
     }
 
-    // NEW: Apply the store resolution before passing to marked
     const processedContent = this.preprocessContent(this.content);
 
     const htmlOutput = marked(processedContent) as string;
