@@ -7,7 +7,7 @@ import { Component, Input, ViewEncapsulation } from '@angular/core';
   imports: [CommonModule],
   templateUrl: './card.component.html',
   styleUrl: './card.component.css',
-  encapsulation: ViewEncapsulation.None,
+  encapsulation: ViewEncapsulation.ShadowDom,
 })
 export class CardComponent {
   @Input() title?: string;

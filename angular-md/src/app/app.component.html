@@ -7,12 +7,12 @@
   <main class="app-main">
     <div class="editor-section">
       <h2>Markdown Input</h2>
-      <textarea
-        [(ngModel)]="markdownContent"
-        class="markdown-editor"
-        placeholder="Enter your markdown with Angular components..."
-      >
-          </textarea>
+
+      <lit-codemirror-editor
+        [value]="markdownContent"
+        (input)="handleEditorInput($event)"
+        maxHeight="400px"
+      ></lit-codemirror-editor>
       <div class="editor-actions">
         <button
           (click)="loadExample()"
@@ -30,7 +30,7 @@
     <div class="preview-section">
       <h2>Rendered Output</h2>
       <div class="preview-container">
-        <app-markdown-renderer [content]="markdownContent" />
+        <lit-markdown-renderer [content]="markdownContent" />
       </div>
     </div>
   </main>

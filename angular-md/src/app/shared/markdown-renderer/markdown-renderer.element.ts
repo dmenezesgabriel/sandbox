@@ -1,3 +1,15 @@
+import { LitElement, html, unsafeCSS } from 'lit';
+import { property } from 'lit/decorators.js';
+import { marked } from 'marked';
+import { customElement } from 'lit/decorators.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
+
+const STYLES = `
 .markdown-container {
   position: relative;
 }
@@ -85,4 +97,27 @@
 
 .markdown-content a:hover {
   text-decoration: underline;
+}
+`;
+
+@customElement('lit-markdown-renderer')
+export class MarkdownRendererElement extends LitElement {
+  public static override = unsafeCSS(STYLES);
+
+  @property({ type: String })
+  content: string = '';
+
+  public override render() {
+    if (!this.content) {
+      return html`<div class="markdown-content"></div>`;
+    }
+
+    const htmlOutput = marked(this.content) as string;
+
+    return html`
+      <div class="markdown-container">
+        <div class="markdown-content">${unsafeHTML(htmlOutput)}</div>
+      </div>
+    `;
+  }
 }

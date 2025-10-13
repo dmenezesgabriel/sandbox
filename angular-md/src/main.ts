@@ -6,6 +6,8 @@ import { createCustomElement } from '@angular/elements';
 import { ButtonComponent } from './app/shared/button/button.component';
 import { AlertComponent } from './app/shared/alert/alert.component';
 import { CardComponent } from './app/shared/card/card.component';
+import './app/shared/markdown-renderer/markdown-renderer.element';
+import './app/shared/codemirror-editor/codemirror-editor.element';
 
 (async () => {
   const appRef = await createApplication(appConfig);

@@ -12,7 +12,7 @@ import {
   imports: [],
   templateUrl: './button.component.html',
   styleUrl: './button.component.css',
-  encapsulation: ViewEncapsulation.None,
+  encapsulation: ViewEncapsulation.ShadowDom,
 })
 export class ButtonComponent {
   @Input() label: string = 'Click me';

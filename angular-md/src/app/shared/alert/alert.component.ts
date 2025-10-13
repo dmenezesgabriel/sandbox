@@ -7,7 +7,7 @@ import { Component, Input, ViewEncapsulation } from '@angular/core';
   imports: [CommonModule],
   templateUrl: './alert.component.html',
   styleUrl: './alert.component.css',
-  encapsulation: ViewEncapsulation.None,
+  encapsulation: ViewEncapsulation.ShadowDom,
 })
 export class AlertComponent {
   @Input() type: 'info' | 'success' | 'warning' | 'error' = 'info';

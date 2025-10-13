@@ -1,15 +1,14 @@
-import { Component } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { MarkdownRendererComponent } from './shared/markdown-renderer/markdown-renderer.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, MarkdownRendererComponent],
+  imports: [CommonModule, FormsModule],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class AppComponent {
   markdownContent = `# Welcome to Angular Markdown Renderer
@@ -107,5 +106,10 @@ You can create complex layouts:
 
   clearContent(): void {
     this.markdownContent = '';
+  }
+
+  handleEditorInput(event: Event | CustomEvent): void {
+    // Safely cast the event to CustomEvent and get the detail property
+    this.markdownContent = (event as CustomEvent).detail;
   }
 }
