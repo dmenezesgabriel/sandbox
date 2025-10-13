@@ -13,7 +13,10 @@
     <div class="preview-section">
       <h2>Rendered Output</h2>
       <div class="preview-container">
-        <lit-markdown-renderer [content]="markdownContent" />
+        <lit-markdown-renderer
+          [content]="markdownContent"
+          [store]="dataStore"
+        />
       </div>
     </div>
   </main>

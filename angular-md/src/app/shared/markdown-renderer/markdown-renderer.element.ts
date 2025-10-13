@@ -3,6 +3,7 @@ import { property } from 'lit/decorators.js';
 import { marked } from 'marked';
 import { customElement } from 'lit/decorators.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import type { DataStore } from '../data.store';
 
 marked.setOptions({
   breaks: true,
@@ -107,12 +108,49 @@ export class MarkdownRendererElement extends LitElement {
   @property({ type: String })
   content: string = '';
 
+  @property({ type: Object })
+  store?: DataStore;
+
+  private preprocessContent(rawContent: string): string {
+    if (!this.store) {
+      return rawContent;
+    }
+
+    // Regex to find $store.path, including inside single or double quotes
+    // We look for $store followed by one or more (word characters or dots)
+    const storeRegex = /\$store\.([a-zA-Z0-9.]+)/g;
+
+    // This is a complex replacement, so we use a replacer function
+    const processedContent = rawContent.replace(storeRegex, (match, path) => {
+      const value = this.store!.get(path);
+
+      if (value === undefined) {
+        console.warn(`[Markdown Renderer] Store path not found: ${path}`);
+        return `UNRESOLVED_STORE_PATH:${path}`;
+      }
+
+      // 1. If the value is an array or object (like chart data), stringify it.
+      // This is perfect for array/object values inside JSON attributes (e.g., options='{...}')
+      if (typeof value === 'object' && value !== null) {
+        return JSON.stringify(value);
+      }
+
+      // 2. If it's a string or number (like a button label), return it.
+      return String(value);
+    });
+
+    return processedContent;
+  }
+
   public override render() {
     if (!this.content) {
       return html`<div class="markdown-content"></div>`;
     }
 
-    const htmlOutput = marked(this.content) as string;
+    // NEW: Apply the store resolution before passing to marked
+    const processedContent = this.preprocessContent(this.content);
+
+    const htmlOutput = marked(processedContent) as string;
 
     return html`
       <div class="markdown-container">

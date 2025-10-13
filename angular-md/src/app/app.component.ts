@@ -1,6 +1,7 @@
 import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DataStore } from './shared/data.store';
 
 @Component({
   selector: 'app-root',
@@ -11,6 +12,7 @@ import { FormsModule } from '@angular/forms';
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class AppComponent {
+  public dataStore = new DataStore();
   markdownContent = `# Welcome to Angular Markdown Renderer
 
 This is a **powerful** markdown renderer that supports embedded Angular components!
@@ -37,6 +39,12 @@ FROM (VALUES
 
 ## Try the Components
 
+### Data Table (Dynamic Store Data)
+
+<lit-simple-table
+    data='$store.table.salesData'
+    columnconfig='$store.table.columns'/>
+
 ### Data Visualization (ECharts)
 
 <lit-echarts-chart
@@ -44,9 +52,9 @@ FROM (VALUES
     "title": {"text": "Simple Bar Chart", "left": "center"},
     "tooltip": {},
     "legend": {"data": ["Sales"]},
-    "xAxis": {"data": ["Shirt", "Jumper", "Cardigan", "Jacket", "Vest"]},
+    "xAxis": {"data": $store.sales.chart.xAxisData},
     "yAxis": {},
-    "series": [{"name": "Sales", "type": "bar", "data": [5, 20, 36, 10, 10]}]
+    "series": [{"name": "Sales", "type": "bar", "data": $store.sales.chart.seriesData}]
   }'/>
 
 ### Custom Button

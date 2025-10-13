@@ -9,6 +9,7 @@ import { CardComponent } from './app/shared/card/card.component';
 import './app/shared/markdown-renderer/markdown-renderer.element';
 import './app/shared/codemirror-editor/codemirror-editor.element';
 import './app/shared/echarts-chart/echarts-chart.element';
+import './app/shared/simple-table/simple-table.element';
 
 (async () => {
   const appRef = await createApplication(appConfig);
