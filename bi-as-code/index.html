@@ -589,7 +589,8 @@ FROM (
       const sqlBlocks = [];
       let blockIndex = 0;
 
-      // Replace SQL blocks with placeholders and store them
+      // Replace SQL blocks with HTML-comment placeholders and store them
+      // Using HTML comments prevents Markdown (e.g. __bold__) from altering the token
       // Support both multi-line and single-line SQL code blocks
       let processedMarkdown = markdown.replace(
         /```sql([^\n]*)\n([\s\S]*?)```|```sql([^`]+)```/g,
@@ -600,7 +601,8 @@ FROM (
           } else {
             parsed = parseSQLBlock(code.trim(), infoString || "");
           }
-          const placeholder = `__SQL_BLOCK_${blockIndex}__`;
+          // Use an HTML comment as placeholder so marked won't treat underscores as emphasis
+          const placeholder = `<!--SQL_BLOCK_${blockIndex}-->`;
           sqlBlocks.push({ ...parsed, placeholder });
           blockIndex++;
           return placeholder;
@@ -642,6 +644,7 @@ FROM (
             renderSQLResult(null, block.name, error.message);
         }
 
+        // Replace the HTML-comment placeholder with the generated result HTML
         html = html.replace(block.placeholder, resultHTML);
       }
 
