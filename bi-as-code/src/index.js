@@ -39,9 +39,12 @@ const dataStore = {
 
 function parseSQLBlock(code, infoString) {
   const nameMatch = infoString && infoString.match(/name=['"]([^'"]+)['"]/);
+  const hide = infoString && /\bhide\b/.test(infoString); // detect 'hide' keyword
+
   return {
     code,
     name: nameMatch ? nameMatch[1] : null,
+    hide: hide || false,
   };
 }
 
@@ -161,7 +164,6 @@ async function processMarkdown(markdown) {
   const replacements = {};
 
   for (const block of sqlBlocks) {
-    let resultHTML;
     try {
       const data = await executeSQL(block.code);
 
@@ -169,16 +171,17 @@ async function processMarkdown(markdown) {
         dataStore.data[block.name] = data;
       }
 
-      resultHTML =
-        `<pre><code class="language-sql">${block.code}</code></pre>` +
-        renderSQLResult(data, block.name);
+      // If hide is true, render nothing
+      replacements[block.placeholder] = block.hide
+        ? ""
+        : `<pre><code class="language-sql">${block.code}</code></pre>` +
+          renderSQLResult(data, block.name);
     } catch (error) {
-      resultHTML =
-        `<pre><code class="language-sql">${block.code}</code></pre>` +
-        renderSQLResult(null, block.name, error.message);
+      replacements[block.placeholder] = block.hide
+        ? ""
+        : `<pre><code class="language-sql">${block.code}</code></pre>` +
+          renderSQLResult(null, block.name, error.message);
     }
-
-    replacements[block.placeholder] = resultHTML;
   }
 
   // Step 5: Replace placeholders in HTML

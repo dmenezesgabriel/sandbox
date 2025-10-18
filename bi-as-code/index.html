@@ -10,7 +10,7 @@
   <title>Markdown Editor with SQL & Web Components</title>
   <link
     rel="stylesheet"
-    href="style.css"
+    href="src/style.css"
   >
 </head>
 
@@ -22,7 +22,7 @@
         <textarea id="editor"># Markdown + SQL + Web Components
 
 Write your markdown here and see it rendered in real-time!
-```sql name='summary'
+```sql name='summary' hide=true
 SELECT
 SUM(sales) as total_sales,
 AVG(sales) as avg_sales,
@@ -35,7 +35,7 @@ UNION ALL SELECT 'Product C', 120
 ```
 
 <data-card data-ref='summary'></data-card>
-```sql name='productList'
+```sql name='productList' hide=true
 SELECT DISTINCT product
 FROM (
   SELECT 'Product A' as product, 100 as sales, 'Q1' as quarter
@@ -49,7 +49,7 @@ ORDER BY product
 ```
 
 <dropdown-component data-ref='productList' name='productSelection'></dropdown-component>
-```sql name='salesData'
+```sql name='salesData' hide=true
 WITH source_data AS (
   SELECT 'Product A' as product, 100 as sales, 'Q1' as quarter
   UNION ALL SELECT 'Product B', 150, 'Q1'
@@ -94,7 +94,7 @@ WHERE {{input.productSelection}} = []
 
   <script
     type="module"
-    src="./index.js"
+    src="src/index.js"
   ></script>
 </body>
 
