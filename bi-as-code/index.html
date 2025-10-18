@@ -254,7 +254,7 @@ WHERE ${productSelection} = [] -- Show all when no selection (after replacement)
 
 ## Sales Chart Visualization
 
-<vegalite-chart-component
+<vegalite-chart
   spec='{"$schema": "https://vega.github.io/schema/vega-lite/v6.json",
   "description": "Sales by Product and Quarter",
   "mark": "bar",
@@ -264,7 +264,7 @@ WHERE ${productSelection} = [] -- Show all when no selection (after replacement)
     "color": {"field": "quarter", "type": "nominal", "title": "Quarter"}
   }}'
   data='${salesData}'>
-</vegalite-chart-component>
+</vegalite-chart>
 
 ## Another Query
 
