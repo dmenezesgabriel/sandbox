@@ -284,12 +284,16 @@ document.addEventListener("valuechange", (e) => {
   updatePreview();
 });
 
-function initCodeMirror() {
-  const editorElement = document.getElementById("editor");
-  const initialState = editorElement.value;
-  const parentContainer = editorElement.parentElement;
-
-  editorElement.remove();
+async function initCodeMirror() {
+  const editorContainer = document.querySelector(".editor-container");
+  let initialMarkdown = "# Loading markdown...";
+  try {
+    const res = await fetch("src/content.md");
+    initialMarkdown = await res.text();
+  } catch (e) {
+    console.error("Failed to load markdown file:", e);
+    initialMarkdown = "# Failed to load markdown file";
+  }
 
   const changeListener = EditorView.updateListener.of((update) => {
     if (update.docChanged) {
@@ -299,7 +303,7 @@ function initCodeMirror() {
   });
 
   const startState = EditorState.create({
-    doc: initialState,
+    doc: initialMarkdown,
     extensions: [
       keymap.of(defaultKeymap),
       markdown(),
@@ -311,8 +315,10 @@ function initCodeMirror() {
 
   editor = new EditorView({
     state: startState,
-    parent: parentContainer,
+    parent: editorContainer,
   });
+
+  await updatePreview();
 }
 
 dataStore.input.productSelection = "[]";
@@ -320,7 +326,6 @@ dataStore.input.productSelection = "[]";
 initDuckDB()
   .then(() => {
     initCodeMirror();
-    updatePreview();
   })
   .catch((error) => {
     console.error("Failed to initialize DuckDB:", error);
