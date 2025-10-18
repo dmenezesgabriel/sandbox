@@ -15,6 +15,7 @@
     "vite": "7.1.10"
   },
   "dependencies": {
+    "@codemirror/commands": "6.9.0",
     "@codemirror/lang-markdown": "6.4.0",
     "@codemirror/lang-sql": "6.10.0",
     "@codemirror/language": "6.11.3",

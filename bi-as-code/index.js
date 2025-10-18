@@ -2,6 +2,13 @@ import vegaEmbed from "vega-embed";
 import * as duckdb from "@duckdb/duckdb-wasm";
 import { marked } from "marked";
 
+// 💡 IMPORTS FOR CODEMIRROR V6
+import { EditorState } from "@codemirror/state";
+import { EditorView, keymap } from "@codemirror/view";
+import { defaultKeymap } from "@codemirror/commands";
+import { markdown } from "@codemirror/lang-markdown";
+import { oneDark } from "@codemirror/theme-one-dark";
+
 class Dropdown extends HTMLElement {
   static get observedAttributes() {
     return ["data", "name"];
@@ -36,62 +43,65 @@ class Dropdown extends HTMLElement {
     }
 
     const style = `
-          <style>
-            .select-container {
-              margin: 16px 0;
-            }
-            .multi-select {
-              width: 100%;
-              padding: 8px;
-              border: 1px solid #ddd;
-              border-radius: 4px;
-              min-height: 100px;
-            }
-            .multi-select option {
-              padding: 4px;
-            }
-          </style>
-        `;
+			<style>
+				.select-container {
+					margin: 16px 0;
+				}
+				.multi-select {
+					width: 100%;
+					padding: 8px;
+					border: 1px solid #ddd;
+					border-radius: 4px;
+					min-height: 100px;
+				}
+				.multi-select option {
+					padding: 4px;
+				}
+			</style>
+		`; // Ensure _data has content before mapping
 
-    const products = this._data.map((row) => row.product);
+    const products = Array.isArray(this._data)
+      ? this._data.map((row) => row.product)
+      : [];
 
     const selectId = this._name || this.getAttribute("name") || "productSelect";
     const html = `
-          ${style}
-          <div class="select-container">
-            <label for="${selectId}">Select Products:</label><br>
-            <select id="${selectId}" name="${
-      this._name
-    }" class="multi-select" multiple>
-              ${products
-                .map(
-                  (product) =>
-                    `<option value="${product}" ${
-                      this._selectedValues.includes(product) ? "selected" : ""
-                    }>${product}</option>`
-                )
-                .join("")}
-            </select>
-          </div>
-        `;
+			${style}
+			<div class="select-container">
+				<label for="${selectId}">Select Products:</label><br>
+				<select id="${selectId}" name="${this._name}" class="multi-select" multiple>
+					${products
+            .map(
+              (product) =>
+                `<option value="${product}" ${
+                  this._selectedValues.includes(product) ? "selected" : ""
+                }>${product}</option>`
+            )
+            .join("")}
+				</select>
+			</div>
+		`;
 
     this.innerHTML = html;
 
-    this.querySelector(`#${selectId}`).addEventListener("change", (e) => {
-      const select = e.target;
-      this._selectedValues = Array.from(select.selectedOptions).map(
-        (opt) => opt.value
-      );
-      const formattedValues = this._selectedValues.map((v) => {
-        const safe = v.replace(/'/g, "''");
-        return `'${safe}'`;
+    const selectElement = this.querySelector(`#${selectId}`);
+    if (selectElement) {
+      selectElement.addEventListener("change", (e) => {
+        const select = e.target;
+        this._selectedValues = Array.from(select.selectedOptions).map(
+          (opt) => opt.value
+        );
+        const formattedValues = this._selectedValues.map((v) => {
+          const safe = v.replace(/'/g, "''");
+          return `'${safe}'`;
+        });
+        dataStore[this._name] = this._selectedValues.length
+          ? `[${formattedValues.join(",")}]`
+          : "[]";
+        console.log("Selected products:", dataStore[this._name]); // Debug log
+        updatePreview();
       });
-      dataStore[this._name] = this._selectedValues.length
-        ? `[${formattedValues.join(",")}]`
-        : "[]";
-      console.log("Selected products:", dataStore[this._name]); // Debug log
-      updatePreview();
-    });
+    }
   }
 }
 customElements.define("dropdown-component", Dropdown);
@@ -115,11 +125,8 @@ class VegaLiteChart extends HTMLElement {
       }
     }
     if (name === "data") {
-      try {
-        this._data = JSON.parse(newValue);
-      } catch {
-        this._data = null;
-      }
+      // Store the variable name, data is retrieved in renderChart
+      this._dataVarName = newValue.replace(/[${}]/g, "");
     }
     this.renderChart();
   }
@@ -141,11 +148,20 @@ class VegaLiteChart extends HTMLElement {
     this.renderChart();
   }
   renderChart() {
-    if (!this._spec) return;
+    if (!this._spec) return; // Retrieve fresh data from the dataStore using the stored variable name
+
+    const chartData = this._dataVarName ? dataStore[this._dataVarName] : null;
+
     const spec = JSON.parse(JSON.stringify(this._spec));
-    if (this._data) spec.data = { values: this._data };
+    if (chartData && Array.isArray(chartData))
+      spec.data = { values: chartData };
+
     this.shadowRoot.innerHTML = `<div id="chart"></div>`;
-    vegaEmbed(this.shadowRoot.querySelector("#chart"), spec);
+
+    const chartDiv = this.shadowRoot.querySelector("#chart");
+    if (chartDiv) {
+      vegaEmbed(chartDiv, spec);
+    }
   }
 }
 customElements.define("vegalite-chart", VegaLiteChart);
@@ -187,7 +203,7 @@ async function initDuckDB() {
 async function executeSQL(sql) {
   if (!conn) {
     throw new Error("DuckDB not initialized");
-  }
+  } // Added safe fallback for queries that return nothing
   const result = await conn.query(sql);
   return result.toArray().map((row) => row.toJSON());
 }
@@ -213,36 +229,32 @@ class SampleTable extends HTMLElement {
 
     const columns = Object.keys(data[0]);
     const html = `
-          <div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; margin: 16px 0;">
-            <table style="width: 100%; border-collapse: collapse;">
-              <thead>
-                <tr style="background: #f8f9fa;">
-                  ${columns
-                    .map(
-                      (col) =>
-                        `<th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600;">${col}</th>`
-                    )
-                    .join("")}
-                </tr>
-              </thead>
-              <tbody>
-                ${data
-                  .map(
-                    (row) => `
-                  <tr style="border-bottom: 1px solid #eee;">
-                    ${columns
-                      .map(
-                        (col) => `<td style="padding: 10px;">${row[col]}</td>`
-                      )
-                      .join("")}
-                  </tr>
-                `
-                  )
-                  .join("")}
-              </tbody>
-            </table>
-          </div>
-        `;
+			<div style="border: 1px solid #ddd; border-radius: 4px; overflow: hidden; margin: 16px 0;">
+				<table style="width: 100%; border-collapse: collapse;">
+					<thead>
+						<tr style="background: #f8f9fa;">
+							${columns
+                .map(
+                  (col) =>
+                    `<th style="padding: 10px; text-align: left; border-bottom: 2px solid #ddd; font-weight: 600;">${col}</th>`
+                )
+                .join("")}
+						</tr>
+					</thead>
+					<tbody>
+						${data
+              .map(
+                (row) => `
+							<tr style="border-bottom: 1px solid #eee;">
+								${columns.map((col) => `<td style="padding: 10px;">${row[col]}</td>`).join("")}
+							</tr>
+						`
+              )
+              .join("")}
+					</tbody>
+				</table>
+			</div>
+		`;
     this.innerHTML = html;
   }
 }
@@ -267,24 +279,24 @@ class DataCard extends HTMLElement {
 
     const record = data[0];
     const html = `
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 16px 0;">
-            ${Object.entries(record)
-              .map(
-                ([key, value]) => `
-              <div style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                <div style="color: rgba(255,255,255,0.8); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">${key.replace(
-                  /_/g,
-                  " "
-                )}</div>
-                <div style="color: white; font-size: 24px; font-weight: 700;">${
-                  typeof value === "number" ? value.toLocaleString() : value
-                }</div>
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-        `;
+			<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 16px 0;">
+				${Object.entries(record)
+          .map(
+            ([key, value]) => `
+					<div style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+						<div style="color: rgba(255,255,255,0.8); font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">${key.replace(
+              /_/g,
+              " "
+            )}</div>
+						<div style="color: white; font-size: 24px; font-weight: 700;">${
+              typeof value === "number" ? value.toLocaleString() : value
+            }</div>
+					</div>
+				`
+          )
+          .join("")}
+			</div>
+		`;
     this.innerHTML = html;
   }
 }
@@ -307,48 +319,48 @@ function renderSQLResult(data, queryName, error = null) {
 
   if (!data || data.length === 0) {
     return `<details class="sql-result" open>
-          <summary>Query Result${
-            queryName ? `: ${queryName}` : ""
-          } (0 rows)</summary>
-          <div class="sql-result-content"><p style="color: #999;">No results returned</p></div>
-        </details>`;
+			<summary>Query Result${queryName ? `: ${queryName}` : ""} (0 rows)</summary>
+			<div class="sql-result-content"><p style="color: #999;">No results returned</p></div>
+		</details>`;
   }
 
   const columns = Object.keys(data[0]);
   const tableHTML = `
-        <table>
-          <thead>
-            <tr>${columns.map((col) => `<th>${col}</th>`).join("")}</tr>
-          </thead>
-          <tbody>
-            ${data
-              .map(
-                (row) => `
-              <tr>${columns
-                .map(
-                  (col) =>
-                    `<td>${row[col] !== null ? row[col] : "<em>null</em>"}</td>`
-                )
-                .join("")}</tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      `;
+		<table>
+			<thead>
+				<tr>${columns.map((col) => `<th>${col}</th>`).join("")}</tr>
+			</thead>
+			<tbody>
+				${data
+          .map(
+            (row) => `
+					<tr>${columns
+            .map(
+              (col) =>
+                `<td>${row[col] !== null ? row[col] : "<em>null</em>"}</td>`
+            )
+            .join("")}</tr>
+				`
+          )
+          .join("")}
+			</tbody>
+		</table>
+	`;
 
   return `<details class="sql-result" open>
-        <summary>Query Result${queryName ? `: ${queryName}` : ""} (${
+		<summary>Query Result${queryName ? `: ${queryName}` : ""} (${
     data.length
   } rows)</summary>
-        <div class="sql-result-content">${tableHTML}</div>
-      </details>`;
+		<div class="sql-result-content">${tableHTML}</div>
+	</details>`;
 }
 
 async function processMarkdown(markdown) {
   const sqlBlocks = [];
   let blockIndex = 0;
 
+  // 1. Extract SQL blocks and replace with unique placeholders
+  // Use HTML comments which marked.parse() will preserve
   let processedMarkdown = markdown.replace(
     /```sql([^\n]*)\n([\s\S]*?)```|```sql([^`]+)```/g,
     (match, infoString, code, singleLine) => {
@@ -358,6 +370,7 @@ async function processMarkdown(markdown) {
       } else {
         parsed = parseSQLBlock(code.trim(), infoString || "");
       }
+
       const placeholder = `<!--SQL_BLOCK_${blockIndex}-->`;
       sqlBlocks.push({ ...parsed, placeholder });
       blockIndex++;
@@ -365,11 +378,23 @@ async function processMarkdown(markdown) {
     }
   );
 
+  console.log(
+    "Processed markdown with placeholders:",
+    processedMarkdown.substring(0, 500)
+  );
+
+  // 2. Convert markdown (with placeholders) to HTML
   let html = marked.parse(processedMarkdown);
+
+  console.log("HTML after marked.parse():", html.substring(0, 500));
+
+  // 3. Process SQL blocks sequentially and collect results
+  const replacements = {};
 
   for (const block of sqlBlocks) {
     let resultHTML;
     try {
+      // Substitute dataStore variables into the SQL query
       let codeToExecute = block.code.replace(/\$\{(\w+)\}/g, (m, varName) => {
         const val = dataStore[varName];
         if (val === undefined) return "NULL";
@@ -381,6 +406,7 @@ async function processMarkdown(markdown) {
       });
 
       console.log("Executing SQL for block", block.name, ":", codeToExecute);
+
       const data = await executeSQL(codeToExecute);
 
       if (block.name) {
@@ -390,50 +416,75 @@ async function processMarkdown(markdown) {
       resultHTML =
         `<pre><code class="language-sql">${block.code}</code></pre>` +
         renderSQLResult(data, block.name);
-      console.log(`Data stored for ${block.name}:`, data); // Debugging
+      console.log(`Data stored for ${block.name}:`, data);
     } catch (error) {
       resultHTML =
         `<pre><code class="language-sql">${block.code}</code></pre>` +
         renderSQLResult(null, block.name, error.message);
     }
 
-    html = html.replace(block.placeholder, resultHTML);
+    replacements[block.placeholder] = resultHTML;
   }
 
+  // 4. Replace placeholders in the HTML
+  console.log("Starting placeholder replacements...");
+  for (const block of sqlBlocks) {
+    const placeholder = block.placeholder;
+    const replacement = replacements[placeholder];
+
+    console.log(`Looking for: "${placeholder}"`);
+    console.log(`Found in HTML: ${html.includes(placeholder)}`);
+
+    // HTML comments should be preserved as-is
+    const beforeLength = html.length;
+    html = html.split(placeholder).join(replacement);
+    const afterLength = html.length;
+
+    console.log(`HTML length changed from ${beforeLength} to ${afterLength}`);
+    console.log(`Still contains placeholder: ${html.includes(placeholder)}`);
+  }
+
+  // 5. Replace remaining variable placeholders (cleanup)
   html = html.replace(/\$\{(\w+)\}/g, (match, varName) => {
     return varName;
   });
 
   return html;
 }
-
 function renderWebComponents() {
   const preview = document.getElementById("preview");
   const components = preview.querySelectorAll(
-    "data-table-component, data-card, vegalite-chart"
-  );
+    "data-table-component, data-card, vegalite-chart, dropdown-component"
+  ); // Re-render all custom components with the latest data
+
   components.forEach((component) => {
+    // Explicitly handle VegaLiteChart data update as it uses shadow DOM
     if (component.tagName === "VEGALITE-CHART") {
-      const dataAttr = component.getAttribute("data");
-      if (dataAttr && dataStore[dataAttr]) {
-        component.data = dataStore[dataAttr];
+      // The attributeChangedCallback has already stored the variable name
+      // Call renderChart to retrieve data from dataStore and redraw
+      component.renderChart();
+    } else {
+      // For other components, just call render (which reads data from dataStore)
+      if (component.render) {
+        component.render();
       }
-    }
-  });
-  components.forEach((component) => {
-    if (component.render) {
-      component.render();
     }
   });
 }
 
+// Global variable for the CodeMirror v6 editor instance
+let editor;
+// Global variable for debounce timer
+let debounceTimer;
+
 async function updatePreview() {
-  const markdown = editor.getValue();
+  // Use editor.state.doc.toString() to get content in CodeMirror v6
+  const markdown = editor.state.doc.toString();
   const preview = document.getElementById("preview");
 
   try {
     const html = await processMarkdown(markdown);
-    preview.innerHTML = html;
+    preview.innerHTML = html; // Delay rendering components until after they've been inserted into the DOM
     setTimeout(renderWebComponents, 100);
   } catch (error) {
     console.error("Error processing markdown:", error);
@@ -441,21 +492,42 @@ async function updatePreview() {
   }
 }
 
-const editor = CodeMirror.fromTextArea(document.getElementById("editor"), {
-  mode: "markdown",
-  theme: "monokai",
-  lineNumbers: true,
-  lineWrapping: true,
-  autofocus: true,
-});
+// Function to initialize CodeMirror v6
+function initCodeMirror() {
+  const editorElement = document.getElementById("editor");
+  const initialState = editorElement.value;
+  const parentContainer = editorElement.parentElement; // Remove the original textarea to be replaced by the CodeMirror view
+
+  editorElement.remove(); // Define the update listener for debouncing the preview update
+
+  const changeListener = EditorView.updateListener.of((update) => {
+    if (update.docChanged) {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updatePreview, 300);
+    }
+  });
+
+  const startState = EditorState.create({
+    doc: initialState,
+    extensions: [
+      keymap.of(defaultKeymap), // Extensions for syntax highlighting and functionality
+      markdown(), // Theme extension (oneDark is used as monokai is not standard v6)
+      oneDark, // Other view extensions
+      EditorView.lineWrapping, // The change listener
+      changeListener,
+    ],
+  }); // Create the new EditorView and insert it into the parent container
+
+  editor = new EditorView({
+    state: startState,
+    parent: parentContainer,
+  });
+}
 
 initDuckDB()
   .then(() => {
-    let debounceTimer;
-    editor.on("change", () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(updatePreview, 300);
-    });
+    // Initialize the new CodeMirror v6 instance after DuckDB is ready
+    initCodeMirror(); // Initial render of the preview
 
     updatePreview();
   })

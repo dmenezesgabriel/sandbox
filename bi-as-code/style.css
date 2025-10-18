@@ -161,3 +161,22 @@ body {
   margin: 16px 0;
   border-radius: 4px;
 }
+
+.editor-container {
+  flex: 1; /* Allows it to fill the remaining vertical space */
+  overflow: hidden; /* Important: ensures the parent doesn't scroll, forcing CM to handle scroll */
+}
+
+/* This targets the CodeMirror v6 wrapper div */
+.cm-editor {
+  height: 100%; /* Make the CodeMirror wrapper fill the container's height */
+  max-height: 100%;
+}
+
+/* If you left the old .CodeMirror style, you should update/ensure it */
+.CodeMirror {
+  /* If CM v6 is used, this class might be present on the parent, but .cm-editor is safer */
+  /* Ensure this is set if you kept it, but it might conflict with .cm-editor */
+  height: 100%;
+  font-size: 14px;
+}
