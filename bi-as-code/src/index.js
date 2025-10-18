@@ -48,52 +48,6 @@ function parseSQLBlock(code, infoString) {
   };
 }
 
-function renderSQLResult(data, queryName, error = null) {
-  if (error) {
-    return `<div class="sql-error"><strong>SQL Error:</strong> ${error}</div>`;
-  }
-
-  if (!data || data.length === 0) {
-    return `<details class="sql-result">
-      <summary>Query Result${
-        queryName ? `: ${queryName}` : ""
-      } (0 rows)</summary>
-      <div class="sql-result-content"><p style="color: #999;">No results returned</p></div>
-    </details>`;
-  }
-
-  const columns = Object.keys(data[0]);
-  const tableHTML = `
-    <table>
-      <thead>
-        <tr>${columns.map((col) => `<th>${col}</th>`).join("")}</tr>
-      </thead>
-      <tbody>
-        ${data
-          .map(
-            (row) => `
-          <tr>${columns
-            .map(
-              (col) =>
-                `<td>${row[col] !== null ? row[col] : "<em>null</em>"}</td>`
-            )
-            .join("")}</tr>
-        `
-          )
-          .join("")}
-      </tbody>
-    </table>
-  `;
-
-  return `<details class="sql-result">
-    <summary>Query Result${queryName ? `: ${queryName}` : ""} (${
-    data.length
-  } rows)</summary>
-    <div class="sql-result-content">${tableHTML}</div>
-  </details>`;
-}
-
-let db = null;
 let conn = null;
 
 async function initDuckDB() {
@@ -157,10 +111,8 @@ async function processMarkdown(markdown) {
     }
   );
 
-  // Step 3: Convert markdown to HTML
   let html = marked.parse(processedMarkdown);
 
-  // Step 4: Process SQL blocks sequentially
   const replacements = {};
 
   for (const block of sqlBlocks) {
@@ -175,12 +127,22 @@ async function processMarkdown(markdown) {
       replacements[block.placeholder] = block.hide
         ? ""
         : `<pre><code class="language-sql">${block.code}</code></pre>` +
-          renderSQLResult(data, block.name);
+          `<details class="sql-result">` +
+          `<summary>Query Result${block.name} ${data.length} </summary>` +
+          `<div class="sql-result-content">` +
+          `<data-table-component data-ref='${block.name}'></data-table-component>` +
+          `</div>` +
+          `</details>`;
     } catch (error) {
       replacements[block.placeholder] = block.hide
         ? ""
         : `<pre><code class="language-sql">${block.code}</code></pre>` +
-          renderSQLResult(null, block.name, error.message);
+          `<details class="sql-result">` +
+          `<summary>Query Result${block.name} ${data.length} </summary>` +
+          `<div class="sql-result-content">` +
+          `<data-table-component data-ref='${block.name}'></data-table-component>` +
+          `</div>` +
+          `</details>`;
     }
   }
 
@@ -195,7 +157,6 @@ async function processMarkdown(markdown) {
 function bindComponentData() {
   const preview = document.getElementById("preview");
 
-  // Bind dropdown components
   const dropdowns = preview.querySelectorAll("dropdown-component");
   dropdowns.forEach((dropdown) => {
     const dataRef = dropdown.getAttribute("data-ref");
@@ -329,7 +290,12 @@ initDuckDB()
   })
   .catch((error) => {
     console.error("Failed to initialize DuckDB:", error);
-    document.getElementById(
-      "preview"
-    ).innerHTML = `<div class="sql-error">Failed to initialize DuckDB: ${error.message}<br><br>This may be due to browser security restrictions. Try opening this page in a local server or different browser.</div>`;
+    document.getElementById("preview").innerHTML = `
+    <div class="sql-error">
+      Failed to initialize DuckDB: ${error.message}
+      <br>
+      <br>
+      This may be due to browser security restrictions.
+      Try opening this page in a local server or different browser.
+     </div>`;
   });
