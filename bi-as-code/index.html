@@ -299,7 +299,6 @@ FROM (
   <script type="module">
     import vegaEmbed from 'vega-embed';
 
-    // Dropdown Web Component (renamed from ProductFilter)
     class Dropdown extends HTMLElement {
       static get observedAttributes() { return ['data', 'name']; }
 
@@ -366,27 +365,22 @@ FROM (
 
         this.innerHTML = html;
 
-        // Add event listener for selection changes
         this.querySelector(`#${selectId}`).addEventListener('change', (e) => {
           const select = e.target;
           this._selectedValues = Array.from(select.selectedOptions).map(opt => opt.value);
-          // Store the selection in dataStore for queries to use
-          // Format as DuckDB array literal: ['Product A','Product B']
           const formattedValues = this._selectedValues.map(v => {
-            // escape single quotes by doubling them for SQL
             const safe = v.replace(/'/g, "''");
             return `'${safe}'`;
           });
           dataStore[this._name] = this._selectedValues.length ? `[${formattedValues.join(',')}]` : '[]';
           console.log('Selected products:', dataStore[this._name]); // Debug log
-          // Trigger a preview update to refresh queries and components
           updatePreview();
         });
       }
     }
     customElements.define('dropdown-component', Dropdown);
 
-    // Vega-Lite Web Component
+
     class VegaLiteChart extends HTMLElement {
       static get observedAttributes() { return ['spec', 'data']; }
       constructor() {
@@ -420,9 +414,9 @@ FROM (
     customElements.define('vegalite-chart', VegaLiteChart);
     import * as duckdb from '@duckdb/duckdb-wasm';
 
-    // Global store for SQL query results
+
     const dataStore = {
-      productSelection: '[]' // Initialize empty selection
+      productSelection: '[]'
     };
 
     // Initialize DuckDB
@@ -432,7 +426,7 @@ FROM (
     async function initDuckDB() {
       try {
         const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-        // Select a bundle based on browser checks
+
         const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
 
         const worker_url = URL.createObjectURL(
@@ -453,7 +447,6 @@ FROM (
       }
     }
 
-    // Execute SQL query
     async function executeSQL(sql) {
       if (!conn) {
         throw new Error('DuckDB not initialized');
@@ -462,9 +455,6 @@ FROM (
       return result.toArray().map(row => row.toJSON());
     }
 
-    // Custom Web Components
-    // Vega-Lite chart component for SQL data
-    // Usage: <vegalite-chart spec='...' data='${queryName}'></vegalite-chart>
     class SampleTable extends HTMLElement {
       connectedCallback() {
         this.render();
@@ -542,7 +532,6 @@ FROM (
     customElements.define('data-table-component', SampleTable);
     customElements.define('data-card', DataCard);
 
-    // Parse SQL code blocks and extract name
     function parseSQLBlock(code, infoString) {
       const nameMatch = infoString.match(/name=['"]([^'"]+)['"]/);
       return {
@@ -551,7 +540,6 @@ FROM (
       };
     }
 
-    // Render SQL results as HTML
     function renderSQLResult(data, queryName, error = null) {
       if (error) {
         return `<div class="sql-error"><strong>SQL Error:</strong> ${error}</div>`;
@@ -584,14 +572,10 @@ FROM (
       </details>`;
     }
 
-    // Process markdown and execute SQL
     async function processMarkdown(markdown) {
       const sqlBlocks = [];
       let blockIndex = 0;
 
-      // Replace SQL blocks with HTML-comment placeholders and store them
-      // Using HTML comments prevents Markdown (e.g. __bold__) from altering the token
-      // Support both multi-line and single-line SQL code blocks
       let processedMarkdown = markdown.replace(
         /```sql([^\n]*)\n([\s\S]*?)```|```sql([^`]+)```/g,
         (match, infoString, code, singleLine) => {
@@ -601,7 +585,6 @@ FROM (
           } else {
             parsed = parseSQLBlock(code.trim(), infoString || "");
           }
-          // Use an HTML comment as placeholder so marked won't treat underscores as emphasis
           const placeholder = `<!--SQL_BLOCK_${blockIndex}-->`;
           sqlBlocks.push({ ...parsed, placeholder });
           blockIndex++;
@@ -609,22 +592,16 @@ FROM (
         }
       );
 
-      // Convert markdown to HTML
       let html = marked.parse(processedMarkdown);
 
-      // Execute SQL blocks and replace placeholders
       for (const block of sqlBlocks) {
         let resultHTML;
         try {
-          // Replace ${var} tokens inside SQL with values from dataStore
           let codeToExecute = block.code.replace(/\$\{(\w+)\}/g, (m, varName) => {
             const val = dataStore[varName];
             if (val === undefined) return 'NULL';
-            // If value already looks like a DuckDB array literal (starts with [), inject as-is
             if (typeof val === 'string' && val.trim().startsWith('[')) return val;
-            // For arrays/objects, inject JSON representation
             if (Array.isArray(val) || typeof val === 'object') return JSON.stringify(val);
-            // Otherwise inject primitive as literal
             if (typeof val === 'string') return `'${val.replace(/'/g, "''")}'`;
             return String(val);
           });
@@ -644,11 +621,9 @@ FROM (
             renderSQLResult(null, block.name, error.message);
         }
 
-        // Replace the HTML-comment placeholder with the generated result HTML
         html = html.replace(block.placeholder, resultHTML);
       }
 
-      // Replace variable references in web components
       html = html.replace(/\$\{(\w+)\}/g, (match, varName) => {
         return varName;
       });
@@ -656,13 +631,11 @@ FROM (
       return html;
     }
 
-    // Render web components after HTML is inserted
     function renderWebComponents() {
       const preview = document.getElementById('preview');
       const components = preview.querySelectorAll('data-table-component, data-card, vegalite-chart');
       components.forEach(component => {
         if (component.tagName === 'VEGALITE-CHART') {
-          // If data attribute is a query name, replace with actual data
           const dataAttr = component.getAttribute('data');
           if (dataAttr && dataStore[dataAttr]) {
             component.data = dataStore[dataAttr];
@@ -676,7 +649,6 @@ FROM (
       });
     }
 
-    // Update preview
     async function updatePreview() {
       const markdown = editor.getValue();
       const preview = document.getElementById('preview');
@@ -684,8 +656,6 @@ FROM (
       try {
         const html = await processMarkdown(markdown);
         preview.innerHTML = html;
-
-        // Re-render web components after a short delay to ensure data is available
         setTimeout(renderWebComponents, 100);
       } catch (error) {
         console.error('Error processing markdown:', error);
@@ -693,7 +663,6 @@ FROM (
       }
     }
 
-    // Initialize CodeMirror
     const editor = CodeMirror.fromTextArea(document.getElementById('editor'), {
       mode: 'markdown',
       theme: 'monokai',
@@ -702,7 +671,6 @@ FROM (
       autofocus: true
     });
 
-    // Initialize DuckDB and set up editor change listener
     initDuckDB().then(() => {
       let debounceTimer;
       editor.on('change', () => {
@@ -710,7 +678,6 @@ FROM (
         debounceTimer = setTimeout(updatePreview, 300);
       });
 
-      // Initial render
       updatePreview();
     }).catch(error => {
       console.error('Failed to initialize DuckDB:', error);
