@@ -230,7 +230,7 @@ ORDER BY product
 
 ## Product Filter
 
-<product-filter data='${productList}' name='productSelection'></product-filter>
+<dropdown-component data='${productList}' name='productSelection'></dropdown-component>
 
 ## Sample SQL Query
 
@@ -250,11 +250,11 @@ WHERE ${productSelection} = [] -- Show all when no selection (after replacement)
 
 ## Using Data in Web Components
 
-<sample-table data='${salesData}'></sample-table>
+<data-table-component data='${salesData}'></data-table-component>
 
 ## Sales Chart Visualization
 
-<vegalite-chart
+<vegalite-chart-component
   spec='{"$schema": "https://vega.github.io/schema/vega-lite/v6.json",
   "description": "Sales by Product and Quarter",
   "mark": "bar",
@@ -264,7 +264,7 @@ WHERE ${productSelection} = [] -- Show all when no selection (after replacement)
     "color": {"field": "quarter", "type": "nominal", "title": "Quarter"}
   }}'
   data='${salesData}'>
-</vegalite-chart>
+</vegalite-chart-component>
 
 ## Another Query
 
@@ -299,8 +299,8 @@ FROM (
   <script type="module">
     import vegaEmbed from 'vega-embed';
 
-    // ProductFilter Web Component
-    class ProductFilter extends HTMLElement {
+    // Dropdown Web Component (renamed from ProductFilter)
+    class Dropdown extends HTMLElement {
       static get observedAttributes() { return ['data', 'name']; }
 
       constructor() {
@@ -351,11 +351,12 @@ FROM (
 
         const products = this._data.map(row => row.product);
 
+        const selectId = this._name || this.getAttribute('name') || 'productSelect';
         const html = `
           ${style}
           <div class="select-container">
-            <label for="productSelect">Select Products:</label><br>
-            <select id="productSelect" class="multi-select" multiple>
+            <label for="${selectId}">Select Products:</label><br>
+            <select id="${selectId}" name="${this._name}" class="multi-select" multiple>
               ${products.map(product =>
           `<option value="${product}" ${this._selectedValues.includes(product) ? 'selected' : ''}>${product}</option>`
         ).join('')}
@@ -366,7 +367,7 @@ FROM (
         this.innerHTML = html;
 
         // Add event listener for selection changes
-        this.querySelector('#productSelect').addEventListener('change', (e) => {
+        this.querySelector(`#${selectId}`).addEventListener('change', (e) => {
           const select = e.target;
           this._selectedValues = Array.from(select.selectedOptions).map(opt => opt.value);
           // Store the selection in dataStore for queries to use
@@ -383,7 +384,7 @@ FROM (
         });
       }
     }
-    customElements.define('product-filter', ProductFilter);
+    customElements.define('dropdown-component', Dropdown);
 
     // Vega-Lite Web Component
     class VegaLiteChart extends HTMLElement {
@@ -538,7 +539,7 @@ FROM (
       }
     }
 
-    customElements.define('sample-table', SampleTable);
+    customElements.define('data-table-component', SampleTable);
     customElements.define('data-card', DataCard);
 
     // Parse SQL code blocks and extract name
@@ -655,7 +656,7 @@ FROM (
     // Render web components after HTML is inserted
     function renderWebComponents() {
       const preview = document.getElementById('preview');
-      const components = preview.querySelectorAll('sample-table, data-card, vegalite-chart');
+      const components = preview.querySelectorAll('data-table-component, data-card, vegalite-chart');
       components.forEach(component => {
         if (component.tagName === 'VEGALITE-CHART') {
           // If data attribute is a query name, replace with actual data
