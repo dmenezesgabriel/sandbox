@@ -1,6 +1,8 @@
-// ./index.js (UPDATED - imports new component modules)
-import vegaEmbed from "vega-embed";
 import * as duckdb from "@duckdb/duckdb-wasm";
+import duckdb_wasm from "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url";
+import mvp_worker from "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url";
+import duckdb_wasm_eh from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
+import eh_worker from "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url";
 import { marked } from "marked";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -10,7 +12,6 @@ import { markdown } from "@codemirror/lang-markdown";
 import { oneDark } from "@codemirror/theme-one-dark";
 import Handlebars from "handlebars";
 
-// import the component modules (they register themselves)
 import "./components/dropdown-component.js";
 import "./components/vegalite-chart.js";
 import "./components/data-table-component.js";
@@ -21,13 +22,21 @@ marked.use({
   breaks: true,
 });
 
-// Global data store with nested structure
+Handlebars.registerHelper("get", function (obj, path) {
+  const keys = path.split(".");
+  let result = obj;
+  for (const key of keys) {
+    result = result[key];
+    if (result === undefined) return "";
+  }
+  return result;
+});
+
 const dataStore = {
   data: {},
   input: {},
 };
 
-// (Keep the SQL rendering helpers and other helpers unchanged)
 function parseSQLBlock(code, infoString) {
   const nameMatch = infoString && infoString.match(/name=['"]([^'"]+)['"]/);
   return {
@@ -81,37 +90,27 @@ function renderSQLResult(data, queryName, error = null) {
   </details>`;
 }
 
-// Handlebars helper for nested property access
-Handlebars.registerHelper("get", function (obj, path) {
-  const keys = path.split(".");
-  let result = obj;
-  for (const key of keys) {
-    result = result[key];
-    if (result === undefined) return "";
-  }
-  return result;
-});
-
-// DuckDB init and query functions (kept as you had them)
 let db = null;
 let conn = null;
 
 async function initDuckDB() {
   try {
-    const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-    const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+    const MANUAL_BUNDLES = {
+      mvp: {
+        mainModule: duckdb_wasm,
+        mainWorker: mvp_worker,
+      },
+      eh: {
+        mainModule: duckdb_wasm_eh,
+        mainWorker: eh_worker,
+      },
+    };
 
-    const worker_url = URL.createObjectURL(
-      new Blob([`importScripts("${bundle.mainWorker}");`], {
-        type: "text/javascript",
-      })
-    );
-
-    const worker = new Worker(worker_url);
+    const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
+    const worker = new Worker(bundle.mainWorker);
     const logger = new duckdb.ConsoleLogger();
-    db = new duckdb.AsyncDuckDB(logger, worker);
+    const db = new duckdb.AsyncDuckDB(logger, worker);
     await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-    URL.revokeObjectURL(worker_url);
 
     conn = await db.connect();
     console.log("DuckDB initialized successfully");
@@ -205,7 +204,6 @@ function bindComponentData() {
     }
   });
 
-  // Bind table components
   const tables = preview.querySelectorAll("data-table-component");
   tables.forEach((table) => {
     const dataRef = table.getAttribute("data-ref");
@@ -214,7 +212,6 @@ function bindComponentData() {
     }
   });
 
-  // Bind card components
   const cards = preview.querySelectorAll("data-card");
   cards.forEach((card) => {
     const dataRef = card.getAttribute("data-ref");
@@ -223,7 +220,6 @@ function bindComponentData() {
     }
   });
 
-  // Bind chart components
   const charts = preview.querySelectorAll("vegalite-chart");
   charts.forEach((chart) => {
     const dataRef = chart.getAttribute("data-ref");
@@ -243,7 +239,6 @@ function bindComponentData() {
   });
 }
 
-// Editor + preview wiring (unchanged aside from being in this file)
 let editor;
 let debounceTimer;
 
@@ -255,17 +250,13 @@ async function updatePreview() {
     const html = await processMarkdown(markdown);
     preview.innerHTML = html;
 
-    // Bind data to components after DOM insertion
-    setTimeout(bindComponentData, 100);
+    setTimeout(bindComponentData, 10);
   } catch (error) {
     console.error("Error processing markdown:", error);
     preview.innerHTML = `<div class="sql-error">Error: ${error.message}</div>`;
   }
 }
 
-// Listen for value changes from components
-// NOTE: component modules now dispatch arrays for dropdowns.
-// This listener converts arrays into the string format your templates expect: "['A','B']"
 document.addEventListener("valuechange", (e) => {
   const detail = e.detail || {};
   const name = detail.name;
@@ -283,14 +274,10 @@ document.addEventListener("valuechange", (e) => {
       dataStore.input[name] = `[${formattedValues.join(",")}]`;
     }
   } else if (typeof val === "string") {
-    // Accept older format or other components that send a preformatted string
     dataStore.input[name] = val;
   } else {
-    // Fallback: stringify
     dataStore.input[name] = JSON.stringify(val);
   }
-
-  // re-render preview after input change
   updatePreview();
 });
 
@@ -325,7 +312,6 @@ function initCodeMirror() {
   });
 }
 
-// Initialize default input values
 dataStore.input.productSelection = "[]";
 
 initDuckDB()
