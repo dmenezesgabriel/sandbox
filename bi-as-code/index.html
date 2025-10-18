@@ -22,9 +22,19 @@
         <textarea id="editor"># Markdown + SQL + Web Components
 
 Write your markdown here and see it rendered in real-time!
+```sql name='summary'
+SELECT
+SUM(sales) as total_sales,
+AVG(sales) as avg_sales,
+COUNT(*) as num_products
+FROM (
+SELECT 'Product A' as product, 100 as sales
+UNION ALL SELECT 'Product B', 150
+UNION ALL SELECT 'Product C', 120
+) t
+```
 
-## Product List Query
-
+<data-card data-ref='summary'></data-card>
 ```sql name='productList'
 SELECT DISTINCT product
 FROM (
@@ -38,12 +48,7 @@ FROM (
 ORDER BY product
 ```
 
-## Product Filter
-
-<dropdown-component data='${productList}' name='productSelection'></dropdown-component>
-
-## Sample SQL Query
-
+<dropdown-component data-ref='productList' name='productSelection'></dropdown-component>
 ```sql name='salesData'
 WITH source_data AS (
   SELECT 'Product A' as product, 100 as sales, 'Q1' as quarter
@@ -54,15 +59,9 @@ WITH source_data AS (
   UNION ALL SELECT 'Product C', 140, 'Q2'
 )
 SELECT * FROM source_data
-WHERE ${productSelection} = [] -- Show all when no selection (after replacement)
-  OR product IN (SELECT unnest(${productSelection}))
+WHERE {{input.productSelection}} = []
+  OR product IN (SELECT unnest({{input.productSelection}}))
 ```
-
-## Using Data in Web Components
-
-<data-table-component data='${salesData}'></data-table-component>
-
-## Sales Chart Visualization
 
 <vegalite-chart
   spec='{"$schema": "https://vega.github.io/schema/vega-lite/v6.json",
@@ -73,24 +72,11 @@ WHERE ${productSelection} = [] -- Show all when no selection (after replacement)
     "y": {"field": "sales", "type": "quantitative", "title": "Sales"},
     "color": {"field": "quarter", "type": "nominal", "title": "Quarter"}
   }}'
-  data='${salesData}'>
+  data-ref='salesData'>
 </vegalite-chart>
 
-## Another Query
+<data-table-component data-ref='salesData'></data-table-component>
 
-```sql name='summary'
-SELECT
-  SUM(sales) as total_sales,
-  AVG(sales) as avg_sales,
-  COUNT(*) as num_products
-FROM (
-  SELECT 'Product A' as product, 100 as sales
-  UNION ALL SELECT 'Product B', 150
-  UNION ALL SELECT 'Product C', 120
-) t
-```
-
-<data-card data='${summary}'></data-card>
 </textarea>
       </div>
     </div>
