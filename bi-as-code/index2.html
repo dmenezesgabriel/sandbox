@@ -24,7 +24,8 @@
         "marked": "https://esm.sh/marked@16.0.0",
         "vega": "https://esm.sh/vega@5.22.1",
         "vega-lite": "https://esm.sh/vega-lite@5.6.0",
-        "vega-embed": "https://esm.sh/vega-embed@6.21.0"
+        "vega-embed": "https://esm.sh/vega-embed@6.21.0",
+        "@duckdb/duckdb-wasm": "https://esm.sh/@duckdb/duckdb-wasm@1.30.0"
       }
     }
   </script>
@@ -58,6 +59,150 @@
     import { markdown } from "@codemirror/lang-markdown";
     import { marked } from "marked";
     import vegaEmbed from "vega-embed";
+    import * as duckdb from '@duckdb/duckdb-wasm';
+
+    // Global DuckDB instance
+    let dbInstance = null;
+    let dbConnection = null;
+
+    async function initDuckDB() {
+      if (dbInstance) return dbInstance;
+
+      const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+      const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+      const worker_url = URL.createObjectURL(
+        new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+      );
+      const worker = new Worker(worker_url);
+      const logger = new duckdb.ConsoleLogger();
+      const db = new duckdb.AsyncDuckDB(logger, worker);
+      await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      URL.revokeObjectURL(worker_url);
+
+      dbInstance = db;
+      dbConnection = await db.connect();
+      return db;
+    }
+
+    class SqlCodeBlock extends LitElement {
+      static properties = {
+        code: { type: String },
+        name: { type: String },
+        hide: { type: Boolean },
+        result: { type: Array }
+      };
+
+      static styles = css`
+        :host { display: block; margin: 20px 0; }
+        .code-block {
+          background: #f5f5f5;
+          padding: 12px;
+          border-radius: 4px;
+          overflow-x: auto;
+          margin-bottom: 12px;
+        }
+        .code-block.hidden { display: none; }
+        pre {
+          margin: 0;
+          font-family: monospace;
+          font-size: 14px;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+          font-size: 12px;
+          color: #666;
+        }
+        .status {
+          padding: 4px 8px;
+          border-radius: 3px;
+          font-size: 11px;
+        }
+        .loading { background: #fff3cd; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; color: #721c24; }
+      `;
+
+      constructor() {
+        super();
+        this.code = '';
+        this.name = '';
+        this.hide = false;
+        this.result = null;
+        this.status = 'loading';
+        this.error = null;
+      }
+
+      async connectedCallback() {
+        super.connectedCallback();
+        await this.executeQuery();
+      }
+
+      async executeQuery() {
+        try {
+          await initDuckDB();
+          const queryResult = await dbConnection.query(this.code);
+          this.result = queryResult.toArray().map(row => row.toJSON());
+          this.status = 'success';
+        } catch (e) {
+          this.error = e.message;
+          this.status = 'error';
+          console.error('SQL execution error:', e);
+        }
+        this.requestUpdate();
+      }
+
+      renderTable() {
+        if (!this.result || this.result.length === 0) return '';
+
+        const keys = Object.keys(this.result[0]);
+
+        return html`
+          <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
+            <thead>
+              <tr>
+                ${keys.map(key => html`<th style="padding: 8px; text-align: left; border: 1px solid #ddd; background: #f5f5f5; font-weight: 600;">${key}</th>`)}
+              </tr>
+            </thead>
+            <tbody>
+              ${this.result.map(row => html`
+                <tr>
+                  ${keys.map(key => html`<td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${row[key]}</td>`)}
+                </tr>
+              `)}
+            </tbody>
+          </table>
+        `;
+      }
+
+      render() {
+        return html`
+          <div>
+            ${this.name ? html`
+              <div class="header">
+                <strong>${this.name}</strong>
+                <span class="status ${this.status}">
+                  ${this.status === 'loading' ? 'Executing...' :
+              this.status === 'success' ? `${this.result?.length || 0} rows` :
+                'Error'}
+                </span>
+              </div>
+            ` : ''}
+            <div class="code-block ${this.hide ? 'hidden' : ''}">
+              <pre><code>${this.code}</code></pre>
+            </div>
+            ${this.status === 'error' ? html`
+              <div class="error" style="padding: 8px; margin-top: 8px;">
+                ${this.error}
+              </div>
+            ` : ''}
+            ${this.status === 'success' && this.result && this.result.length > 0 ? this.renderTable() : ''}
+          </div>
+        `;
+      }
+    }
 
     class VegaLiteChart extends LitElement {
       static properties = {
@@ -115,7 +260,9 @@
     class DataTable extends LitElement {
       static properties = {
         data: { type: String },
-        columnConfig: { type: String }
+        columnConfig: { type: String },
+        dataArray: { type: Array },
+        autoColumns: { type: String }
       };
 
       static styles = css`
@@ -139,17 +286,40 @@
         super();
         this.data = '[]';
         this.columnConfig = '[]';
+        this.dataArray = null;
+        this.autoColumns = 'false';
       }
 
       render() {
-        let dataArray = [];
+        let dataArray = this.dataArray || [];
         let configArray = [];
 
-        try {
-          dataArray = JSON.parse(this.data);
-          configArray = JSON.parse(this.columnConfig);
-        } catch (e) {
-          return html`<div>Error parsing data</div>`;
+        if (!this.dataArray) {
+          try {
+            dataArray = JSON.parse(this.data);
+            configArray = JSON.parse(this.columnConfig);
+          } catch (e) {
+            return html`<div>Error parsing data</div>`;
+          }
+        } else {
+          // Auto-generate columns from data
+          if (this.autoColumns === 'true' && dataArray.length > 0) {
+            const keys = Object.keys(dataArray[0]);
+            configArray = keys.map(key => ({ [key]: key }));
+          } else {
+            try {
+              configArray = JSON.parse(this.columnConfig);
+            } catch (e) {
+              if (dataArray.length > 0) {
+                const keys = Object.keys(dataArray[0]);
+                configArray = keys.map(key => ({ [key]: key }));
+              }
+            }
+          }
+        }
+
+        if (dataArray.length === 0) {
+          return html`<div style="color: #999; padding: 8px;">No data</div>`;
         }
 
         return html`
@@ -244,6 +414,39 @@
       constructor() {
         super();
         this.markdown = "";
+        this.setupMarkedExtension();
+      }
+
+      setupMarkedExtension() {
+        marked.use({
+          extensions: [{
+            name: 'sqlCodeBlock',
+            level: 'block',
+            start(src) {
+              return src.match(/^```sql/)?.index;
+            },
+            tokenizer(src) {
+              const match = src.match(/^```sql([^\n]*)\n([\s\S]*?)```/);
+              if (match) {
+                const attrs = match[1].trim();
+                const code = match[2];
+                const nameMatch = attrs.match(/name=([^\s]+)/);
+                const hideMatch = attrs.match(/hide=(true|false)/);
+
+                return {
+                  type: 'sqlCodeBlock',
+                  raw: match[0],
+                  code: code,
+                  name: nameMatch ? nameMatch[1] : '',
+                  hide: hideMatch ? hideMatch[1] === 'true' : false
+                };
+              }
+            },
+            renderer(token) {
+              return `<sql-code-block code='${token.code.replace(/'/g, "&#39;")}' name="${token.name}" ${token.hide ? 'hide' : ''}></sql-code-block>`;
+            }
+          }]
+        });
       }
 
       render() {
@@ -289,7 +492,51 @@
 
       constructor() {
         super();
-        this.markdownText = `# Welcome to Markdown Preview\n\n## Features\n- Live preview\n- **Bold** and *italic* text\n- Code snippets\n\n\`\`\`javascript\nconst hello = "world";\nconsole.log(hello);\n\`\`\`\n\n> This is a blockquote\n\n### Lists\n1. First item\n2. Second item\n3. Third item\n\n<data-table\n data='[{"city":"Rio","pop":6748000},{"city":"SP","pop":12252000}]'\n columnConfig='[{"city":"City"},{"pop":"Population"}]'>\n</data-table>\n\n<vegalite-chart\nspec='{"mark":"bar","encoding":{"x":{"field":"city","type":"nominal"},"y":{"field":"pop","type":"quantitative"}},"data":{"values":[{"city":"Rio","pop":6748000},{"city":"SP","pop":12252000},{"city":"BH","pop":2521564}]},"width":400,"height":200}'>\n</vegalite-chart>`;
+        this.markdownText = `# Welcome to Markdown Preview
+
+## Features
+- Live preview
+- **Bold** and *italic* text
+- Code snippets
+
+\`\`\`javascript
+const hello = "world";
+console.log(hello);
+\`\`\`
+
+> This is a blockquote
+
+### Lists
+1. First item
+2. Second item
+3. Third item
+
+### Data Table
+
+<data-table
+  data='[{"city":"Rio","pop":6748000},{"city":"SP","pop":12252000}]'
+  columnConfig='[{"city":"City"},{"pop":"Population"}]'>
+</data-table>
+
+### Chart Example
+
+<vegalite-chart
+  spec='{"mark":"bar","encoding":{"x":{"field":"city","type":"nominal"},"y":{"field":"pop","type":"quantitative"}},"data":{"values":[{"city":"Rio","pop":6748000},{"city":"SP","pop":12252000},{"city":"BH","pop":2521564}]},"width":400,"height":200}'>
+</vegalite-chart>
+
+### SQL Query Example
+
+\`\`\`sql name=sales_summary hide=false
+SELECT
+  'Product A' as product, 150000 as sales, 'Electronics' as category
+UNION ALL
+SELECT 'Product B', 120000, 'Electronics'
+UNION ALL
+SELECT 'Product C', 95000, 'Home'
+UNION ALL
+SELECT 'Product D', 200000, 'Electronics'
+\`\`\`
+`;
       }
 
       handleEditorChange(e) {
@@ -316,10 +563,11 @@
       }
     }
 
+    customElements.define("sql-code-block", SqlCodeBlock);
+    customElements.define("vegalite-chart", VegaLiteChart);
+    customElements.define("data-table", DataTable);
     customElements.define("markdown-editor", MarkdownEditor);
     customElements.define("markdown-preview", MarkdownPreview);
-    customElements.define("data-table", DataTable);
-    customElements.define("vegalite-chart", VegaLiteChart);
     customElements.define("app-root", AppRoot);
 
     document.getElementById("root").appendChild(document.createElement("app-root"));
