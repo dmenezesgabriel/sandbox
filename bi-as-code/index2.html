@@ -55,6 +55,72 @@
     import { markdown } from "@codemirror/lang-markdown";
     import { marked } from "marked";
 
+
+    class DataTable extends LitElement {
+      static properties = {
+        data: { type: String },
+        columnConfig: { type: String }
+      };
+
+      static styles = css`
+        :host { display: block; margin: 20px 0; }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        th, td {
+          padding: 8px;
+          text-align: left;
+          border: 1px solid #ddd;
+        }
+        th {
+          background: #f5f5f5;
+          font-weight: 600;
+        }
+      `;
+
+      constructor() {
+        super();
+        this.data = '[]';
+        this.columnConfig = '[]';
+      }
+
+      render() {
+        let dataArray = [];
+        let configArray = [];
+
+        try {
+          dataArray = JSON.parse(this.data);
+          configArray = JSON.parse(this.columnConfig);
+        } catch (e) {
+          return html`<div>Error parsing data</div>`;
+        }
+
+        return html`
+          <table>
+            <thead>
+              <tr>
+                ${configArray.map(col => {
+          const key = Object.keys(col)[0];
+          return html`<th>${col[key]}</th>`;
+        })}
+              </tr>
+            </thead>
+            <tbody>
+              ${dataArray.map(row => html`
+                <tr>
+                  ${configArray.map(col => {
+          const key = Object.keys(col)[0];
+          return html`<td>${row[key]}</td>`;
+        })}
+                </tr>
+              `)}
+            </tbody>
+          </table>
+        `;
+      }
+    }
+
     class MarkdownEditor extends LitElement {
       static properties = { value: { type: String } };
       static styles = css`
@@ -167,7 +233,7 @@
 
       constructor() {
         super();
-        this.markdownText = `# Welcome to Markdown Preview\n\n## Features\n- Live preview\n- **Bold** and *italic* text\n- Code snippets\n\n\`\`\`javascript\nconst hello = "world";\nconsole.log(hello);\n\`\`\`\n\n> This is a blockquote\n\n### Lists\n1. First item\n2. Second item\n3. Third item\n`;
+        this.markdownText = `# Welcome to Markdown Preview\n\n## Features\n- Live preview\n- **Bold** and *italic* text\n- Code snippets\n\n\`\`\`javascript\nconst hello = "world";\nconsole.log(hello);\n\`\`\`\n\n> This is a blockquote\n\n### Lists\n1. First item\n2. Second item\n3. Third item\n\n<data-table\n data='[{"city":"Rio","pop":6748000},{"city":"SP","pop":12252000}]'\n columnConfig='[{"city":"City"},{"pop":"Population"}]'>\n</data-table>`;
       }
 
       handleEditorChange(e) {
@@ -196,6 +262,8 @@
 
     customElements.define("markdown-editor", MarkdownEditor);
     customElements.define("markdown-preview", MarkdownPreview);
+    customElements.define("data-table", DataTable);
+
     customElements.define("app-root", AppRoot);
 
     document.getElementById("root").appendChild(document.createElement("app-root"));
