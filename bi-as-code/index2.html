@@ -160,24 +160,33 @@
         const keys = Object.keys(this.result[0]);
 
         return html`
-          <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
-            <thead>
-              <tr>
-                ${keys.map(key => html`<th style="padding: 8px; text-align: left; border: 1px solid #ddd; background: #f5f5f5; font-weight: 600;">${key}</th>`)}
-              </tr>
-            </thead>
-            <tbody>
-              ${this.result.map(row => html`
+          <details open style="margin-top: 12px;">
+            <summary style="cursor: pointer; padding: 8px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-weight: 600;">
+              Query Results (${this.result.length} rows)
+            </summary>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+              <thead>
                 <tr>
-                  ${keys.map(key => html`<td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${row[key]}</td>`)}
+                  ${keys.map(key => html`<th style="padding: 8px; text-align: left; border: 1px solid #ddd; background: #f5f5f5; font-weight: 600;">${key}</th>`)}
                 </tr>
-              `)}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                ${this.result.map(row => html`
+                  <tr>
+                    ${keys.map(key => html`<td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${row[key]}</td>`)}
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </details>
         `;
       }
 
       render() {
+        if (this.hide) {
+          return html``;
+        }
+
         return html`
           <div>
             ${this.name ? html`
@@ -190,7 +199,7 @@
                 </span>
               </div>
             ` : ''}
-            <div class="code-block ${this.hide ? 'hidden' : ''}">
+            <div class="code-block">
               <pre><code>${this.code}</code></pre>
             </div>
             ${this.status === 'error' ? html`
