@@ -21,7 +21,10 @@
         "w3c-keyname": "https://esm.sh/w3c-keyname",
         "crelt": "https://esm.sh/crelt",
         "@marijn/find-cluster-break": "https://esm.sh/@marijn/find-cluster-break",
-        "marked": "https://esm.sh/marked@16.0.0"
+        "marked": "https://esm.sh/marked@16.0.0",
+        "vega": "https://esm.sh/vega@5.22.1",
+        "vega-lite": "https://esm.sh/vega-lite@5.6.0",
+        "vega-embed": "https://esm.sh/vega-embed@6.21.0"
       }
     }
   </script>
@@ -54,7 +57,60 @@
     import { EditorState } from "@codemirror/state";
     import { markdown } from "@codemirror/lang-markdown";
     import { marked } from "marked";
+    import vegaEmbed from "vega-embed";
 
+    class VegaLiteChart extends LitElement {
+      static properties = {
+        spec: { type: String }
+      };
+
+      static styles = css`
+        :host { display: block; margin: 20px 0; }
+        #chart { width: 100%; }
+        .empty { color: #999; padding: 12px; }
+        .error { color: #c33; padding: 8px; }
+      `;
+
+      constructor() {
+        super();
+        this.spec = null;
+      }
+
+      updated(changedProperties) {
+        if (changedProperties.has("spec")) {
+          this.renderChart();
+        }
+      }
+
+      async renderChart() {
+        const chartDiv = this.renderRoot.querySelector("#chart");
+        if (!chartDiv) return;
+
+        if (!this.spec) {
+          chartDiv.innerHTML = '<div class="empty">No chart spec provided</div>';
+          return;
+        }
+
+        let specObj;
+        try {
+          specObj = JSON.parse(this.spec);
+        } catch (e) {
+          chartDiv.innerHTML = '<div class="error">Invalid spec JSON</div>';
+          return;
+        }
+
+        try {
+          await vegaEmbed(chartDiv, specObj, { actions: false });
+        } catch (e) {
+          console.error("vegaEmbed error:", e);
+          chartDiv.innerHTML = '<div class="error">Chart render error</div>';
+        }
+      }
+
+      render() {
+        return html`<div id="chart"></div>`;
+      }
+    }
 
     class DataTable extends LitElement {
       static properties = {
@@ -233,7 +289,7 @@
 
       constructor() {
         super();
-        this.markdownText = `# Welcome to Markdown Preview\n\n## Features\n- Live preview\n- **Bold** and *italic* text\n- Code snippets\n\n\`\`\`javascript\nconst hello = "world";\nconsole.log(hello);\n\`\`\`\n\n> This is a blockquote\n\n### Lists\n1. First item\n2. Second item\n3. Third item\n\n<data-table\n data='[{"city":"Rio","pop":6748000},{"city":"SP","pop":12252000}]'\n columnConfig='[{"city":"City"},{"pop":"Population"}]'>\n</data-table>`;
+        this.markdownText = `# Welcome to Markdown Preview\n\n## Features\n- Live preview\n- **Bold** and *italic* text\n- Code snippets\n\n\`\`\`javascript\nconst hello = "world";\nconsole.log(hello);\n\`\`\`\n\n> This is a blockquote\n\n### Lists\n1. First item\n2. Second item\n3. Third item\n\n<data-table\n data='[{"city":"Rio","pop":6748000},{"city":"SP","pop":12252000}]'\n columnConfig='[{"city":"City"},{"pop":"Population"}]'>\n</data-table>\n\n<vegalite-chart\nspec='{"mark":"bar","encoding":{"x":{"field":"city","type":"nominal"},"y":{"field":"pop","type":"quantitative"}},"data":{"values":[{"city":"Rio","pop":6748000},{"city":"SP","pop":12252000},{"city":"BH","pop":2521564}]},"width":400,"height":200}'>\n</vegalite-chart>`;
       }
 
       handleEditorChange(e) {
@@ -263,7 +319,7 @@
     customElements.define("markdown-editor", MarkdownEditor);
     customElements.define("markdown-preview", MarkdownPreview);
     customElements.define("data-table", DataTable);
-
+    customElements.define("vegalite-chart", VegaLiteChart);
     customElements.define("app-root", AppRoot);
 
     document.getElementById("root").appendChild(document.createElement("app-root"));
