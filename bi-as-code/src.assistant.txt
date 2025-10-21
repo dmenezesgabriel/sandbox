@@ -1,0 +1,881 @@
+--- components/dropdown-component.js (94 lines)
+// ./components/dropdown-component-lit.js
+import { html, css, LitElement } from "lit";
+
+export class DropdownComponent extends LitElement {
+  static properties = {
+    data: { type: Array },
+    name: { type: String },
+    selectedValues: { type: Array },
+  };
+
+  static styles = css`
+    .select-container {
+      margin: 16px 0;
+    }
+
+    label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    select.multi-select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      min-height: 100px;
+    }
+
+    select.multi-select option {
+      padding: 4px;
+    }
+
+    .empty {
+      color: #999;
+    }
+  `;
+
+  constructor() {
+    super();
+    this.data = [];
+    this.name = "";
+    this.selectedValues = [];
+  }
+
+  handleChange(event) {
+    const select = event.target;
+    this.selectedValues = Array.from(select.selectedOptions).map(
+      (opt) => opt.value
+    );
+
+    this.dispatchEvent(
+      new CustomEvent("valuechange", {
+        detail: { name: this.name, value: this.selectedValues },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  render() {
+    if (!this.data || !Array.isArray(this.data)) {
+      return html`<p class="empty">Loading products...</p>`;
+    }
+
+    const products = this.data.map((row) => row.product);
+
+    return html`
+      <div class="select-container">
+        <label for="select-${this.name}">Select products:</label>
+        <select
+          id="select-${this.name}"
+          name="${this.name}"
+          class="multi-select"
+          multiple
+          @change=${this.handleChange}
+        >
+          ${products.map(
+            (product) => html`
+              <option
+                value="${product}"
+                ?selected=${this.selectedValues.includes(product)}
+              >
+                ${product}
+              </option>
+            `
+          )}
+        </select>
+      </div>
+    `;
+  }
+}
+
+customElements.define("dropdown-component", DropdownComponent);
+--- components/vegalite-chart.js (63 lines)
+import { html, css, LitElement } from "lit";
+import vegaEmbed from "vega-embed";
+
+export class VegaLiteChart extends LitElement {
+  static properties = {
+    spec: { type: Object },
+    data: { type: Array },
+  };
+
+  static styles = css`
+    #chart {
+      width: 100%;
+    }
+    .empty {
+      color: #999;
+      padding: 12px;
+    }
+    .error {
+      color: #c33;
+      padding: 8px;
+    }
+  `;
+
+  constructor() {
+    super();
+    this.spec = null;
+    this.data = null;
+  }
+
+  updated(changedProperties) {
+    if (changedProperties.has("spec") || changedProperties.has("data")) {
+      this.renderChart();
+    }
+  }
+
+  async renderChart() {
+    const chartDiv = this.renderRoot.querySelector("#chart");
+    if (!chartDiv) return;
+
+    if (!this.spec) {
+      chartDiv.innerHTML = `<div class="empty">No chart spec provided</div>`;
+      return;
+    }
+
+    const specCopy = JSON.parse(JSON.stringify(this.spec));
+    if (this.data && Array.isArray(this.data)) {
+      specCopy.data = { values: this.data };
+    }
+
+    try {
+      await vegaEmbed(chartDiv, specCopy);
+    } catch (e) {
+      console.error("vegaEmbed error:", e);
+      chartDiv.innerHTML = `<div class="error">Chart render error</div>`;
+    }
+  }
+
+  render() {
+    return html`<div id="chart"></div>`;
+  }
+}
+
+customElements.define("vegalite-chart", VegaLiteChart);
+--- components/data-table-component.js (83 lines)
+// ./components/data-table-component-lit.js
+import { html, css, LitElement } from "lit";
+
+export class DataTableComponent extends LitElement {
+  static properties = {
+    data: { type: Array },
+  };
+
+  static styles = css`
+    .table-container {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 16px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead tr {
+      background: #f8f9fa;
+    }
+
+    th {
+      padding: 10px;
+      text-align: left;
+      border-bottom: 2px solid #ddd;
+      font-weight: 600;
+    }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .empty {
+      color: #999;
+    }
+  `;
+
+  constructor() {
+    super();
+    this.data = [];
+  }
+
+  render() {
+    if (!this.data || !Array.isArray(this.data) || this.data.length === 0) {
+      return html`<p class="empty">Data not available or empty</p>`;
+    }
+
+    const columns = Object.keys(this.data[0]);
+
+    return html`
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              ${columns.map((col) => html`<th>${col}</th>`)}
+            </tr>
+          </thead>
+          <tbody>
+            ${this.data.map(
+              (row) => html`
+                <tr>
+                  ${columns.map(
+                    (col) =>
+                      html`<td>
+                        ${row[col] !== null ? row[col] : html`<em>null</em>`}
+                      </td>`
+                  )}
+                </tr>
+              `
+            )}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+}
+
+customElements.define("data-table-component", DataTableComponent);
+--- components/data-card.js (70 lines)
+// ./components/data-card.js
+import { html, css, LitElement } from "lit";
+
+export class DataCard extends LitElement {
+  static styles = css`
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin: 16px 0;
+    }
+
+    .card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .key {
+      font-size: 12px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    p {
+      color: #999;
+    }
+  `;
+
+  static properties = {
+    data: { type: Array },
+  };
+
+  constructor() {
+    super();
+    this.data = [];
+  }
+
+  render() {
+    if (!this.data || this.data.length === 0) {
+      return html`<p>Data not available</p>`;
+    }
+
+    const record = this.data[0];
+
+    return html`
+      <div class="grid">
+        ${Object.entries(record).map(
+          ([key, value]) => html`
+            <div class="card">
+              <div class="key">${key.replace(/_/g, " ")}</div>
+              <div class="value">
+                ${typeof value === "number"
+                  ? value.toLocaleString()
+                  : parseFloat(value).toLocaleString()}
+              </div>
+            </div>
+          `
+        )}
+      </div>
+    `;
+  }
+}
+
+customElements.define("data-card", DataCard);
+--- components/markdown-editor.js (87 lines)
+import { LitElement, html, css } from "lit";
+import { EditorState } from "@codemirror/state";
+import { EditorView, keymap } from "@codemirror/view";
+import { defaultKeymap } from "@codemirror/commands";
+import { markdown } from "@codemirror/lang-markdown";
+import { oneDark } from "@codemirror/theme-one-dark";
+
+export class MarkdownEditor extends LitElement {
+  static styles = css`
+    .editor-container {
+      height: 100%;
+      overflow: hidden;
+    }
+  `;
+
+  constructor() {
+    super();
+    this.editor = null;
+    this.debounceTimer = null;
+    this.initialMarkdown = "# Loading markdown...";
+  }
+
+  async firstUpdated() {
+    await this.loadInitialMarkdown();
+    this.initCodeMirror();
+  }
+
+  async loadInitialMarkdown() {
+    try {
+      const res = await fetch("src/content.md");
+      this.initialMarkdown = await res.text();
+    } catch (e) {
+      console.error("Failed to load markdown file:", e);
+      this.initialMarkdown = "# Failed to load markdown file";
+    }
+  }
+
+  initCodeMirror() {
+    const editorContainer = this.renderRoot.querySelector(".editor-container");
+
+    const changeListener = EditorView.updateListener.of((update) => {
+      if (update.docChanged) {
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => {
+          this.dispatchEvent(
+            new CustomEvent("markdownchange", {
+              detail: this.editor.state.doc.toString(),
+              bubbles: true,
+              composed: true,
+            })
+          );
+        }, 300);
+      }
+    });
+
+    const startState = EditorState.create({
+      doc: this.initialMarkdown,
+      extensions: [
+        keymap.of(defaultKeymap),
+        markdown(),
+        oneDark,
+        EditorView.lineWrapping,
+        changeListener,
+      ],
+    });
+
+    this.editor = new EditorView({
+      state: startState,
+      parent: editorContainer,
+    });
+
+    // Emit initial content
+    this.dispatchEvent(
+      new CustomEvent("markdownchange", {
+        detail: this.initialMarkdown,
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
+  render() {
+    return html`<div class="editor-container"></div>`;
+  }
+}
+
+customElements.define("markdown-editor", MarkdownEditor);
+--- components/markdown-preview.js (65 lines)
+import { LitElement, html, css } from "lit";
+import { processMarkdown } from "../utils/markdown.js";
+import { bindComponentData } from "../utils/component.js";
+
+export class MarkdownPreview extends LitElement {
+  static styles = css`
+    .preview-container {
+      overflow-y: auto;
+      padding: 20px;
+      height: 100%;
+    }
+    .preview-content {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+  `;
+
+  constructor() {
+    super();
+    this.markdown = "";
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    // Listen globally for editor changes
+    window.addEventListener("markdownchange", this.onMarkdownChange.bind(this));
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener(
+      "markdownchange",
+      this.onMarkdownChange.bind(this)
+    );
+  }
+
+  async onMarkdownChange(e) {
+    this.markdown = e.detail;
+    await this.updatePreview();
+  }
+
+  async updatePreview() {
+    const previewDiv = this.renderRoot.querySelector(".preview-content");
+    if (!previewDiv) return;
+
+    try {
+      const htmlContent = await processMarkdown(this.markdown);
+      previewDiv.innerHTML = htmlContent;
+
+      // Wait one frame then bind components
+      requestAnimationFrame(() => bindComponentData());
+    } catch (err) {
+      console.error("Error processing markdown:", err);
+      previewDiv.innerHTML = `<div class="sql-error">Error: ${err.message}</div>`;
+    }
+  }
+
+  render() {
+    return html`<div class="preview-container">
+      <div class="preview-content"></div>
+    </div>`;
+  }
+}
+
+customElements.define("markdown-preview", MarkdownPreview);
+--- style.css (182 lines)
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 100vh;
+  gap: 1px;
+  background: #ddd;
+}
+
+.panel {
+  background: white;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 12px 16px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.editor-container {
+  flex: 1;
+  overflow: hidden;
+}
+
+.CodeMirror {
+  height: 100%;
+  font-size: 14px;
+}
+
+.preview-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+.preview-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.preview-content h1 {
+  font-size: 2em;
+  margin: 0.67em 0;
+}
+
+.preview-content h2 {
+  font-size: 1.5em;
+  margin: 0.75em 0;
+}
+
+.preview-content h3 {
+  font-size: 1.17em;
+  margin: 0.83em 0;
+}
+
+.preview-content p {
+  margin: 1em 0;
+  line-height: 1.6;
+}
+
+.preview-content code {
+  background: #f4f4f4;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "Courier New", monospace;
+}
+
+.preview-content pre {
+  background: #f4f4f4;
+  padding: 16px;
+  border-radius: 4px;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.preview-content pre code {
+  background: none;
+  padding: 0;
+}
+
+.sql-result {
+  margin: 16px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sql-result summary {
+  padding: 12px;
+  background: #f8f9fa;
+  cursor: pointer;
+  font-weight: 500;
+  user-select: none;
+}
+
+.sql-result summary:hover {
+  background: #e9ecef;
+}
+
+.sql-result-content {
+  padding: 12px;
+  max-height: 400px;
+  overflow: auto;
+}
+
+.sql-result table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sql-result th,
+.sql-result td {
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.sql-result th {
+  background: #f8f9fa;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+
+.sql-result tr:hover {
+  background: #f8f9fa;
+}
+
+.sql-error {
+  padding: 12px;
+  background: #fee;
+  color: #c33;
+  border-left: 4px solid #c33;
+  margin: 16px 0;
+  border-radius: 4px;
+}
+
+.loading {
+  padding: 12px;
+  background: #fff3cd;
+  color: #856404;
+  border-left: 4px solid #ffc107;
+  margin: 16px 0;
+  border-radius: 4px;
+}
+
+.editor-container {
+  flex: 1; /* Allows it to fill the remaining vertical space */
+  overflow: hidden; /* Important: ensures the parent doesn't scroll, forcing CM to handle scroll */
+}
+
+/* This targets the CodeMirror v6 wrapper div */
+.cm-editor {
+  height: 100%; /* Make the CodeMirror wrapper fill the container's height */
+  max-height: 100%;
+}
+
+/* If you left the old .CodeMirror style, you should update/ensure it */
+.CodeMirror {
+  /* If CM v6 is used, this class might be present on the parent, but .cm-editor is safer */
+  /* Ensure this is set if you kept it, but it might conflict with .cm-editor */
+  height: 100%;
+  font-size: 14px;
+}
+--- utils/store.js (4 lines)
+export const dataStore = {
+  data: {},
+  input: {},
+};
+--- utils/duckdb.js (34 lines)
+import * as duckdb from "@duckdb/duckdb-wasm";
+import duckdb_wasm from "@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url";
+import mvp_worker from "@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url";
+import duckdb_wasm_eh from "@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url";
+import eh_worker from "@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url";
+
+export let conn = null;
+
+export async function initDuckDB() {
+  try {
+    const MANUAL_BUNDLES = {
+      mvp: {
+        mainModule: duckdb_wasm,
+        mainWorker: mvp_worker,
+      },
+      eh: {
+        mainModule: duckdb_wasm_eh,
+        mainWorker: eh_worker,
+      },
+    };
+
+    const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
+    const worker = new Worker(bundle.mainWorker);
+    const logger = new duckdb.ConsoleLogger();
+    const db = new duckdb.AsyncDuckDB(logger, worker);
+    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+
+    conn = await db.connect();
+    console.log("DuckDB initialized successfully");
+  } catch (error) {
+    console.error("DuckDB initialization error:", error);
+    throw error;
+  }
+}
+--- utils/component.js (50 lines)
+import { dataStore } from "./store.js";
+
+export function bindComponentData() {
+  const preview = document.getElementById("preview");
+
+  const dropdowns = preview.querySelectorAll("dropdown-component");
+  dropdowns.forEach((dropdown) => {
+    const dataRef = dropdown.getAttribute("data-ref");
+    const name = dropdown.getAttribute("name");
+
+    if (dataRef && dataStore.data[dataRef]) {
+      dropdown.data = dataStore.data[dataRef];
+      dropdown.name = name;
+    }
+  });
+
+  const tables = preview.querySelectorAll("data-table-component");
+  tables.forEach((table) => {
+    const dataRef = table.getAttribute("data-ref");
+    if (dataRef && dataStore.data[dataRef]) {
+      table.data = dataStore.data[dataRef];
+    }
+  });
+
+  const cards = preview.querySelectorAll("data-card");
+  cards.forEach((card) => {
+    const dataRef = card.getAttribute("data-ref");
+    if (dataRef && dataStore.data[dataRef]) {
+      card.data = dataStore.data[dataRef];
+    }
+  });
+
+  const charts = preview.querySelectorAll("vegalite-chart");
+  charts.forEach((chart) => {
+    const dataRef = chart.getAttribute("data-ref");
+    const specAttr = chart.getAttribute("spec");
+
+    if (specAttr) {
+      try {
+        chart.spec = JSON.parse(specAttr);
+      } catch (e) {
+        console.error("Invalid chart spec:", e);
+      }
+    }
+
+    if (dataRef && dataStore.data[dataRef]) {
+      chart.data = dataStore.data[dataRef];
+    }
+  });
+}
+--- utils/markdown.js (108 lines)
+import { dataStore } from "./store";
+import Handlebars from "handlebars";
+import { marked } from "marked";
+
+import { conn } from "./duckdb.js";
+
+marked.use({
+  gfm: true,
+  breaks: true,
+});
+
+Handlebars.registerHelper("get", function (obj, path) {
+  const keys = path.split(".");
+  let result = obj;
+  for (const key of keys) {
+    result = result[key];
+    if (result === undefined) return "";
+  }
+  return result;
+});
+
+async function executeSQL(sql) {
+  if (!conn) {
+    throw new Error("DuckDB not initialized");
+  }
+  const result = await conn.query(sql);
+  return result.toArray().map((row) => row.toJSON());
+}
+
+function parseSQLBlock(code, infoString) {
+  const nameMatch = infoString && infoString.match(/name=['"]([^'"]+)['"]/);
+  const hide = infoString && /\bhide\b/.test(infoString); // detect 'hide' keyword
+
+  return {
+    code,
+    name: nameMatch ? nameMatch[1] : null,
+    hide: hide || false,
+  };
+}
+
+export async function processMarkdown(markdown) {
+  // Step 1: Compile markdown with Handlebars first
+  const template = Handlebars.compile(markdown, { noEscape: true });
+  const interpolatedMarkdown = template(dataStore);
+
+  const sqlBlocks = [];
+  let blockIndex = 0;
+
+  // Step 2: Extract SQL blocks and replace with placeholders
+  let processedMarkdown = interpolatedMarkdown.replace(
+    /```sql([^\n]*)\n([\s\S]*?)```|```sql([^`]+)```/g,
+    (match, infoString, code, singleLine) => {
+      let parsed;
+      if (singleLine) {
+        parsed = parseSQLBlock(singleLine.trim(), infoString || "");
+      } else {
+        parsed = parseSQLBlock(code.trim(), infoString || "");
+      }
+
+      const placeholder = `<!--SQL_BLOCK_${blockIndex}-->`;
+      sqlBlocks.push({ ...parsed, placeholder });
+      blockIndex++;
+      return placeholder;
+    }
+  );
+
+  let html = marked.parse(processedMarkdown);
+
+  const replacements = {};
+
+  for (const block of sqlBlocks) {
+    try {
+      const data = await executeSQL(block.code);
+
+      if (block.name) {
+        dataStore.data[block.name] = data;
+      }
+
+      // If hide is true, render nothing
+      replacements[block.placeholder] = block.hide
+        ? ""
+        : `<pre><code class="language-sql">${block.code}</code></pre>` +
+          `<details class="sql-result">` +
+          `<summary>Query Result${block.name} ${data.length} </summary>` +
+          `<div class="sql-result-content">` +
+          `<data-table-component data-ref='${block.name}'></data-table-component>` +
+          `</div>` +
+          `</details>`;
+    } catch (error) {
+      replacements[block.placeholder] = block.hide
+        ? ""
+        : `<pre><code class="language-sql">${block.code}</code></pre>` +
+          `<details class="sql-result">` +
+          `<summary>Query Result${block.name} ${data.length} </summary>` +
+          `<div class="sql-result-content">` +
+          `<data-table-component data-ref='${block.name}'></data-table-component>` +
+          `</div>` +
+          `</details>`;
+    }
+  }
+
+  // Step 5: Replace placeholders in HTML
+  for (const block of sqlBlocks) {
+    html = html.split(block.placeholder).join(replacements[block.placeholder]);
+  }
+
+  return html;
+}
+--- index.js (29 lines)
+import { initDuckDB } from "./utils/duckdb.js";
+import { dataStore } from "./utils/store.js";
+
+import "./components/dropdown-component.js";
+import "./components/vegalite-chart.js";
+import "./components/data-table-component.js";
+import "./components/data-card.js";
+
+import "./components/markdown-editor.js";
+import "./components/markdown-preview.js";
+
+// Initialize DuckDB
+initDuckDB()
+  .then(() => console.log("DuckDB ready"))
+  .catch((err) => {
+    console.error("DuckDB failed:", err);
+    const preview = document.querySelector("markdown-preview");
+    if (preview) {
+      preview.shadowRoot.querySelector(".preview-content").innerHTML = `
+        <div class="sql-error">
+          Failed to initialize DuckDB: ${err.message}
+          <br><br>
+          Try running in localhost/server
+        </div>`;
+    }
+  });
+
+// Initialize dataStore inputs if needed
+dataStore.input.productSelection = "[]";
