@@ -61,9 +61,10 @@
     import vegaEmbed from "vega-embed";
     import * as duckdb from '@duckdb/duckdb-wasm';
 
-    // Global DuckDB instance
+    // Global DuckDB instance and query results store
     let dbInstance = null;
     let dbConnection = null;
+    const queryResults = {};
 
     async function initDuckDB() {
       if (dbInstance) return dbInstance;
@@ -82,6 +83,20 @@
       dbInstance = db;
       dbConnection = await db.connect();
       return db;
+    }
+
+    function storeQueryResult(name, result) {
+      if (name) {
+        queryResults[name] = result;
+        // Dispatch event to notify components
+        window.dispatchEvent(new CustomEvent('query-result-updated', {
+          detail: { name, result }
+        }));
+      }
+    }
+
+    function getQueryResult(name) {
+      return queryResults[name] || null;
     }
 
     class SqlCodeBlock extends LitElement {
@@ -146,6 +161,11 @@
           const queryResult = await dbConnection.query(this.code);
           this.result = queryResult.toArray().map(row => row.toJSON());
           this.status = 'success';
+
+          // Store result if query has a name
+          if (this.name) {
+            storeQueryResult(this.name, this.result);
+          }
         } catch (e) {
           this.error = e.message;
           this.status = 'error';
@@ -401,7 +421,10 @@
     }
 
     class MarkdownPreview extends LitElement {
-      static properties = { markdown: { type: String } };
+      static properties = {
+        markdown: { type: String },
+        processedHtml: { type: String }
+      };
       static styles = css`
         :host {
           display: block;
@@ -423,7 +446,13 @@
       constructor() {
         super();
         this.markdown = "";
+        this.processedHtml = "";
         this.setupMarkedExtension();
+
+        // Listen for query result updates
+        window.addEventListener('query-result-updated', () => {
+          this.processMarkdown();
+        });
       }
 
       setupMarkedExtension() {
@@ -458,12 +487,32 @@
         });
       }
 
+      updated(changedProperties) {
+        if (changedProperties.has('markdown')) {
+          this.processMarkdown();
+        }
+      }
+
+      processMarkdown() {
+        let htmlContent = marked.parse(this.markdown);
+
+        // Replace ${data.queryName} with actual JSON data
+        htmlContent = htmlContent.replace(/\$\{data\.(\w+)\}/g, (match, queryName) => {
+          const result = getQueryResult(queryName);
+          if (result) {
+            return JSON.stringify(result).replace(/'/g, "&#39;");
+          }
+          return '[]';
+        });
+
+        this.processedHtml = htmlContent;
+      }
+
       render() {
-        const htmlContent = marked.parse(this.markdown);
         return html`
           <div class="preview">
-            ${htmlContent
-            ? html`<div .innerHTML=${htmlContent}></div>`
+            ${this.processedHtml
+            ? html`<div .innerHTML=${this.processedHtml}></div>`
             : html`<p style="color: #999;">Start typing markdown...</p>`}
           </div>
         `;
@@ -545,6 +594,17 @@ SELECT 'Product C', 95000, 'Home'
 UNION ALL
 SELECT 'Product D', 200000, 'Electronics'
 \`\`\`
+
+### Using SQL Results in Components
+
+<data-table
+  data='\$\{data.sales_summary\}'
+  columnConfig='[{"product":"Product"},{"sales":"Sales"},{"category":"Category"}]'>
+</data-table>
+
+<vegalite-chart
+  spec='{"mark":"bar","encoding":{"x":{"field":"product","type":"nominal"},"y":{"field":"sales","type":"quantitative"}},"data":{"values":\$\{data.sales_summary\}},"width":400,"height":200}'>
+</vegalite-chart>
 `;
       }
 
