@@ -204,14 +204,8 @@
 
       connectedCallback() {
         super.connectedCallback();
-        if (this.name) {
-          const currentValue = storeManager.getState(`input.${this.name}`);
-          if (currentValue) {
-            this.selected = currentValue;
-          } else {
-            storeManager.setState(`input.${this.name}`, this.selected);
-          }
-        }
+        // Removed direct coupling to storeManager here so component is standalone.
+        // If parent / app wants to initialize the select from store, it should set `selected` attribute or listen and set.
       }
 
       handleChange(e) {
@@ -224,9 +218,15 @@
 
         console.log(`[dropdown-select:${this.name}] Selection changed:`, this.selected);
 
-        if (this.name) {
-          storeManager.setState(`input.${this.name}`, this.selected);
-        }
+        // Dispatch a neutral event instead of touching the global store.
+        this.dispatchEvent(new CustomEvent('value-change', {
+          detail: {
+            name: this.name,
+            value: this.selected
+          },
+          bubbles: true,
+          composed: true
+        }));
       }
 
       render() {
@@ -847,6 +847,27 @@ WHERE len(\$\{input.product_selection\}) = 0
   spec='{"mark":"bar","encoding":{"x":{"field":"quarter","type":"nominal"},"y":{"field":"sales","type":"quantitative"},"color":{"field":"product","type":"nominal"}},"data":{"values":\$\{data.sales_data\}},"width":400,"height":200}'>
 </vegalite-chart>
 `;
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        // listen for value-change events dispatched by inputs (like dropdown-select)
+        this._valueChangeHandler = (e) => {
+          const { name, value } = e.detail || {};
+          if (name) {
+            // Update global store here — decoupled from the component
+            storeManager.setState(`input.${name}`, value);
+          }
+        };
+        // Use event delegation on the component root so events from shadow DOM cross through
+        this.addEventListener('value-change', this._valueChangeHandler);
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._valueChangeHandler) {
+          this.removeEventListener('value-change', this._valueChangeHandler);
+        }
       }
 
       handleEditorChange(e) {
