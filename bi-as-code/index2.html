@@ -61,11 +61,72 @@
     import vegaEmbed from "vega-embed";
     import * as duckdb from '@duckdb/duckdb-wasm';
 
-    // Global DuckDB instance and query results store
+    // Global Store with Observable Pattern
+    const store = {
+      data: {},
+      input: {}
+    };
+
+    const storeManager = {
+      listeners: new Map(),
+
+      setState(path, value) {
+        const [category, key] = path.split('.');
+        if (category === 'data' || category === 'input') {
+          store[category][key] = value;
+          console.log(`[store] setState(${path}):`, value);
+          this.notify(path, value);
+        }
+      },
+
+      getState(path) {
+        const [category, key] = path.split('.');
+        return store[category]?.[key];
+      },
+
+      subscribe(path, callback) {
+        if (!this.listeners.has(path)) {
+          this.listeners.set(path, new Set());
+        }
+        this.listeners.get(path).add(callback);
+
+        return () => {
+          const callbacks = this.listeners.get(path);
+          if (callbacks) {
+            callbacks.delete(callback);
+            if (callbacks.size === 0) {
+              this.listeners.delete(path);
+            }
+          }
+        };
+      },
+
+      notify(path, value) {
+        console.log(`[store] notify(${path}) - ${this.listeners.get(path)?.size || 0} listeners`);
+        const callbacks = this.listeners.get(path);
+        if (callbacks) {
+          callbacks.forEach(cb => cb(value));
+        }
+
+        // Notify wildcard listeners
+        const [category] = path.split('.');
+        const wildcardPath = `${category}.*`;
+        const wildcardCallbacks = this.listeners.get(wildcardPath);
+        if (wildcardCallbacks) {
+          console.log(`[store] notify wildcard(${wildcardPath}) - ${wildcardCallbacks.size} listeners`);
+          wildcardCallbacks.forEach(cb => cb(value, path));
+        }
+
+        // Dispatch global event
+        window.dispatchEvent(new CustomEvent('store-updated', {
+          detail: { path, value }
+        }));
+      }
+    };
+
+    // Global DuckDB instance
     let dbInstance = null;
     let dbConnection = null;
-    const queryResults = {};
-    const inputValues = {};
 
     async function initDuckDB() {
       if (dbInstance) return dbInstance;
@@ -86,30 +147,17 @@
       return db;
     }
 
-    function storeQueryResult(name, result) {
-      if (name) {
-        queryResults[name] = result;
-        window.dispatchEvent(new CustomEvent('query-result-updated', {
-          detail: { name, result }
-        }));
-      }
-    }
-
-    function getQueryResult(name) {
-      return queryResults[name] || null;
-    }
-
-    function storeInputValue(name, value) {
-      if (name) {
-        inputValues[name] = value;
-        window.dispatchEvent(new CustomEvent('input-value-changed', {
-          detail: { name, value }
-        }));
-      }
-    }
-
-    function getInputValue(name) {
-      return inputValues[name] || [];
+    // Debounce utility
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
     }
 
     class DropdownSelect extends LitElement {
@@ -157,7 +205,12 @@
       connectedCallback() {
         super.connectedCallback();
         if (this.name) {
-          storeInputValue(this.name, this.selected);
+          const currentValue = storeManager.getState(`input.${this.name}`);
+          if (currentValue) {
+            this.selected = currentValue;
+          } else {
+            storeManager.setState(`input.${this.name}`, this.selected);
+          }
         }
       }
 
@@ -169,8 +222,10 @@
           this.selected = [selectElement.value];
         }
 
+        console.log(`[dropdown-select:${this.name}] Selection changed:`, this.selected);
+
         if (this.name) {
-          storeInputValue(this.name, this.selected);
+          storeManager.setState(`input.${this.name}`, this.selected);
         }
       }
 
@@ -252,19 +307,34 @@
         this.result = null;
         this.status = 'loading';
         this.error = null;
+        this.unsubscribers = [];
+        this.debouncedExecute = debounce(() => this.executeQuery(), 300);
+      }
 
-        this.boundExecuteQuery = this.executeQuery.bind(this);
-        window.addEventListener('input-value-changed', this.boundExecuteQuery);
+      connectedCallback() {
+        super.connectedCallback();
+
+        // Find all ${input.xxx} references in the code
+        const inputRefs = this.code.match(/\$\{input\.(\w+)\}/g);
+        if (inputRefs) {
+          const inputNames = [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
+          console.log(`[${this.name}] Subscribing to inputs:`, inputNames);
+          inputNames.forEach(inputName => {
+            const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
+              console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
+              this.debouncedExecute();
+            });
+            this.unsubscribers.push(unsubscribe);
+          });
+        }
+
+        this.executeQuery();
       }
 
       disconnectedCallback() {
         super.disconnectedCallback();
-        window.removeEventListener('input-value-changed', this.boundExecuteQuery);
-      }
-
-      async connectedCallback() {
-        super.connectedCallback();
-        await this.executeQuery();
+        this.unsubscribers.forEach(unsub => unsub());
+        this.unsubscribers = [];
       }
 
       async executeQuery() {
@@ -272,19 +342,23 @@
           await initDuckDB();
 
           let processedCode = this.code.replace(/\$\{input\.(\w+)\}/g, (match, inputName) => {
-            const value = getInputValue(inputName);
-            if (Array.isArray(value) && value.length === 0) {
+            const value = storeManager.getState(`input.${inputName}`);
+            if (!value || (Array.isArray(value) && value.length === 0)) {
               return '[]';
             }
-            return JSON.stringify(value);
+            // convert JS array ["A","B"] → DuckDB list ['A','B']
+            return `['${value.join("','")}']`;
           });
+
+          console.log(`[${this.name}] Executing query with processed code:`, processedCode);
 
           const queryResult = await dbConnection.query(processedCode);
           this.result = queryResult.toArray().map(row => row.toJSON());
           this.status = 'success';
 
           if (this.name) {
-            storeQueryResult(this.name, this.result);
+            console.log(`[${this.name}] Storing ${this.result.length} rows in store`);
+            storeManager.setState(`data.${this.name}`, this.result);
           }
         } catch (e) {
           this.error = e.message;
@@ -566,11 +640,24 @@
         super();
         this.markdown = "";
         this.processedHtml = "";
+        this.unsubscriber = null;
         this.setupMarkedExtension();
+      }
 
-        window.addEventListener('query-result-updated', () => {
+      connectedCallback() {
+        super.connectedCallback();
+
+        // Subscribe to all store changes
+        this.unsubscriber = storeManager.subscribe('data.*', () => {
           this.processMarkdown();
         });
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this.unsubscriber) {
+          this.unsubscriber();
+        }
       }
 
       setupMarkedExtension() {
@@ -593,7 +680,7 @@
                   type: 'sqlCodeBlock',
                   raw: match[0],
                   code: code,
-                  name: nameMatch ? nameMatch[1] : '',
+                  name: nameMatch ? nameMatch[1].replace(/['"]/g, '') : '',
                   hide: hideMatch ? hideMatch[1] === 'true' : false
                 };
               }
@@ -614,16 +701,9 @@
       processMarkdown() {
         let htmlContent = marked.parse(this.markdown);
 
+        // Replace ${data.xxx} placeholders
         htmlContent = htmlContent.replace(/\$\{data\.(\w+)\}/g, (match, queryName) => {
-          const result = getQueryResult(queryName);
-          if (result) {
-            return JSON.stringify(result).replace(/'/g, "&#39;");
-          }
-          return '[]';
-        });
-
-        htmlContent = htmlContent.replace(/\$\{input\.(\w+)\}/g, (match, inputName) => {
-          const result = getQueryResult(inputName);
+          const result = storeManager.getState(`data.${queryName}`);
           if (result) {
             return JSON.stringify(result).replace(/'/g, "&#39;");
           }
@@ -744,7 +824,7 @@ ORDER BY product
 \`\`\`
 
 <dropdown-select
-  data='\$\{input.product_list\}'
+  data='\$\{data.product_list\}'
   name='product_selection'
   label='Select Products'>
 </dropdown-select>
@@ -759,7 +839,7 @@ WITH source_data AS (
   UNION ALL SELECT 'Product C', 140, 'Q2'
 )
 SELECT * FROM source_data
-WHERE \$\{input.product_selection\} = '[]'
+WHERE len(\$\{input.product_selection\}) = 0
    OR product IN (SELECT unnest(\$\{input.product_selection\}))
 \`\`\`
 
