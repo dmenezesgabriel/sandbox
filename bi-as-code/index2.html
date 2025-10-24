@@ -22,9 +22,9 @@
         "crelt": "https://esm.sh/crelt",
         "@marijn/find-cluster-break": "https://esm.sh/@marijn/find-cluster-break",
         "marked": "https://esm.sh/marked@16.0.0",
-        "vega": "https://esm.sh/vega@5.22.1",
-        "vega-lite": "https://esm.sh/vega-lite@5.6.0",
-        "vega-embed": "https://esm.sh/vega-embed@6.21.0",
+        "vega": "https://cdn.jsdelivr.net/npm/vega@6.2.0/+esm",
+        "vega-lite": "https://cdn.jsdelivr.net/npm/vega-lite@6.4.1/+esm",
+        "vega-embed": "https://cdn.jsdelivr.net/npm/vega-embed@7.1.0/+esm",
         "@duckdb/duckdb-wasm": "https://esm.sh/@duckdb/duckdb-wasm@1.30.0"
       }
     }
@@ -65,6 +65,7 @@
     let dbInstance = null;
     let dbConnection = null;
     const queryResults = {};
+    const inputValues = {};
 
     async function initDuckDB() {
       if (dbInstance) return dbInstance;
@@ -88,7 +89,6 @@
     function storeQueryResult(name, result) {
       if (name) {
         queryResults[name] = result;
-        // Dispatch event to notify components
         window.dispatchEvent(new CustomEvent('query-result-updated', {
           detail: { name, result }
         }));
@@ -97,6 +97,111 @@
 
     function getQueryResult(name) {
       return queryResults[name] || null;
+    }
+
+    function storeInputValue(name, value) {
+      if (name) {
+        inputValues[name] = value;
+        window.dispatchEvent(new CustomEvent('input-value-changed', {
+          detail: { name, value }
+        }));
+      }
+    }
+
+    function getInputValue(name) {
+      return inputValues[name] || [];
+    }
+
+    class DropdownSelect extends LitElement {
+      static properties = {
+        data: { type: String },
+        name: { type: String },
+        label: { type: String },
+        multiple: { type: Boolean },
+        selected: { type: Array }
+      };
+
+      static styles = css`
+        :host { display: block; margin: 20px 0; }
+        .select-container {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        label {
+          font-weight: 600;
+          font-size: 14px;
+        }
+        select {
+          padding: 8px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          font-size: 14px;
+          background: white;
+          min-height: 40px;
+        }
+        select[multiple] {
+          min-height: 120px;
+        }
+      `;
+
+      constructor() {
+        super();
+        this.data = '[]';
+        this.name = '';
+        this.label = '';
+        this.multiple = true;
+        this.selected = [];
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        if (this.name) {
+          storeInputValue(this.name, this.selected);
+        }
+      }
+
+      handleChange(e) {
+        const selectElement = e.target;
+        if (this.multiple) {
+          this.selected = Array.from(selectElement.selectedOptions).map(opt => opt.value);
+        } else {
+          this.selected = [selectElement.value];
+        }
+
+        if (this.name) {
+          storeInputValue(this.name, this.selected);
+        }
+      }
+
+      render() {
+        let options = [];
+        try {
+          options = JSON.parse(this.data);
+        } catch (e) {
+          console.error('Invalid data JSON:', e);
+        }
+
+        const values = options.map(opt => {
+          if (typeof opt === 'string') return opt;
+          return Object.values(opt)[0];
+        });
+
+        return html`
+          <div class="select-container">
+            ${this.label ? html`<label>${this.label}</label>` : ''}
+            <select
+              ?multiple=${this.multiple}
+              @change=${this.handleChange}>
+              ${values.map(val => html`
+                <option value=${val} ?selected=${this.selected.includes(val)}>
+                  ${val}
+                </option>
+              `)}
+            </select>
+          </div>
+        `;
+      }
     }
 
     class SqlCodeBlock extends LitElement {
@@ -116,7 +221,6 @@
           overflow-x: auto;
           margin-bottom: 12px;
         }
-        .code-block.hidden { display: none; }
         pre {
           margin: 0;
           font-family: monospace;
@@ -148,6 +252,14 @@
         this.result = null;
         this.status = 'loading';
         this.error = null;
+
+        this.boundExecuteQuery = this.executeQuery.bind(this);
+        window.addEventListener('input-value-changed', this.boundExecuteQuery);
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        window.removeEventListener('input-value-changed', this.boundExecuteQuery);
       }
 
       async connectedCallback() {
@@ -158,11 +270,19 @@
       async executeQuery() {
         try {
           await initDuckDB();
-          const queryResult = await dbConnection.query(this.code);
+
+          let processedCode = this.code.replace(/\$\{input\.(\w+)\}/g, (match, inputName) => {
+            const value = getInputValue(inputName);
+            if (Array.isArray(value) && value.length === 0) {
+              return '[]';
+            }
+            return JSON.stringify(value);
+          });
+
+          const queryResult = await dbConnection.query(processedCode);
           this.result = queryResult.toArray().map(row => row.toJSON());
           this.status = 'success';
 
-          // Store result if query has a name
           if (this.name) {
             storeQueryResult(this.name, this.result);
           }
@@ -331,7 +451,6 @@
             return html`<div>Error parsing data</div>`;
           }
         } else {
-          // Auto-generate columns from data
           if (this.autoColumns === 'true' && dataArray.length > 0) {
             const keys = Object.keys(dataArray[0]);
             configArray = keys.map(key => ({ [key]: key }));
@@ -449,7 +568,6 @@
         this.processedHtml = "";
         this.setupMarkedExtension();
 
-        // Listen for query result updates
         window.addEventListener('query-result-updated', () => {
           this.processMarkdown();
         });
@@ -496,9 +614,16 @@
       processMarkdown() {
         let htmlContent = marked.parse(this.markdown);
 
-        // Replace ${data.queryName} with actual JSON data
         htmlContent = htmlContent.replace(/\$\{data\.(\w+)\}/g, (match, queryName) => {
           const result = getQueryResult(queryName);
+          if (result) {
+            return JSON.stringify(result).replace(/'/g, "&#39;");
+          }
+          return '[]';
+        });
+
+        htmlContent = htmlContent.replace(/\$\{input\.(\w+)\}/g, (match, inputName) => {
+          const result = getQueryResult(inputName);
           if (result) {
             return JSON.stringify(result).replace(/'/g, "&#39;");
           }
@@ -605,6 +730,42 @@ SELECT 'Product D', 200000, 'Electronics'
 <vegalite-chart
   spec='{"mark":"bar","encoding":{"x":{"field":"product","type":"nominal"},"y":{"field":"sales","type":"quantitative"}},"data":{"values":\$\{data.sales_summary\}},"width":400,"height":200}'>
 </vegalite-chart>
+
+### Interactive Filtering Example
+
+\`\`\`sql name=product_list hide=true
+SELECT DISTINCT product
+FROM (
+  SELECT 'Product A' as product
+  UNION ALL SELECT 'Product B'
+  UNION ALL SELECT 'Product C'
+) t
+ORDER BY product
+\`\`\`
+
+<dropdown-select
+  data='\$\{input.product_list\}'
+  name='product_selection'
+  label='Select Products'>
+</dropdown-select>
+
+\`\`\`sql name=sales_data hide=true
+WITH source_data AS (
+  SELECT 'Product A' as product, 100 as sales, 'Q1' as quarter
+  UNION ALL SELECT 'Product B', 150, 'Q1'
+  UNION ALL SELECT 'Product C', 120, 'Q1'
+  UNION ALL SELECT 'Product A', 130, 'Q2'
+  UNION ALL SELECT 'Product B', 180, 'Q2'
+  UNION ALL SELECT 'Product C', 140, 'Q2'
+)
+SELECT * FROM source_data
+WHERE \$\{input.product_selection\} = '[]'
+   OR product IN (SELECT unnest(\$\{input.product_selection\}))
+\`\`\`
+
+<vegalite-chart
+  spec='{"mark":"bar","encoding":{"x":{"field":"quarter","type":"nominal"},"y":{"field":"sales","type":"quantitative"},"color":{"field":"product","type":"nominal"}},"data":{"values":\$\{data.sales_data\}},"width":400,"height":200}'>
+</vegalite-chart>
 `;
       }
 
@@ -632,6 +793,7 @@ SELECT 'Product D', 200000, 'Electronics'
       }
     }
 
+    customElements.define("dropdown-select", DropdownSelect);
     customElements.define("sql-code-block", SqlCodeBlock);
     customElements.define("vegalite-chart", VegaLiteChart);
     customElements.define("data-table", DataTable);
