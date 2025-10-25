@@ -613,6 +613,197 @@
       }
     }
 
+    class HttpCodeBlock extends LitElement {
+      static properties = {
+        code: { type: String },
+        name: { type: String },
+        hide: { type: Boolean },
+        result: { type: Object }
+      };
+
+      static styles = css`
+    :host { display: block; margin: 20px 0; }
+    .code-block {
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin-bottom: 12px;
+    }
+    pre { margin: 0; font-family: monospace; font-size: 14px; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: #666;
+    }
+    .status { padding: 4px 8px; border-radius: 3px; font-size: 11px; }
+    .loading { background: #fff3cd; }
+    .success { background: #d4edda; }
+    .error { background: #f8d7da; color: #721c24; }
+    .json-result {
+      background: #282c34;
+      color: #abb2bf;
+      padding: 16px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin-top: 12px;
+      font-family: monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .json-key { color: #e06c75; }
+    .json-string { color: #98c379; }
+    .json-number { color: #d19a66; }
+    .json-boolean { color: #56b6c2; }
+    .json-null { color: #c678dd; }
+  `;
+
+      constructor() {
+        super();
+        this.code = '';
+        this.name = '';
+        this.hide = false;
+        this.result = null;
+        this.status = 'loading';
+        this.error = null;
+        this.responseStatus = null;
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.executeRequest();
+      }
+
+      parseHttpRequest() {
+        const lines = this.code.trim().split('\n');
+        let requestLine = '';
+        const headers = {};
+        let body = null;
+        let inBody = false;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          if (!line && !inBody && requestLine) {
+            inBody = true;
+            continue;
+          }
+
+          if (!requestLine && line.match(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)/i)) {
+            requestLine = line;
+          } else if (!inBody && line.includes(':')) {
+            const [key, ...valueParts] = line.split(':');
+            headers[key.trim()] = valueParts.join(':').trim();
+          } else if (inBody && line) {
+            if (body === null) body = '';
+            body += line + '\n';
+          }
+        }
+
+        const requestMatch = requestLine.match(/^(\w+)\s+(.+?)(?:\s+HTTP\/[\d.]+)?$/i);
+        if (!requestMatch) throw new Error('Invalid request line format');
+
+        const [, method, url] = requestMatch;
+        return {
+          method: method.toUpperCase(),
+          url: url.trim(),
+          headers,
+          body: body ? body.trim() : null
+        };
+      }
+
+      async executeRequest() {
+        try {
+          const { method, url, headers, body } = this.parseHttpRequest();
+          const fetchOptions = { method, headers: {} };
+
+          Object.entries(headers).forEach(([key, value]) => {
+            fetchOptions.headers[key] = value;
+          });
+
+          if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
+            fetchOptions.body = body;
+          }
+
+          console.log(`[${this.name || 'http'}] Executing ${method} ${url}`);
+
+          const response = await fetch(url, fetchOptions);
+          this.responseStatus = response.status;
+
+          const contentType = response.headers.get('content-type');
+          let data;
+
+          if (contentType && contentType.includes('application/json')) {
+            data = await response.json();
+          } else {
+            data = await response.text();
+          }
+
+          this.result = data;
+          this.status = response.ok ? 'success' : 'error';
+
+          if (this.name) {
+            console.log(`[${this.name}] Storing response in store`);
+            storeManager.setState(`data.${this.name}`, this.result);
+          }
+        } catch (e) {
+          this.error = e.message;
+          this.status = 'error';
+          console.error('HTTP execution error:', e);
+        }
+        this.requestUpdate();
+      }
+
+      syntaxHighlightJson(json) {
+        if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+          let cls = 'json-number';
+          if (/^"/.test(match)) {
+            cls = /:$/.test(match) ? 'json-key' : 'json-string';
+          } else if (/true|false/.test(match)) {
+            cls = 'json-boolean';
+          } else if (/null/.test(match)) {
+            cls = 'json-null';
+          }
+          return `<span class="${cls}">${match}</span>`;
+        });
+      }
+
+      render() {
+        if (this.hide) return html``;
+        return html`
+      <div>
+        ${this.name ? html`
+          <div class="header">
+            <strong>${this.name}</strong>
+            <span class="status ${this.status}">
+              ${this.status === 'loading' ? 'Executing...' :
+              this.status === 'success' ? `HTTP ${this.responseStatus}` : 'Error'}
+            </span>
+          </div>
+        ` : ''}
+        <div class="code-block"><pre><code>${this.code}</code></pre></div>
+        ${this.status === 'error' ? html`
+          <div class="error" style="padding: 8px; margin-top: 8px;">${this.error}</div>
+        ` : ''}
+        ${this.status === 'success' && this.result ? html`
+          <details open>
+            <summary style="cursor: pointer; padding: 8px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-weight: 600; margin-bottom: 8px;">
+              Response (HTTP ${this.responseStatus})
+            </summary>
+            <div class="json-result">
+              <pre .innerHTML=${this.syntaxHighlightJson(this.result)}></pre>
+            </div>
+          </details>
+        ` : ''}
+      </div>
+    `;
+      }
+    }
+
     class MarkdownPreview extends LitElement {
       static properties = {
         markdown: { type: String },
@@ -687,6 +878,32 @@
             },
             renderer(token) {
               return `<sql-code-block code='${token.code.replace(/'/g, "&#39;")}' name="${token.name}" ${token.hide ? 'hide' : ''}></sql-code-block>`;
+            }
+          },
+          {
+            name: 'httpCodeBlock',
+            level: 'block',
+            start(src) {
+              return src.match(/^```http/)?.index;
+            },
+            tokenizer(src) {
+              const match = src.match(/^```http([^\n]*)\n([\s\S]*?)```/);
+              if (match) {
+                const attrs = match[1].trim();
+                const code = match[2];
+                const nameMatch = attrs.match(/name=([^\s]+)/);
+                const hideMatch = attrs.match(/hide=(true|false)/);
+                return {
+                  type: 'httpCodeBlock',
+                  raw: match[0],
+                  code: code,
+                  name: nameMatch ? nameMatch[1].replace(/['"]/g, '') : '',
+                  hide: hideMatch ? hideMatch[1] === 'true' : false
+                };
+              }
+            },
+            renderer(token) {
+              return `<http-code-block code='${token.code.replace(/'/g, "&#39;")}' name="${token.name}" ${token.hide ? 'hide' : ''}></http-code-block>`;
             }
           }]
         });
@@ -846,6 +1063,25 @@ WHERE len(\$\{input.product_selection\}) = 0
 <vegalite-chart
   spec='{"mark":"bar","encoding":{"x":{"field":"quarter","type":"nominal"},"y":{"field":"sales","type":"quantitative"},"color":{"field":"product","type":"nominal"}},"data":{"values":\$\{data.sales_data\}},"width":400,"height":200}'>
 </vegalite-chart>
+
+### GET HTTP Request Example
+
+\`\`\`http name=todos hide=false
+GET https://jsonplaceholder.typicode.com/todos/1 HTTP/1.1
+\`\`\`
+
+### POST Request Example
+
+\`\`\`http name=create_post hide=false
+POST https://jsonplaceholder.typicode.com/posts HTTP/1.1
+Content-Type: application/json
+
+{
+  "title": "My Post",
+  "body": "This is the post content",
+  "userId": 1
+}
+\`\`\`
 `;
       }
 
@@ -896,6 +1132,7 @@ WHERE len(\$\{input.product_selection\}) = 0
 
     customElements.define("dropdown-select", DropdownSelect);
     customElements.define("sql-code-block", SqlCodeBlock);
+    customElements.define("http-code-block", HttpCodeBlock);
     customElements.define("vegalite-chart", VegaLiteChart);
     customElements.define("data-table", DataTable);
     customElements.define("markdown-editor", MarkdownEditor);
