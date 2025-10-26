@@ -25,7 +25,8 @@
         "vega": "https://cdn.jsdelivr.net/npm/vega@6.2.0/+esm",
         "vega-lite": "https://cdn.jsdelivr.net/npm/vega-lite@6.4.1/+esm",
         "vega-embed": "https://cdn.jsdelivr.net/npm/vega-embed@7.1.0/+esm",
-        "@duckdb/duckdb-wasm": "https://esm.sh/@duckdb/duckdb-wasm@1.30.0"
+        "@duckdb/duckdb-wasm": "https://esm.sh/@duckdb/duckdb-wasm@1.30.0",
+        "gray-matter": "https://cdn.jsdelivr.net/npm/gray-matter@4.0.3/+esm"
       }
     }
   </script>
@@ -60,11 +61,13 @@
     import { marked } from "marked";
     import vegaEmbed from "vega-embed";
     import * as duckdb from '@duckdb/duckdb-wasm';
+    import matter from "gray-matter";
 
     // Global Store with Observable Pattern
     const store = {
       data: {},
-      input: {}
+      input: {},
+      frontmatter: {}
     };
 
     const storeManager = {
@@ -72,7 +75,7 @@
 
       setState(path, value) {
         const [category, key] = path.split('.');
-        if (category === 'data' || category === 'input') {
+        if (category === 'data' || category === 'input' || category === 'frontmatter') {
           store[category][key] = value;
           console.log(`[store] setState(${path}):`, value);
           this.notify(path, value);
@@ -916,15 +919,28 @@
       }
 
       processMarkdown() {
-        let htmlContent = marked.parse(this.markdown);
+        const { data: frontmatter, content } = matter(this.markdown);
 
-        // Replace ${data.xxx} placeholders
+        Object.entries(frontmatter).forEach(([key, value]) => {
+          storeManager.setState(`frontmatter.${key}`, value);
+        });
+
+        let htmlContent = marked.parse(content);
+
         htmlContent = htmlContent.replace(/\$\{data\.(\w+)\}/g, (match, queryName) => {
           const result = storeManager.getState(`data.${queryName}`);
           if (result) {
             return JSON.stringify(result).replace(/'/g, "&#39;");
           }
           return '[]';
+        });
+
+        htmlContent = htmlContent.replace(/\$\{frontmatter\.(\w+)\}/g, (match, varName) => {
+          const result = storeManager.getState(`frontmatter.${varName}`);
+          if (result !== undefined) {
+            return typeof result === 'object' ? JSON.stringify(result) : String(result);
+          }
+          return '';
         });
 
         this.processedHtml = htmlContent;
@@ -972,7 +988,16 @@
 
       constructor() {
         super();
-        this.markdownText = `# Welcome to Markdown Preview
+        this.markdownText = `---
+title: My Dashboard
+author: John Doe
+year: 2025
+api_url: https://api.example.com/data
+---
+
+# Welcome to Markdown Preview
+
+By \$\{frontmatter.author\} (\$\{frontmatter.year\})
 
 ## Features
 - Live preview
