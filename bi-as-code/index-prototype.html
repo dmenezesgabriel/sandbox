@@ -7,7 +7,7 @@
     name="viewport"
     content="width=device-width, initial-scale=1.0"
   />
-  <title>Markdown Preview</title>
+  <title>Markdown Preview - Optimized</title>
 
   <script type="importmap">
     {
@@ -76,6 +76,10 @@
       setState(path, value) {
         const [category, key] = path.split('.');
         if (category === 'data' || category === 'input' || category === 'frontmatter') {
+          // Only update if value actually changed
+          if (JSON.stringify(store[category][key]) === JSON.stringify(value)) {
+            return;
+          }
           store[category][key] = value;
           console.log(`[store] setState(${path}):`, value);
           this.notify(path, value);
@@ -111,7 +115,7 @@
           callbacks.forEach(cb => cb(value));
         }
 
-        // Notify wildcard listeners
+        // Notify specific path listeners only (removed wildcard to reduce cascades)
         const [category] = path.split('.');
         const wildcardPath = `${category}.*`;
         const wildcardCallbacks = this.listeners.get(wildcardPath);
@@ -119,11 +123,6 @@
           console.log(`[store] notify wildcard(${wildcardPath}) - ${wildcardCallbacks.size} listeners`);
           wildcardCallbacks.forEach(cb => cb(value, path));
         }
-
-        // Dispatch global event
-        window.dispatchEvent(new CustomEvent('store-updated', {
-          detail: { path, value }
-        }));
       }
     };
 
@@ -205,12 +204,6 @@
         this.selected = [];
       }
 
-      connectedCallback() {
-        super.connectedCallback();
-        // Removed direct coupling to storeManager here so component is standalone.
-        // If parent / app wants to initialize the select from store, it should set `selected` attribute or listen and set.
-      }
-
       handleChange(e) {
         const selectElement = e.target;
         if (this.multiple) {
@@ -221,7 +214,6 @@
 
         console.log(`[dropdown-select:${this.name}] Selection changed:`, this.selected);
 
-        // Dispatch a neutral event instead of touching the global store.
         this.dispatchEvent(new CustomEvent('value-change', {
           detail: {
             name: this.name,
@@ -267,7 +259,8 @@
         code: { type: String },
         name: { type: String },
         hide: { type: Boolean },
-        result: { type: Array }
+        result: { type: Array },
+        _hasExecuted: { state: true }
       };
 
       static styles = css`
@@ -312,26 +305,31 @@
         this.error = null;
         this.unsubscribers = [];
         this.debouncedExecute = debounce(() => this.executeQuery(), 300);
+        this._hasExecuted = false;
+        this._lastCode = '';
       }
 
       connectedCallback() {
         super.connectedCallback();
 
-        // Find all ${input.xxx} references in the code
-        const inputRefs = this.code.match(/\$\{input\.(\w+)\}/g);
-        if (inputRefs) {
-          const inputNames = [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
-          console.log(`[${this.name}] Subscribing to inputs:`, inputNames);
-          inputNames.forEach(inputName => {
-            const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
-              console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
-              this.debouncedExecute();
+        // Only execute if we haven't run this exact query before
+        if (!this._hasExecuted || this._lastCode !== this.code) {
+          const inputRefs = this.code.match(/\$\{input\.(\w+)\}/g);
+          if (inputRefs) {
+            const inputNames = [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
+            console.log(`[${this.name}] Subscribing to inputs:`, inputNames);
+            inputNames.forEach(inputName => {
+              const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
+                console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
+                this.debouncedExecute();
+              });
+              this.unsubscribers.push(unsubscribe);
             });
-            this.unsubscribers.push(unsubscribe);
-          });
-        }
+          }
 
-        this.executeQuery();
+          this._lastCode = this.code;
+          this.executeQuery();
+        }
       }
 
       disconnectedCallback() {
@@ -349,7 +347,6 @@
             if (!value || (Array.isArray(value) && value.length === 0)) {
               return '[]';
             }
-            // convert JS array ["A","B"] → DuckDB list ['A','B']
             return `['${value.join("','")}']`;
           });
 
@@ -358,6 +355,7 @@
           const queryResult = await dbConnection.query(processedCode);
           this.result = queryResult.toArray().map(row => row.toJSON());
           this.status = 'success';
+          this._hasExecuted = true;
 
           if (this.name) {
             console.log(`[${this.name}] Storing ${this.result.length} rows in store`);
@@ -445,10 +443,12 @@
       constructor() {
         super();
         this.spec = null;
+        this._lastSpec = '';
       }
 
       updated(changedProperties) {
-        if (changedProperties.has("spec")) {
+        if (changedProperties.has("spec") && this.spec !== this._lastSpec) {
+          this._lastSpec = this.spec;
           this.renderChart();
         }
       }
@@ -621,7 +621,8 @@
         code: { type: String },
         name: { type: String },
         hide: { type: Boolean },
-        result: { type: Object }
+        result: { type: Object },
+        _hasExecuted: { state: true }
       };
 
       static styles = css`
@@ -673,11 +674,17 @@
         this.status = 'loading';
         this.error = null;
         this.responseStatus = null;
+        this._hasExecuted = false;
+        this._lastCode = '';
       }
 
       connectedCallback() {
         super.connectedCallback();
-        this.executeRequest();
+        // Only execute once per unique code
+        if (!this._hasExecuted || this._lastCode !== this.code) {
+          this._lastCode = this.code;
+          this.executeRequest();
+        }
       }
 
       parseHttpRequest() {
@@ -747,6 +754,7 @@
 
           this.result = data;
           this.status = response.ok ? 'success' : 'error';
+          this._hasExecuted = true;
 
           if (this.name) {
             console.log(`[${this.name}] Storing response in store`);
@@ -834,23 +842,41 @@
         super();
         this.markdown = "";
         this.processedHtml = "";
-        this.unsubscriber = null;
+        this.unsubscribers = [];
+        this._lastMarkdown = '';
+        this._dataSubscriptions = new Set();
         this.setupMarkedExtension();
       }
 
       connectedCallback() {
         super.connectedCallback();
-
-        // Subscribe to all store changes
-        this.unsubscriber = storeManager.subscribe('data.*', () => {
-          this.processMarkdown();
-        });
+        // Subscribe only to specific data changes that affect this markdown
+        this.subscribeToReferencedData();
       }
 
       disconnectedCallback() {
         super.disconnectedCallback();
-        if (this.unsubscriber) {
-          this.unsubscriber();
+        this.unsubscribers.forEach(unsub => unsub());
+        this.unsubscribers = [];
+      }
+
+      subscribeToReferencedData() {
+        // Find all ${data.xxx} references in current markdown
+        const dataRefs = this.markdown.match(/\$\{data\.(\w+)\}/g);
+        if (dataRefs) {
+          const dataNames = [...new Set(dataRefs.map(ref => ref.match(/\$\{data\.(\w+)\}/)[1]))];
+
+          dataNames.forEach(dataName => {
+            if (!this._dataSubscriptions.has(dataName)) {
+              console.log(`[MarkdownPreview] Subscribing to data.${dataName}`);
+              const unsubscribe = storeManager.subscribe(`data.${dataName}`, () => {
+                console.log(`[MarkdownPreview] data.${dataName} changed, re-rendering`);
+                this.processMarkdown();
+              });
+              this.unsubscribers.push(unsubscribe);
+              this._dataSubscriptions.add(dataName);
+            }
+          });
         }
       }
 
@@ -913,7 +939,15 @@
       }
 
       updated(changedProperties) {
-        if (changedProperties.has('markdown')) {
+        if (changedProperties.has('markdown') && this.markdown !== this._lastMarkdown) {
+          this._lastMarkdown = this.markdown;
+
+          // Clear old subscriptions and re-subscribe to new data references
+          this.unsubscribers.forEach(unsub => unsub());
+          this.unsubscribers = [];
+          this._dataSubscriptions.clear();
+          this.subscribeToReferencedData();
+
           this.processMarkdown();
         }
       }
@@ -921,6 +955,7 @@
       processMarkdown() {
         const { data: frontmatter, content } = matter(this.markdown);
 
+        // Only update frontmatter if it changed
         Object.entries(frontmatter).forEach(([key, value]) => {
           storeManager.setState(`frontmatter.${key}`, value);
         });
@@ -1112,15 +1147,12 @@ Content-Type: application/json
 
       connectedCallback() {
         super.connectedCallback();
-        // listen for value-change events dispatched by inputs (like dropdown-select)
         this._valueChangeHandler = (e) => {
           const { name, value } = e.detail || {};
           if (name) {
-            // Update global store here — decoupled from the component
             storeManager.setState(`input.${name}`, value);
           }
         };
-        // Use event delegation on the component root so events from shadow DOM cross through
         this.addEventListener('value-change', this._valueChangeHandler);
       }
 
