@@ -254,6 +254,10 @@
       }
     }
 
+    // Global cache for SQL queries to prevent re-execution across re-renders
+    const sqlQueryCache = new Map(); // key: code+name, value: {result, status}
+    const httpRequestCache = new Map(); // key: code+name, value: {result, status}
+
     class SqlCodeBlock extends LitElement {
       static properties = {
         code: { type: String },
@@ -312,12 +316,22 @@
       connectedCallback() {
         super.connectedCallback();
 
-        // Only execute if we haven't run this exact query before
-        if (!this._hasExecuted || this._lastCode !== this.code) {
+        const cacheKey = `${this.name}:${this.code}`;
+        const cached = sqlQueryCache.get(cacheKey);
+
+        if (cached) {
+          // Query already executed, use cached results
+          console.log(`[${this.name}] Using cached SQL results`);
+          this.result = cached.result;
+          this.status = cached.status;
+          this.error = cached.error;
+          this._hasExecuted = true;
+          this.requestUpdate();
+
+          // Still need to subscribe to input changes for reactive queries
           const inputRefs = this.code.match(/\$\{input\.(\w+)\}/g);
           if (inputRefs) {
             const inputNames = [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
-            console.log(`[${this.name}] Subscribing to inputs:`, inputNames);
             inputNames.forEach(inputName => {
               const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
                 console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
@@ -326,10 +340,24 @@
               this.unsubscribers.push(unsubscribe);
             });
           }
-
-          this._lastCode = this.code;
-          this.executeQuery();
+          return;
         }
+
+        // First time execution
+        const inputRefs = this.code.match(/\$\{input\.(\w+)\}/g);
+        if (inputRefs) {
+          const inputNames = [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
+          console.log(`[${this.name}] Subscribing to inputs:`, inputNames);
+          inputNames.forEach(inputName => {
+            const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
+              console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
+              this.debouncedExecute();
+            });
+            this.unsubscribers.push(unsubscribe);
+          });
+        }
+
+        this.executeQuery();
       }
 
       disconnectedCallback() {
@@ -339,6 +367,8 @@
       }
 
       async executeQuery() {
+        const cacheKey = `${this.name}:${this.code}`;
+
         try {
           await initDuckDB();
 
@@ -357,6 +387,13 @@
           this.status = 'success';
           this._hasExecuted = true;
 
+          // Cache the results
+          sqlQueryCache.set(cacheKey, {
+            result: this.result,
+            status: this.status,
+            error: null
+          });
+
           if (this.name) {
             console.log(`[${this.name}] Storing ${this.result.length} rows in store`);
             storeManager.setState(`data.${this.name}`, this.result);
@@ -364,6 +401,14 @@
         } catch (e) {
           this.error = e.message;
           this.status = 'error';
+
+          // Cache the error too
+          sqlQueryCache.set(cacheKey, {
+            result: null,
+            status: 'error',
+            error: e.message
+          });
+
           console.error('SQL execution error:', e);
         }
         this.requestUpdate();
@@ -680,11 +725,24 @@
 
       connectedCallback() {
         super.connectedCallback();
-        // Only execute once per unique code
-        if (!this._hasExecuted || this._lastCode !== this.code) {
-          this._lastCode = this.code;
-          this.executeRequest();
+
+        const cacheKey = `${this.name}:${this.code}`;
+        const cached = httpRequestCache.get(cacheKey);
+
+        if (cached) {
+          // Request already executed, use cached results
+          console.log(`[${this.name}] Using cached HTTP results`);
+          this.result = cached.result;
+          this.status = cached.status;
+          this.error = cached.error;
+          this.responseStatus = cached.responseStatus;
+          this._hasExecuted = true;
+          this.requestUpdate();
+          return;
         }
+
+        // First time execution
+        this.executeRequest();
       }
 
       parseHttpRequest() {
@@ -726,6 +784,8 @@
       }
 
       async executeRequest() {
+        const cacheKey = `${this.name}:${this.code}`;
+
         try {
           const { method, url, headers, body } = this.parseHttpRequest();
           const fetchOptions = { method, headers: {} };
@@ -756,6 +816,14 @@
           this.status = response.ok ? 'success' : 'error';
           this._hasExecuted = true;
 
+          // Cache the results
+          httpRequestCache.set(cacheKey, {
+            result: this.result,
+            status: this.status,
+            error: null,
+            responseStatus: this.responseStatus
+          });
+
           if (this.name) {
             console.log(`[${this.name}] Storing response in store`);
             storeManager.setState(`data.${this.name}`, this.result);
@@ -763,6 +831,15 @@
         } catch (e) {
           this.error = e.message;
           this.status = 'error';
+
+          // Cache the error too
+          httpRequestCache.set(cacheKey, {
+            result: null,
+            status: 'error',
+            error: e.message,
+            responseStatus: null
+          });
+
           console.error('HTTP execution error:', e);
         }
         this.requestUpdate();
@@ -870,7 +947,7 @@
             if (!this._dataSubscriptions.has(dataName)) {
               console.log(`[MarkdownPreview] Subscribing to data.${dataName}`);
               const unsubscribe = storeManager.subscribe(`data.${dataName}`, () => {
-                console.log(`[MarkdownPreview] data.${dataName} changed, re-rendering`);
+                console.log(`[MarkdownPreview] data.${dataName} changed, re-processing markdown`);
                 this.processMarkdown();
               });
               this.unsubscribers.push(unsubscribe);
