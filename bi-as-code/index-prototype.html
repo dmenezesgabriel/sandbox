@@ -258,6 +258,10 @@
     const sqlQueryCache = new Map(); // key: code+name, value: {result, status}
     const httpRequestCache = new Map(); // key: code+name, value: {result, status}
 
+    // Track initial load to batch notifications
+    let initialLoadPending = new Set();
+    let initialLoadComplete = false;
+
     class SqlCodeBlock extends LitElement {
       static properties = {
         code: { type: String },
@@ -321,7 +325,7 @@
 
         if (cached) {
           // Query already executed, use cached results
-          console.log(`[${this.name}] Using cached SQL results`);
+          console.log(`[${this.name}] Using cached SQL results (${cached.result?.length || 0} rows)`);
           this.result = cached.result;
           this.status = cached.status;
           this.error = cached.error;
@@ -335,12 +339,19 @@
             inputNames.forEach(inputName => {
               const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
                 console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
+                // Clear cache for this query since inputs changed
+                sqlQueryCache.delete(cacheKey);
                 this.debouncedExecute();
               });
               this.unsubscribers.push(unsubscribe);
             });
           }
           return;
+        }
+
+        // Track this query as pending during initial load
+        if (!initialLoadComplete && this.name) {
+          initialLoadPending.add(this.name);
         }
 
         // First time execution
@@ -351,6 +362,8 @@
           inputNames.forEach(inputName => {
             const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
               console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
+              // Clear cache for this query since inputs changed
+              sqlQueryCache.delete(cacheKey);
               this.debouncedExecute();
             });
             this.unsubscribers.push(unsubscribe);
@@ -395,8 +408,24 @@
           });
 
           if (this.name) {
-            console.log(`[${this.name}] Storing ${this.result.length} rows in store`);
-            storeManager.setState(`data.${this.name}`, this.result);
+            // Only store if data actually changed or doesn't exist yet
+            const existingData = storeManager.getState(`data.${this.name}`);
+            if (!existingData || JSON.stringify(existingData) !== JSON.stringify(this.result)) {
+              console.log(`[${this.name}] Storing ${this.result.length} rows in store`);
+
+              // Remove from pending set
+              initialLoadPending.delete(this.name);
+
+              // If this was the last pending query, mark initial load complete
+              if (initialLoadPending.size === 0 && !initialLoadComplete) {
+                initialLoadComplete = true;
+                console.log('[Initial load] All queries complete, enabling reactive updates');
+              }
+
+              storeManager.setState(`data.${this.name}`, this.result);
+            } else {
+              console.log(`[${this.name}] Data unchanged, skipping store update`);
+            }
           }
         } catch (e) {
           this.error = e.message;
@@ -408,6 +437,14 @@
             status: 'error',
             error: e.message
           });
+
+          // Remove from pending even on error
+          if (this.name) {
+            initialLoadPending.delete(this.name);
+            if (initialLoadPending.size === 0 && !initialLoadComplete) {
+              initialLoadComplete = true;
+            }
+          }
 
           console.error('SQL execution error:', e);
         }
@@ -731,7 +768,7 @@
 
         if (cached) {
           // Request already executed, use cached results
-          console.log(`[${this.name}] Using cached HTTP results`);
+          console.log(`[${this.name}] Using cached HTTP results (status: ${cached.responseStatus})`);
           this.result = cached.result;
           this.status = cached.status;
           this.error = cached.error;
@@ -947,6 +984,11 @@
             if (!this._dataSubscriptions.has(dataName)) {
               console.log(`[MarkdownPreview] Subscribing to data.${dataName}`);
               const unsubscribe = storeManager.subscribe(`data.${dataName}`, () => {
+                // Debounce markdown updates to batch multiple data changes
+                if (!initialLoadComplete) {
+                  console.log(`[MarkdownPreview] data.${dataName} changed during initial load, deferring update`);
+                  return;
+                }
                 console.log(`[MarkdownPreview] data.${dataName} changed, re-processing markdown`);
                 this.processMarkdown();
               });
