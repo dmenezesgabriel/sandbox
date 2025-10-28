@@ -267,6 +267,7 @@
         code: { type: String },
         name: { type: String },
         hide: { type: Boolean },
+        dependson: { type: String },
         result: { type: Array },
         _hasExecuted: { state: true }
       };
@@ -308,6 +309,7 @@
         this.code = '';
         this.name = '';
         this.hide = false;
+        this.dependson = '[]';
         this.result = null;
         this.status = 'loading';
         this.error = null;
@@ -315,6 +317,8 @@
         this.debouncedExecute = debounce(() => this.executeQuery(), 300);
         this._hasExecuted = false;
         this._lastCode = '';
+        this._pendingDependencies = new Set();
+        this._tableInsertedHandler = null;
       }
 
       connectedCallback() {
@@ -323,8 +327,36 @@
         const cacheKey = `${this.name}:${this.code}`;
         const cached = sqlQueryCache.get(cacheKey);
 
+        let dependencies = [];
+        try {
+          dependencies = JSON.parse(this.dependson || '[]');
+        } catch (e) {
+          console.error('Invalid dependsOn JSON:', e);
+        }
+
+        // If has dependencies, wait for table-inserted events
+        if (dependencies.length > 0) {
+          this._pendingDependencies = new Set(dependencies);
+          console.log(`[${this.name}] Waiting for dependencies:`, dependencies);
+
+          this._tableInsertedHandler = (e) => {
+            const tableName = e.detail?.tableName;
+            if (tableName && this._pendingDependencies.has(tableName)) {
+              console.log(`[${this.name}] Dependency ${tableName} resolved`);
+              this._pendingDependencies.delete(tableName);
+
+              if (this._pendingDependencies.size === 0) {
+                console.log(`[${this.name}] All dependencies resolved, executing query`);
+                this.executeQuery();
+              }
+            }
+          };
+
+          document.addEventListener('table-inserted', this._tableInsertedHandler);
+          return; // Don't execute yet
+        }
+
         if (cached) {
-          // Query already executed, use cached results
           console.log(`[${this.name}] Using cached SQL results (${cached.result?.length || 0} rows)`);
           this.result = cached.result;
           this.status = cached.status;
@@ -332,14 +364,12 @@
           this._hasExecuted = true;
           this.requestUpdate();
 
-          // Still need to subscribe to input changes for reactive queries
           const inputRefs = this.code.match(/\$\{input\.(\w+)\}/g);
           if (inputRefs) {
             const inputNames = [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
             inputNames.forEach(inputName => {
               const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
                 console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
-                // Clear cache for this query since inputs changed
                 sqlQueryCache.delete(cacheKey);
                 this.debouncedExecute();
               });
@@ -349,12 +379,10 @@
           return;
         }
 
-        // Track this query as pending during initial load
         if (!initialLoadComplete && this.name) {
           initialLoadPending.add(this.name);
         }
 
-        // First time execution
         const inputRefs = this.code.match(/\$\{input\.(\w+)\}/g);
         if (inputRefs) {
           const inputNames = [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
@@ -362,7 +390,6 @@
           inputNames.forEach(inputName => {
             const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
               console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
-              // Clear cache for this query since inputs changed
               sqlQueryCache.delete(cacheKey);
               this.debouncedExecute();
             });
@@ -377,6 +404,10 @@
         super.disconnectedCallback();
         this.unsubscribers.forEach(unsub => unsub());
         this.unsubscribers = [];
+
+        if (this._tableInsertedHandler) {
+          document.removeEventListener('table-inserted', this._tableInsertedHandler);
+        }
       }
 
       async executeQuery() {
@@ -703,6 +734,7 @@
         code: { type: String },
         name: { type: String },
         hide: { type: Boolean },
+        insert: { type: Boolean },
         result: { type: Object },
         _hasExecuted: { state: true }
       };
@@ -752,6 +784,7 @@
         this.code = '';
         this.name = '';
         this.hide = false;
+        this.insert = false;
         this.result = null;
         this.status = 'loading';
         this.error = null;
@@ -760,6 +793,73 @@
         this._lastCode = '';
       }
 
+      async insertIntoDuckDB() {
+        if (!this.name || !this.result) return;
+
+        try {
+          await initDuckDB();
+
+          // Ensure result is an array
+          const dataArray = Array.isArray(this.result) ? this.result : [this.result];
+
+          if (dataArray.length === 0) {
+            console.warn(`[${this.name}] Cannot insert empty array into DuckDB`);
+            return;
+          }
+
+          // Drop table if it exists
+          try {
+            await dbConnection.query(`DROP TABLE IF EXISTS ${this.name}`);
+          } catch (e) {
+            // Ignore errors from dropping non-existent tables
+          }
+
+          // Build CREATE TABLE statement with explicit column definitions
+          const firstRow = dataArray[0];
+          const columns = Object.keys(firstRow).map(key => {
+            const value = firstRow[key];
+            let sqlType = 'VARCHAR';
+
+            if (typeof value === 'number') {
+              sqlType = Number.isInteger(value) ? 'INTEGER' : 'DOUBLE';
+            } else if (typeof value === 'boolean') {
+              sqlType = 'BOOLEAN';
+            }
+
+            return `${key} ${sqlType}`;
+          }).join(', ');
+
+          await dbConnection.query(`CREATE TABLE ${this.name} (${columns})`);
+
+          // Insert rows one by one
+          for (const row of dataArray) {
+            const values = Object.values(row).map(val => {
+              if (val === null || val === undefined) return 'NULL';
+              if (typeof val === 'string') return `'${val.replace(/'/g, "''")}'`;
+              if (typeof val === 'boolean') return val ? 'true' : 'false';
+              return val;
+            }).join(', ');
+
+            await dbConnection.query(
+              `INSERT INTO ${this.name} VALUES (${values})`
+            );
+          }
+
+          console.log(`[${this.name}] Inserted ${dataArray.length} rows into DuckDB table`);
+
+          // Dispatch event to notify SQL blocks
+          this.dispatchEvent(new CustomEvent('table-inserted', {
+            detail: { tableName: this.name },
+            bubbles: true,
+            composed: true
+          }));
+
+        } catch (e) {
+          console.error(`[${this.name}] Error inserting into DuckDB:`, e);
+          this.error = `DuckDB insert failed: ${e.message}`;
+          this.requestUpdate();
+        }
+      }
       connectedCallback() {
         super.connectedCallback();
 
@@ -775,13 +875,20 @@
           this.responseStatus = cached.responseStatus;
           this._hasExecuted = true;
           this.requestUpdate();
+
+          // IMPORTANT: If insert=true, we still need to insert and dispatch event
+          if (this.insert && this.status === 'success') {
+            // Use setTimeout to ensure this happens after connectedCallback completes
+            setTimeout(() => {
+              this.insertIntoDuckDB();
+            }, 0);
+          }
           return;
         }
 
         // First time execution
         this.executeRequest();
       }
-
       parseHttpRequest() {
         const lines = this.code.trim().split('\n');
         let requestLine = '';
@@ -864,12 +971,16 @@
           if (this.name) {
             console.log(`[${this.name}] Storing response in store`);
             storeManager.setState(`data.${this.name}`, this.result);
+
+            // Insert into DuckDB if requested
+            if (this.insert && response.ok) {
+              await this.insertIntoDuckDB();
+            }
           }
         } catch (e) {
           this.error = e.message;
           this.status = 'error';
 
-          // Cache the error too
           httpRequestCache.set(cacheKey, {
             result: null,
             status: 'error',
@@ -1014,18 +1125,20 @@
                 const code = match[2];
                 const nameMatch = attrs.match(/name=([^\s]+)/);
                 const hideMatch = attrs.match(/hide=(true|false)/);
+                const dependsOnMatch = attrs.match(/dependsOn=\[([^\]]+)\]/);
 
                 return {
                   type: 'sqlCodeBlock',
                   raw: match[0],
                   code: code,
                   name: nameMatch ? nameMatch[1].replace(/['"]/g, '') : '',
-                  hide: hideMatch ? hideMatch[1] === 'true' : false
+                  hide: hideMatch ? hideMatch[1] === 'true' : false,
+                  dependsOn: dependsOnMatch ? dependsOnMatch[1].split(',').map(s => s.trim()) : []
                 };
               }
             },
             renderer(token) {
-              return `<sql-code-block code='${token.code.replace(/'/g, "&#39;")}' name="${token.name}" ${token.hide ? 'hide' : ''}></sql-code-block>`;
+              return `<sql-code-block code='${token.code.replace(/'/g, "&#39;")}' name="${token.name}" ${token.hide ? 'hide' : ''} dependson='${JSON.stringify(token.dependsOn)}'></sql-code-block>`;
             }
           },
           {
@@ -1041,17 +1154,19 @@
                 const code = match[2];
                 const nameMatch = attrs.match(/name=([^\s]+)/);
                 const hideMatch = attrs.match(/hide=(true|false)/);
+                const insertMatch = attrs.match(/insert=(true|false)/);
                 return {
                   type: 'httpCodeBlock',
                   raw: match[0],
                   code: code,
                   name: nameMatch ? nameMatch[1].replace(/['"]/g, '') : '',
-                  hide: hideMatch ? hideMatch[1] === 'true' : false
+                  hide: hideMatch ? hideMatch[1] === 'true' : false,
+                  insert: insertMatch ? insertMatch[1] === 'true' : false
                 };
               }
             },
             renderer(token) {
-              return `<http-code-block code='${token.code.replace(/'/g, "&#39;")}' name="${token.name}" ${token.hide ? 'hide' : ''}></http-code-block>`;
+              return `<http-code-block code='${token.code.replace(/'/g, "&#39;")}' name="${token.name}" ${token.hide ? 'hide' : ''} ${token.insert ? 'insert' : ''}></http-code-block>`;
             }
           }]
         });
@@ -1245,8 +1360,12 @@ WHERE len(\$\{input.product_selection\}) = 0
 
 ### GET HTTP Request Example
 
-\`\`\`http name=todos hide=false
+\`\`\`http name=todos hide=false insert=true
 GET https://jsonplaceholder.typicode.com/todos/1 HTTP/1.1
+\`\`\`
+
+\`\`\`sql name=todo_response dependsOn=[todos]
+SELECT * FROM todos
 \`\`\`
 
 ### POST Request Example
