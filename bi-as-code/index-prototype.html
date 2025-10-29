@@ -63,7 +63,52 @@
     import * as duckdb from '@duckdb/duckdb-wasm';
     import matter from "gray-matter";
 
-    // Global Store with Observable Pattern
+    // ============================================================================
+    // UTILITIES
+    // ============================================================================
+
+    /**
+     * Debounce utility to delay function execution
+     */
+    function debounce(func, wait) {
+      let timeout;
+      return function executedFunction(...args) {
+        const later = () => {
+          clearTimeout(timeout);
+          func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+      };
+    }
+
+    /**
+     * Safe JSON parser that returns default value on error
+     */
+    function safeJsonParse(jsonString, defaultValue = null) {
+      try {
+        return JSON.parse(jsonString);
+      } catch (e) {
+        console.error('Invalid JSON:', e);
+        return defaultValue;
+      }
+    }
+
+    /**
+     * Extract input variable names from code string
+     * @param {string} code - Code containing ${input.xxx} references
+     * @returns {string[]} - Array of unique input names
+     */
+    function extractInputNames(code) {
+      const inputRefs = code.match(/\$\{input\.(\w+)\}/g);
+      if (!inputRefs) return [];
+      return [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
+    }
+
+    // ============================================================================
+    // STORE MANAGER
+    // ============================================================================
+
     const store = {
       data: {},
       input: {},
@@ -76,7 +121,6 @@
       setState(path, value) {
         const [category, key] = path.split('.');
         if (category === 'data' || category === 'input' || category === 'frontmatter') {
-          // Only update if value actually changed
           if (JSON.stringify(store[category][key]) === JSON.stringify(value)) {
             return;
           }
@@ -115,7 +159,6 @@
           callbacks.forEach(cb => cb(value));
         }
 
-        // Notify specific path listeners only (removed wildcard to reduce cascades)
         const [category] = path.split('.');
         const wildcardPath = `${category}.*`;
         const wildcardCallbacks = this.listeners.get(wildcardPath);
@@ -126,41 +169,797 @@
       }
     };
 
-    // Global DuckDB instance
-    let dbInstance = null;
-    let dbConnection = null;
+    // ============================================================================
+    // DUCKDB MANAGER
+    // ============================================================================
 
-    async function initDuckDB() {
-      if (dbInstance) return dbInstance;
+    class DuckDBManager {
+      constructor() {
+        this.dbInstance = null;
+        this.dbConnection = null;
+      }
 
-      const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-      const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
-      const worker_url = URL.createObjectURL(
-        new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
-      );
-      const worker = new Worker(worker_url);
-      const logger = new duckdb.ConsoleLogger();
-      const db = new duckdb.AsyncDuckDB(logger, worker);
-      await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-      URL.revokeObjectURL(worker_url);
+      async initialize() {
+        if (this.dbInstance) return this.dbInstance;
 
-      dbInstance = db;
-      dbConnection = await db.connect();
-      return db;
+        const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+        const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+        const worker_url = URL.createObjectURL(
+          new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+        );
+        const worker = new Worker(worker_url);
+        const logger = new duckdb.ConsoleLogger();
+        const db = new duckdb.AsyncDuckDB(logger, worker);
+        await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+        URL.revokeObjectURL(worker_url);
+
+        this.dbInstance = db;
+        this.dbConnection = await db.connect();
+        return db;
+      }
+
+      async getConnection() {
+        await this.initialize();
+        return this.dbConnection;
+      }
+
+      async query(sql) {
+        const connection = await this.getConnection();
+        return connection.query(sql);
+      }
     }
 
-    // Debounce utility
-    function debounce(func, wait) {
-      let timeout;
-      return function executedFunction(...args) {
-        const later = () => {
-          clearTimeout(timeout);
-          func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
+    const duckDBManager = new DuckDBManager();
+
+    // ============================================================================
+    // INITIAL LOAD TRACKER
+    // ============================================================================
+
+    class InitialLoadTracker {
+      constructor() {
+        this.pendingItems = new Set();
+        this.isComplete = false;
+        this.completionCallbacks = [];
+      }
+
+      addPending(name) {
+        if (!this.isComplete && name) {
+          this.pendingItems.add(name);
+        }
+      }
+
+      markComplete(name) {
+        if (!name) return;
+
+        this.pendingItems.delete(name);
+
+        if (this.pendingItems.size === 0 && !this.isComplete) {
+          this.isComplete = true;
+          console.log('[InitialLoadTracker] All items loaded, marking complete');
+          this.notifyCompletion();
+        }
+      }
+
+      isLoadComplete() {
+        return this.isComplete;
+      }
+
+      onComplete(callback) {
+        if (this.isComplete) {
+          callback();
+        } else {
+          this.completionCallbacks.push(callback);
+        }
+      }
+
+      notifyCompletion() {
+        this.completionCallbacks.forEach(cb => cb());
+        this.completionCallbacks = [];
+      }
+    }
+
+    const initialLoadTracker = new InitialLoadTracker();
+
+    // ============================================================================
+    // INPUT SUBSCRIPTION MANAGER
+    // ============================================================================
+
+    class InputSubscriptionManager {
+      constructor(componentName, code, onInputChange) {
+        this.componentName = componentName;
+        this.code = code;
+        this.onInputChange = onInputChange;
+        this.unsubscribers = [];
+      }
+
+      subscribe() {
+        const inputNames = extractInputNames(this.code);
+
+        if (inputNames.length > 0) {
+          console.log(`[${this.componentName}] Subscribing to inputs:`, inputNames);
+
+          inputNames.forEach(inputName => {
+            const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
+              console.log(`[${this.componentName}] Input ${inputName} changed`);
+              this.onInputChange(inputName);
+            });
+            this.unsubscribers.push(unsubscribe);
+          });
+        }
+
+        return this;
+      }
+
+      unsubscribe() {
+        this.unsubscribers.forEach(unsub => unsub());
+        this.unsubscribers = [];
+      }
+    }
+
+    // ============================================================================
+    // CACHE MANAGER
+    // ============================================================================
+
+    class CacheManager {
+      constructor(cacheName) {
+        this.cacheName = cacheName;
+        this.cache = new Map();
+      }
+
+      getCacheKey(name, code) {
+        return `${name}:${code}`;
+      }
+
+      get(name, code) {
+        const key = this.getCacheKey(name, code);
+        return this.cache.get(key);
+      }
+
+      set(name, code, value) {
+        const key = this.getCacheKey(name, code);
+        this.cache.set(key, value);
+        console.log(`[${this.cacheName}] Cached result for ${name}`);
+      }
+
+      invalidate(name, code) {
+        const key = this.getCacheKey(name, code);
+        this.cache.delete(key);
+        console.log(`[${this.cacheName}] Invalidated cache for ${name}`);
+      }
+
+      has(name, code) {
+        const key = this.getCacheKey(name, code);
+        return this.cache.has(key);
+      }
+    }
+
+    const sqlQueryCache = new CacheManager('SQLCache');
+    const httpRequestCache = new CacheManager('HTTPCache');
+
+    // ============================================================================
+    // EXECUTABLE CODE BLOCK BASE CLASS
+    // ============================================================================
+
+    class ExecutableCodeBlock extends LitElement {
+      static properties = {
+        code: { type: String },
+        name: { type: String },
+        hide: { type: Boolean },
+        result: { type: Object },
+        _hasExecuted: { state: true }
       };
+
+      static styles = css`
+        :host { display: block; margin: 20px 0; }
+        .code-block {
+          background: #f5f5f5;
+          padding: 12px;
+          border-radius: 4px;
+          overflow-x: auto;
+          margin-bottom: 12px;
+        }
+        pre {
+          margin: 0;
+          font-family: monospace;
+          font-size: 14px;
+        }
+        .header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+          font-size: 12px;
+          color: #666;
+        }
+        .status {
+          padding: 4px 8px;
+          border-radius: 3px;
+          font-size: 11px;
+        }
+        .loading { background: #fff3cd; }
+        .success { background: #d4edda; }
+        .error { background: #f8d7da; color: #721c24; }
+      `;
+
+      constructor() {
+        super();
+        this.code = '';
+        this.name = '';
+        this.hide = false;
+        this.result = null;
+        this.status = 'loading';
+        this.error = null;
+        this._hasExecuted = false;
+        this.inputSubscriptionManager = null;
+        this.debouncedExecute = debounce(() => this.executeWithCacheInvalidation(), 300);
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+        this.setupExecution();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        this.cleanup();
+      }
+
+      setupExecution() {
+        const cached = this.getCachedResult();
+
+        if (cached) {
+          this.applyCachedResult(cached);
+          this.setupInputSubscriptions();
+          return;
+        }
+
+        initialLoadTracker.addPending(this.name);
+        this.setupInputSubscriptions();
+
+        if (this.shouldExecuteImmediately()) {
+          this.execute();
+        }
+      }
+
+      applyCachedResult(cached) {
+        console.log(`[${this.name}] Using cached results`);
+        this.result = cached.result;
+        this.status = cached.status;
+        this.error = cached.error;
+        this.onCachedResultApplied(cached);
+        this._hasExecuted = true;
+        this.requestUpdate();
+      }
+
+      setupInputSubscriptions() {
+        this.inputSubscriptionManager = new InputSubscriptionManager(
+          this.name,
+          this.code,
+          () => this.onInputChanged()
+        );
+        this.inputSubscriptionManager.subscribe();
+      }
+
+      onInputChanged() {
+        console.log(`[${this.name}] Input changed, re-executing`);
+        this.invalidateCache();
+        this.debouncedExecute();
+      }
+
+      executeWithCacheInvalidation() {
+        this.invalidateCache();
+        this.execute();
+      }
+
+      async execute() {
+        this.status = 'loading';
+        this.requestUpdate();
+
+        try {
+          this.result = await this.performExecution();
+          this.status = 'success';
+          this._hasExecuted = true;
+
+          this.cacheResult();
+          this.storeResult();
+          await this.onExecutionSuccess();
+        } catch (e) {
+          this.error = e.message;
+          this.status = 'error';
+          this.cacheError(e);
+          console.error(`[${this.name}] Execution error:`, e);
+        } finally {
+          initialLoadTracker.markComplete(this.name);
+          this.requestUpdate();
+        }
+      }
+
+      cacheResult() {
+        this.getCacheManager().set(this.name, this.code, {
+          result: this.result,
+          status: this.status,
+          error: null
+        });
+      }
+
+      cacheError(error) {
+        this.getCacheManager().set(this.name, this.code, {
+          result: null,
+          status: 'error',
+          error: error.message
+        });
+      }
+
+      invalidateCache() {
+        this.getCacheManager().invalidate(this.name, this.code);
+      }
+
+      storeResult() {
+        if (this.name && this.result !== null) {
+          const existingData = storeManager.getState(`data.${this.name}`);
+          if (!existingData || JSON.stringify(existingData) !== JSON.stringify(this.result)) {
+            console.log(`[${this.name}] Storing result in store`);
+            storeManager.setState(`data.${this.name}`, this.result);
+          }
+        }
+      }
+
+      cleanup() {
+        if (this.inputSubscriptionManager) {
+          this.inputSubscriptionManager.unsubscribe();
+        }
+      }
+
+      renderStatusBadge() {
+        if (!this.name) return '';
+
+        return html`
+          <div class="header">
+            <strong>${this.name}</strong>
+            <span class="status ${this.status}">
+              ${this.getStatusText()}
+            </span>
+          </div>
+        `;
+      }
+
+      renderError() {
+        if (this.status !== 'error') return '';
+
+        return html`
+          <div class="error" style="padding: 8px; margin-top: 8px;">
+            ${this.error}
+          </div>
+        `;
+      }
+
+      renderCodeBlock() {
+        return html`
+          <div class="code-block">
+            <pre><code>${this.code}</code></pre>
+          </div>
+        `;
+      }
+
+      // Abstract methods to be implemented by subclasses
+      getCacheManager() {
+        throw new Error('getCacheManager() must be implemented by subclass');
+      }
+
+      getCachedResult() {
+        throw new Error('getCachedResult() must be implemented by subclass');
+      }
+
+      shouldExecuteImmediately() {
+        return true;
+      }
+
+      async performExecution() {
+        throw new Error('performExecution() must be implemented by subclass');
+      }
+
+      getStatusText() {
+        return this.status === 'loading' ? 'Executing...' :
+          this.status === 'success' ? 'Success' : 'Error';
+      }
+
+      onCachedResultApplied(cached) {
+        // Hook for subclasses to perform additional actions
+      }
+
+      async onExecutionSuccess() {
+        // Hook for subclasses to perform additional actions after successful execution
+      }
+
+      render() {
+        if (this.hide) return html``;
+
+        return html`
+          <div>
+            ${this.renderStatusBadge()}
+            ${this.renderCodeBlock()}
+            ${this.renderError()}
+            ${this.renderResult()}
+          </div>
+        `;
+      }
+
+      renderResult() {
+        return '';
+      }
     }
+
+    // ============================================================================
+    // SQL CODE BLOCK
+    // ============================================================================
+
+    class SqlCodeBlock extends ExecutableCodeBlock {
+      static properties = {
+        ...ExecutableCodeBlock.properties,
+        dependson: { type: String }
+      };
+
+      constructor() {
+        super();
+        this.dependson = '[]';
+        this._pendingDependencies = new Set();
+        this._tableInsertedHandler = null;
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._tableInsertedHandler) {
+          document.removeEventListener('table-inserted', this._tableInsertedHandler);
+        }
+      }
+
+      shouldExecuteImmediately() {
+        const dependencies = safeJsonParse(this.dependson, []);
+
+        if (dependencies.length > 0) {
+          this._pendingDependencies = new Set(dependencies);
+          console.log(`[${this.name}] Waiting for dependencies:`, dependencies);
+
+          this._tableInsertedHandler = (e) => {
+            const tableName = e.detail?.tableName;
+            if (tableName && this._pendingDependencies.has(tableName)) {
+              console.log(`[${this.name}] Dependency ${tableName} resolved`);
+              this._pendingDependencies.delete(tableName);
+
+              if (this._pendingDependencies.size === 0) {
+                console.log(`[${this.name}] All dependencies resolved, executing query`);
+                this.execute();
+              }
+            }
+          };
+
+          document.addEventListener('table-inserted', this._tableInsertedHandler);
+          return false;
+        }
+
+        return true;
+      }
+
+      getCacheManager() {
+        return sqlQueryCache;
+      }
+
+      getCachedResult() {
+        return sqlQueryCache.get(this.name, this.code);
+      }
+
+      async performExecution() {
+        await duckDBManager.initialize();
+
+        const processedCode = this.code.replace(/\$\{input\.(\w+)\}/g, (match, inputName) => {
+          const value = storeManager.getState(`input.${inputName}`);
+          if (!value || (Array.isArray(value) && value.length === 0)) {
+            return '[]';
+          }
+          return `['${value.join("','")}']`;
+        });
+
+        console.log(`[${this.name}] Executing query with processed code:`, processedCode);
+
+        const queryResult = await duckDBManager.query(processedCode);
+        return queryResult.toArray().map(row => row.toJSON());
+      }
+
+      getStatusText() {
+        if (this.status === 'loading') return 'Executing...';
+        if (this.status === 'success') return `${this.result?.length || 0} rows`;
+        return 'Error';
+      }
+
+      renderResult() {
+        if (this.status !== 'success' || !this.result || this.result.length === 0) {
+          return '';
+        }
+
+        const keys = Object.keys(this.result[0]);
+
+        return html`
+          <details open style="margin-top: 12px;">
+            <summary style="cursor: pointer; padding: 8px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-weight: 600;">
+              Query Results (${this.result.length} rows)
+            </summary>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
+              <thead>
+                <tr>
+                  ${keys.map(key => html`<th style="padding: 8px; text-align: left; border: 1px solid #ddd; background: #f5f5f5; font-weight: 600;">${key}</th>`)}
+                </tr>
+              </thead>
+              <tbody>
+                ${this.result.map(row => html`
+                  <tr>
+                    ${keys.map(key => html`<td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${row[key]}</td>`)}
+                  </tr>
+                `)}
+              </tbody>
+            </table>
+          </details>
+        `;
+      }
+    }
+
+    // ============================================================================
+    // HTTP CODE BLOCK
+    // ============================================================================
+
+    class HttpCodeBlock extends ExecutableCodeBlock {
+      static properties = {
+        ...ExecutableCodeBlock.properties,
+        insert: { type: Boolean }
+      };
+
+      static styles = css`
+        ${ExecutableCodeBlock.styles}
+        .json-result {
+          background: #282c34;
+          color: #abb2bf;
+          padding: 16px;
+          border-radius: 4px;
+          overflow-x: auto;
+          margin-top: 12px;
+          font-family: monospace;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+        .json-key { color: #e06c75; }
+        .json-string { color: #98c379; }
+        .json-number { color: #d19a66; }
+        .json-boolean { color: #56b6c2; }
+        .json-null { color: #c678dd; }
+      `;
+
+      constructor() {
+        super();
+        this.insert = false;
+        this.responseStatus = null;
+      }
+
+      getCacheManager() {
+        return httpRequestCache;
+      }
+
+      getCachedResult() {
+        const cached = httpRequestCache.get(this.name, this.code);
+        if (cached) {
+          this.responseStatus = cached.responseStatus;
+        }
+        return cached;
+      }
+
+      onCachedResultApplied(cached) {
+        this.responseStatus = cached.responseStatus;
+
+        if (this.insert && this.status === 'success') {
+          setTimeout(() => {
+            this.insertIntoDuckDB();
+          }, 0);
+        }
+      }
+
+      parseHttpRequest() {
+        const lines = this.code.trim().split('\n');
+        let requestLine = '';
+        const headers = {};
+        let body = null;
+        let inBody = false;
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i].trim();
+
+          if (!line && !inBody && requestLine) {
+            inBody = true;
+            continue;
+          }
+
+          if (!requestLine && line.match(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)/i)) {
+            requestLine = line;
+          } else if (!inBody && line.includes(':')) {
+            const [key, ...valueParts] = line.split(':');
+            headers[key.trim()] = valueParts.join(':').trim();
+          } else if (inBody && line) {
+            if (body === null) body = '';
+            body += line + '\n';
+          }
+        }
+
+        const requestMatch = requestLine.match(/^(\w+)\s+(.+?)(?:\s+HTTP\/[\d.]+)?$/i);
+        if (!requestMatch) throw new Error('Invalid request line format');
+
+        const [, method, url] = requestMatch;
+        return {
+          method: method.toUpperCase(),
+          url: url.trim(),
+          headers,
+          body: body ? body.trim() : null
+        };
+      }
+
+      async performExecution() {
+        const { method, url, headers, body } = this.parseHttpRequest();
+        const fetchOptions = { method, headers: {} };
+
+        Object.entries(headers).forEach(([key, value]) => {
+          fetchOptions.headers[key] = value;
+        });
+
+        if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
+          fetchOptions.body = body;
+        }
+
+        console.log(`[${this.name || 'http'}] Executing ${method} ${url}`);
+
+        const response = await fetch(url, fetchOptions);
+        this.responseStatus = response.status;
+
+        const contentType = response.headers.get('content-type');
+        let data;
+
+        if (contentType && contentType.includes('application/json')) {
+          data = await response.json();
+        } else {
+          data = await response.text();
+        }
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return data;
+      }
+
+      async onExecutionSuccess() {
+        if (this.insert) {
+          await this.insertIntoDuckDB();
+        }
+      }
+
+      cacheResult() {
+        this.getCacheManager().set(this.name, this.code, {
+          result: this.result,
+          status: this.status,
+          error: null,
+          responseStatus: this.responseStatus
+        });
+      }
+
+      cacheError(error) {
+        this.getCacheManager().set(this.name, this.code, {
+          result: null,
+          status: 'error',
+          error: error.message,
+          responseStatus: this.responseStatus
+        });
+      }
+
+      async insertIntoDuckDB() {
+        if (!this.name || !this.result) return;
+
+        try {
+          await duckDBManager.initialize();
+
+          const dataArray = Array.isArray(this.result) ? this.result : [this.result];
+
+          if (dataArray.length === 0) {
+            console.warn(`[${this.name}] Cannot insert empty array into DuckDB`);
+            return;
+          }
+
+          try {
+            await duckDBManager.query(`DROP TABLE IF EXISTS ${this.name}`);
+          } catch (e) {
+            // Ignore errors from dropping non-existent tables
+          }
+
+          const firstRow = dataArray[0];
+          const columns = Object.keys(firstRow).map(key => {
+            const value = firstRow[key];
+            let sqlType = 'VARCHAR';
+
+            if (typeof value === 'number') {
+              sqlType = Number.isInteger(value) ? 'INTEGER' : 'DOUBLE';
+            } else if (typeof value === 'boolean') {
+              sqlType = 'BOOLEAN';
+            }
+
+            return `${key} ${sqlType}`;
+          }).join(', ');
+
+          await duckDBManager.query(`CREATE TABLE ${this.name} (${columns})`);
+
+          for (const row of dataArray) {
+            const values = Object.values(row).map(val => {
+              if (val === null || val === undefined) return 'NULL';
+              if (typeof val === 'string') return `'${val.replace(/'/g, "''")}'`;
+              if (typeof val === 'boolean') return val ? 'true' : 'false';
+              return val;
+            }).join(', ');
+
+            await duckDBManager.query(`INSERT INTO ${this.name} VALUES (${values})`);
+          }
+
+          console.log(`[${this.name}] Inserted ${dataArray.length} rows into DuckDB table`);
+
+          this.dispatchEvent(new CustomEvent('table-inserted', {
+            detail: { tableName: this.name },
+            bubbles: true,
+            composed: true
+          }));
+
+        } catch (e) {
+          console.error(`[${this.name}] Error inserting into DuckDB:`, e);
+          this.error = `DuckDB insert failed: ${e.message}`;
+          this.requestUpdate();
+        }
+      }
+
+      getStatusText() {
+        if (this.status === 'loading') return 'Executing...';
+        if (this.status === 'success') return `HTTP ${this.responseStatus}`;
+        return 'Error';
+      }
+
+      syntaxHighlightJson(json) {
+        if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
+        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+          let cls = 'json-number';
+          if (/^"/.test(match)) {
+            cls = /:$/.test(match) ? 'json-key' : 'json-string';
+          } else if (/true|false/.test(match)) {
+            cls = 'json-boolean';
+          } else if (/null/.test(match)) {
+            cls = 'json-null';
+          }
+          return `<span class="${cls}">${match}</span>`;
+        });
+      }
+
+      renderResult() {
+        if (this.status !== 'success' || !this.result) return '';
+
+        return html`
+          <details open>
+            <summary style="cursor: pointer; padding: 8px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-weight: 600; margin-bottom: 8px;">
+              Response (HTTP ${this.responseStatus})
+            </summary>
+            <div class="json-result">
+              <pre .innerHTML=${this.syntaxHighlightJson(this.result)}></pre>
+            </div>
+          </details>
+        `;
+      }
+    }
+
+    // ============================================================================
+    // DROPDOWN SELECT
+    // ============================================================================
 
     class DropdownSelect extends LitElement {
       static properties = {
@@ -225,12 +1024,7 @@
       }
 
       render() {
-        let options = [];
-        try {
-          options = JSON.parse(this.data);
-        } catch (e) {
-          console.error('Invalid data JSON:', e);
-        }
+        const options = safeJsonParse(this.data, []);
 
         const values = options.map(opt => {
           if (typeof opt === 'string') return opt;
@@ -254,292 +1048,9 @@
       }
     }
 
-    // Global cache for SQL queries to prevent re-execution across re-renders
-    const sqlQueryCache = new Map(); // key: code+name, value: {result, status}
-    const httpRequestCache = new Map(); // key: code+name, value: {result, status}
-
-    // Track initial load to batch notifications
-    let initialLoadPending = new Set();
-    let initialLoadComplete = false;
-
-    class SqlCodeBlock extends LitElement {
-      static properties = {
-        code: { type: String },
-        name: { type: String },
-        hide: { type: Boolean },
-        dependson: { type: String },
-        result: { type: Array },
-        _hasExecuted: { state: true }
-      };
-
-      static styles = css`
-        :host { display: block; margin: 20px 0; }
-        .code-block {
-          background: #f5f5f5;
-          padding: 12px;
-          border-radius: 4px;
-          overflow-x: auto;
-          margin-bottom: 12px;
-        }
-        pre {
-          margin: 0;
-          font-family: monospace;
-          font-size: 14px;
-        }
-        .header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 8px;
-          font-size: 12px;
-          color: #666;
-        }
-        .status {
-          padding: 4px 8px;
-          border-radius: 3px;
-          font-size: 11px;
-        }
-        .loading { background: #fff3cd; }
-        .success { background: #d4edda; }
-        .error { background: #f8d7da; color: #721c24; }
-      `;
-
-      constructor() {
-        super();
-        this.code = '';
-        this.name = '';
-        this.hide = false;
-        this.dependson = '[]';
-        this.result = null;
-        this.status = 'loading';
-        this.error = null;
-        this.unsubscribers = [];
-        this.debouncedExecute = debounce(() => this.executeQuery(), 300);
-        this._hasExecuted = false;
-        this._lastCode = '';
-        this._pendingDependencies = new Set();
-        this._tableInsertedHandler = null;
-      }
-
-      connectedCallback() {
-        super.connectedCallback();
-
-        const cacheKey = `${this.name}:${this.code}`;
-        const cached = sqlQueryCache.get(cacheKey);
-
-        let dependencies = [];
-        try {
-          dependencies = JSON.parse(this.dependson || '[]');
-        } catch (e) {
-          console.error('Invalid dependsOn JSON:', e);
-        }
-
-        // If has dependencies, wait for table-inserted events
-        if (dependencies.length > 0) {
-          this._pendingDependencies = new Set(dependencies);
-          console.log(`[${this.name}] Waiting for dependencies:`, dependencies);
-
-          this._tableInsertedHandler = (e) => {
-            const tableName = e.detail?.tableName;
-            if (tableName && this._pendingDependencies.has(tableName)) {
-              console.log(`[${this.name}] Dependency ${tableName} resolved`);
-              this._pendingDependencies.delete(tableName);
-
-              if (this._pendingDependencies.size === 0) {
-                console.log(`[${this.name}] All dependencies resolved, executing query`);
-                this.executeQuery();
-              }
-            }
-          };
-
-          document.addEventListener('table-inserted', this._tableInsertedHandler);
-          return; // Don't execute yet
-        }
-
-        if (cached) {
-          console.log(`[${this.name}] Using cached SQL results (${cached.result?.length || 0} rows)`);
-          this.result = cached.result;
-          this.status = cached.status;
-          this.error = cached.error;
-          this._hasExecuted = true;
-          this.requestUpdate();
-
-          const inputRefs = this.code.match(/\$\{input\.(\w+)\}/g);
-          if (inputRefs) {
-            const inputNames = [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
-            inputNames.forEach(inputName => {
-              const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
-                console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
-                sqlQueryCache.delete(cacheKey);
-                this.debouncedExecute();
-              });
-              this.unsubscribers.push(unsubscribe);
-            });
-          }
-          return;
-        }
-
-        if (!initialLoadComplete && this.name) {
-          initialLoadPending.add(this.name);
-        }
-
-        const inputRefs = this.code.match(/\$\{input\.(\w+)\}/g);
-        if (inputRefs) {
-          const inputNames = [...new Set(inputRefs.map(ref => ref.match(/\$\{input\.(\w+)\}/)[1]))];
-          console.log(`[${this.name}] Subscribing to inputs:`, inputNames);
-          inputNames.forEach(inputName => {
-            const unsubscribe = storeManager.subscribe(`input.${inputName}`, () => {
-              console.log(`[${this.name}] Input ${inputName} changed, re-executing query`);
-              sqlQueryCache.delete(cacheKey);
-              this.debouncedExecute();
-            });
-            this.unsubscribers.push(unsubscribe);
-          });
-        }
-
-        this.executeQuery();
-      }
-
-      disconnectedCallback() {
-        super.disconnectedCallback();
-        this.unsubscribers.forEach(unsub => unsub());
-        this.unsubscribers = [];
-
-        if (this._tableInsertedHandler) {
-          document.removeEventListener('table-inserted', this._tableInsertedHandler);
-        }
-      }
-
-      async executeQuery() {
-        const cacheKey = `${this.name}:${this.code}`;
-
-        try {
-          await initDuckDB();
-
-          let processedCode = this.code.replace(/\$\{input\.(\w+)\}/g, (match, inputName) => {
-            const value = storeManager.getState(`input.${inputName}`);
-            if (!value || (Array.isArray(value) && value.length === 0)) {
-              return '[]';
-            }
-            return `['${value.join("','")}']`;
-          });
-
-          console.log(`[${this.name}] Executing query with processed code:`, processedCode);
-
-          const queryResult = await dbConnection.query(processedCode);
-          this.result = queryResult.toArray().map(row => row.toJSON());
-          this.status = 'success';
-          this._hasExecuted = true;
-
-          // Cache the results
-          sqlQueryCache.set(cacheKey, {
-            result: this.result,
-            status: this.status,
-            error: null
-          });
-
-          if (this.name) {
-            // Only store if data actually changed or doesn't exist yet
-            const existingData = storeManager.getState(`data.${this.name}`);
-            if (!existingData || JSON.stringify(existingData) !== JSON.stringify(this.result)) {
-              console.log(`[${this.name}] Storing ${this.result.length} rows in store`);
-
-              // Remove from pending set
-              initialLoadPending.delete(this.name);
-
-              // If this was the last pending query, mark initial load complete
-              if (initialLoadPending.size === 0 && !initialLoadComplete) {
-                initialLoadComplete = true;
-                console.log('[Initial load] All queries complete, enabling reactive updates');
-              }
-
-              storeManager.setState(`data.${this.name}`, this.result);
-            } else {
-              console.log(`[${this.name}] Data unchanged, skipping store update`);
-            }
-          }
-        } catch (e) {
-          this.error = e.message;
-          this.status = 'error';
-
-          // Cache the error too
-          sqlQueryCache.set(cacheKey, {
-            result: null,
-            status: 'error',
-            error: e.message
-          });
-
-          // Remove from pending even on error
-          if (this.name) {
-            initialLoadPending.delete(this.name);
-            if (initialLoadPending.size === 0 && !initialLoadComplete) {
-              initialLoadComplete = true;
-            }
-          }
-
-          console.error('SQL execution error:', e);
-        }
-        this.requestUpdate();
-      }
-
-      renderTable() {
-        if (!this.result || this.result.length === 0) return '';
-
-        const keys = Object.keys(this.result[0]);
-
-        return html`
-          <details open style="margin-top: 12px;">
-            <summary style="cursor: pointer; padding: 8px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-weight: 600;">
-              Query Results (${this.result.length} rows)
-            </summary>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 8px;">
-              <thead>
-                <tr>
-                  ${keys.map(key => html`<th style="padding: 8px; text-align: left; border: 1px solid #ddd; background: #f5f5f5; font-weight: 600;">${key}</th>`)}
-                </tr>
-              </thead>
-              <tbody>
-                ${this.result.map(row => html`
-                  <tr>
-                    ${keys.map(key => html`<td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${row[key]}</td>`)}
-                  </tr>
-                `)}
-              </tbody>
-            </table>
-          </details>
-        `;
-      }
-
-      render() {
-        if (this.hide) {
-          return html``;
-        }
-
-        return html`
-          <div>
-            ${this.name ? html`
-              <div class="header">
-                <strong>${this.name}</strong>
-                <span class="status ${this.status}">
-                  ${this.status === 'loading' ? 'Executing...' :
-              this.status === 'success' ? `${this.result?.length || 0} rows` :
-                'Error'}
-                </span>
-              </div>
-            ` : ''}
-            <div class="code-block">
-              <pre><code>${this.code}</code></pre>
-            </div>
-            ${this.status === 'error' ? html`
-              <div class="error" style="padding: 8px; margin-top: 8px;">
-                ${this.error}
-              </div>
-            ` : ''}
-            ${this.status === 'success' && this.result && this.result.length > 0 ? this.renderTable() : ''}
-          </div>
-        `;
-      }
-    }
+    // ============================================================================
+    // VEGA-LITE CHART
+    // ============================================================================
 
     class VegaLiteChart extends LitElement {
       static properties = {
@@ -575,10 +1086,8 @@
           return;
         }
 
-        let specObj;
-        try {
-          specObj = JSON.parse(this.spec);
-        } catch (e) {
+        const specObj = safeJsonParse(this.spec);
+        if (!specObj) {
           chartDiv.innerHTML = '<div class="error">Invalid spec JSON</div>';
           return;
         }
@@ -595,6 +1104,10 @@
         return html`<div id="chart"></div>`;
       }
     }
+
+    // ============================================================================
+    // DATA TABLE
+    // ============================================================================
 
     class DataTable extends LitElement {
       static properties = {
@@ -634,24 +1147,17 @@
         let configArray = [];
 
         if (!this.dataArray) {
-          try {
-            dataArray = JSON.parse(this.data);
-            configArray = JSON.parse(this.columnConfig);
-          } catch (e) {
-            return html`<div>Error parsing data</div>`;
-          }
+          dataArray = safeJsonParse(this.data, []);
+          configArray = safeJsonParse(this.columnConfig, []);
         } else {
           if (this.autoColumns === 'true' && dataArray.length > 0) {
             const keys = Object.keys(dataArray[0]);
             configArray = keys.map(key => ({ [key]: key }));
           } else {
-            try {
-              configArray = JSON.parse(this.columnConfig);
-            } catch (e) {
-              if (dataArray.length > 0) {
-                const keys = Object.keys(dataArray[0]);
-                configArray = keys.map(key => ({ [key]: key }));
-              }
+            configArray = safeJsonParse(this.columnConfig, []);
+            if (configArray.length === 0 && dataArray.length > 0) {
+              const keys = Object.keys(dataArray[0]);
+              configArray = keys.map(key => ({ [key]: key }));
             }
           }
         }
@@ -684,6 +1190,10 @@
         `;
       }
     }
+
+    // ============================================================================
+    // MARKDOWN EDITOR
+    // ============================================================================
 
     class MarkdownEditor extends LitElement {
       static properties = { value: { type: String } };
@@ -729,316 +1239,9 @@
       }
     }
 
-    class HttpCodeBlock extends LitElement {
-      static properties = {
-        code: { type: String },
-        name: { type: String },
-        hide: { type: Boolean },
-        insert: { type: Boolean },
-        result: { type: Object },
-        _hasExecuted: { state: true }
-      };
-
-      static styles = css`
-    :host { display: block; margin: 20px 0; }
-    .code-block {
-      background: #f5f5f5;
-      padding: 12px;
-      border-radius: 4px;
-      overflow-x: auto;
-      margin-bottom: 12px;
-    }
-    pre { margin: 0; font-family: monospace; font-size: 14px; }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-      font-size: 12px;
-      color: #666;
-    }
-    .status { padding: 4px 8px; border-radius: 3px; font-size: 11px; }
-    .loading { background: #fff3cd; }
-    .success { background: #d4edda; }
-    .error { background: #f8d7da; color: #721c24; }
-    .json-result {
-      background: #282c34;
-      color: #abb2bf;
-      padding: 16px;
-      border-radius: 4px;
-      overflow-x: auto;
-      margin-top: 12px;
-      font-family: monospace;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .json-key { color: #e06c75; }
-    .json-string { color: #98c379; }
-    .json-number { color: #d19a66; }
-    .json-boolean { color: #56b6c2; }
-    .json-null { color: #c678dd; }
-  `;
-
-      constructor() {
-        super();
-        this.code = '';
-        this.name = '';
-        this.hide = false;
-        this.insert = false;
-        this.result = null;
-        this.status = 'loading';
-        this.error = null;
-        this.responseStatus = null;
-        this._hasExecuted = false;
-        this._lastCode = '';
-      }
-
-      async insertIntoDuckDB() {
-        if (!this.name || !this.result) return;
-
-        try {
-          await initDuckDB();
-
-          // Ensure result is an array
-          const dataArray = Array.isArray(this.result) ? this.result : [this.result];
-
-          if (dataArray.length === 0) {
-            console.warn(`[${this.name}] Cannot insert empty array into DuckDB`);
-            return;
-          }
-
-          // Drop table if it exists
-          try {
-            await dbConnection.query(`DROP TABLE IF EXISTS ${this.name}`);
-          } catch (e) {
-            // Ignore errors from dropping non-existent tables
-          }
-
-          // Build CREATE TABLE statement with explicit column definitions
-          const firstRow = dataArray[0];
-          const columns = Object.keys(firstRow).map(key => {
-            const value = firstRow[key];
-            let sqlType = 'VARCHAR';
-
-            if (typeof value === 'number') {
-              sqlType = Number.isInteger(value) ? 'INTEGER' : 'DOUBLE';
-            } else if (typeof value === 'boolean') {
-              sqlType = 'BOOLEAN';
-            }
-
-            return `${key} ${sqlType}`;
-          }).join(', ');
-
-          await dbConnection.query(`CREATE TABLE ${this.name} (${columns})`);
-
-          // Insert rows one by one
-          for (const row of dataArray) {
-            const values = Object.values(row).map(val => {
-              if (val === null || val === undefined) return 'NULL';
-              if (typeof val === 'string') return `'${val.replace(/'/g, "''")}'`;
-              if (typeof val === 'boolean') return val ? 'true' : 'false';
-              return val;
-            }).join(', ');
-
-            await dbConnection.query(
-              `INSERT INTO ${this.name} VALUES (${values})`
-            );
-          }
-
-          console.log(`[${this.name}] Inserted ${dataArray.length} rows into DuckDB table`);
-
-          // Dispatch event to notify SQL blocks
-          this.dispatchEvent(new CustomEvent('table-inserted', {
-            detail: { tableName: this.name },
-            bubbles: true,
-            composed: true
-          }));
-
-        } catch (e) {
-          console.error(`[${this.name}] Error inserting into DuckDB:`, e);
-          this.error = `DuckDB insert failed: ${e.message}`;
-          this.requestUpdate();
-        }
-      }
-      connectedCallback() {
-        super.connectedCallback();
-
-        const cacheKey = `${this.name}:${this.code}`;
-        const cached = httpRequestCache.get(cacheKey);
-
-        if (cached) {
-          // Request already executed, use cached results
-          console.log(`[${this.name}] Using cached HTTP results (status: ${cached.responseStatus})`);
-          this.result = cached.result;
-          this.status = cached.status;
-          this.error = cached.error;
-          this.responseStatus = cached.responseStatus;
-          this._hasExecuted = true;
-          this.requestUpdate();
-
-          // IMPORTANT: If insert=true, we still need to insert and dispatch event
-          if (this.insert && this.status === 'success') {
-            // Use setTimeout to ensure this happens after connectedCallback completes
-            setTimeout(() => {
-              this.insertIntoDuckDB();
-            }, 0);
-          }
-          return;
-        }
-
-        // First time execution
-        this.executeRequest();
-      }
-      parseHttpRequest() {
-        const lines = this.code.trim().split('\n');
-        let requestLine = '';
-        const headers = {};
-        let body = null;
-        let inBody = false;
-
-        for (let i = 0; i < lines.length; i++) {
-          const line = lines[i].trim();
-
-          if (!line && !inBody && requestLine) {
-            inBody = true;
-            continue;
-          }
-
-          if (!requestLine && line.match(/^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)/i)) {
-            requestLine = line;
-          } else if (!inBody && line.includes(':')) {
-            const [key, ...valueParts] = line.split(':');
-            headers[key.trim()] = valueParts.join(':').trim();
-          } else if (inBody && line) {
-            if (body === null) body = '';
-            body += line + '\n';
-          }
-        }
-
-        const requestMatch = requestLine.match(/^(\w+)\s+(.+?)(?:\s+HTTP\/[\d.]+)?$/i);
-        if (!requestMatch) throw new Error('Invalid request line format');
-
-        const [, method, url] = requestMatch;
-        return {
-          method: method.toUpperCase(),
-          url: url.trim(),
-          headers,
-          body: body ? body.trim() : null
-        };
-      }
-
-      async executeRequest() {
-        const cacheKey = `${this.name}:${this.code}`;
-
-        try {
-          const { method, url, headers, body } = this.parseHttpRequest();
-          const fetchOptions = { method, headers: {} };
-
-          Object.entries(headers).forEach(([key, value]) => {
-            fetchOptions.headers[key] = value;
-          });
-
-          if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
-            fetchOptions.body = body;
-          }
-
-          console.log(`[${this.name || 'http'}] Executing ${method} ${url}`);
-
-          const response = await fetch(url, fetchOptions);
-          this.responseStatus = response.status;
-
-          const contentType = response.headers.get('content-type');
-          let data;
-
-          if (contentType && contentType.includes('application/json')) {
-            data = await response.json();
-          } else {
-            data = await response.text();
-          }
-
-          this.result = data;
-          this.status = response.ok ? 'success' : 'error';
-          this._hasExecuted = true;
-
-          // Cache the results
-          httpRequestCache.set(cacheKey, {
-            result: this.result,
-            status: this.status,
-            error: null,
-            responseStatus: this.responseStatus
-          });
-
-          if (this.name) {
-            console.log(`[${this.name}] Storing response in store`);
-            storeManager.setState(`data.${this.name}`, this.result);
-
-            // Insert into DuckDB if requested
-            if (this.insert && response.ok) {
-              await this.insertIntoDuckDB();
-            }
-          }
-        } catch (e) {
-          this.error = e.message;
-          this.status = 'error';
-
-          httpRequestCache.set(cacheKey, {
-            result: null,
-            status: 'error',
-            error: e.message,
-            responseStatus: null
-          });
-
-          console.error('HTTP execution error:', e);
-        }
-        this.requestUpdate();
-      }
-
-      syntaxHighlightJson(json) {
-        if (typeof json !== 'string') json = JSON.stringify(json, null, 2);
-        return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
-          let cls = 'json-number';
-          if (/^"/.test(match)) {
-            cls = /:$/.test(match) ? 'json-key' : 'json-string';
-          } else if (/true|false/.test(match)) {
-            cls = 'json-boolean';
-          } else if (/null/.test(match)) {
-            cls = 'json-null';
-          }
-          return `<span class="${cls}">${match}</span>`;
-        });
-      }
-
-      render() {
-        if (this.hide) return html``;
-        return html`
-      <div>
-        ${this.name ? html`
-          <div class="header">
-            <strong>${this.name}</strong>
-            <span class="status ${this.status}">
-              ${this.status === 'loading' ? 'Executing...' :
-              this.status === 'success' ? `HTTP ${this.responseStatus}` : 'Error'}
-            </span>
-          </div>
-        ` : ''}
-        <div class="code-block"><pre><code>${this.code}</code></pre></div>
-        ${this.status === 'error' ? html`
-          <div class="error" style="padding: 8px; margin-top: 8px;">${this.error}</div>
-        ` : ''}
-        ${this.status === 'success' && this.result ? html`
-          <details open>
-            <summary style="cursor: pointer; padding: 8px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; font-weight: 600; margin-bottom: 8px;">
-              Response (HTTP ${this.responseStatus})
-            </summary>
-            <div class="json-result">
-              <pre .innerHTML=${this.syntaxHighlightJson(this.result)}></pre>
-            </div>
-          </details>
-        ` : ''}
-      </div>
-    `;
-      }
-    }
+    // ============================================================================
+    // MARKDOWN PREVIEW
+    // ============================================================================
 
     class MarkdownPreview extends LitElement {
       static properties = {
@@ -1070,13 +1273,23 @@
         this.unsubscribers = [];
         this._lastMarkdown = '';
         this._dataSubscriptions = new Set();
+        this._needsRenderAfterLoad = false;
         this.setupMarkedExtension();
       }
 
       connectedCallback() {
         super.connectedCallback();
-        // Subscribe only to specific data changes that affect this markdown
-        this.subscribeToReferencedData();
+
+        // Listen for initial load completion FIRST
+        initialLoadTracker.onComplete(() => {
+          if (this._needsRenderAfterLoad) {
+            console.log('[MarkdownPreview] Initial load complete, processing deferred updates');
+            this._needsRenderAfterLoad = false;
+            this.processMarkdown();
+          }
+        });
+
+        // Then subscribe to data (which will happen after first processMarkdown in updated())
       }
 
       disconnectedCallback() {
@@ -1086,28 +1299,57 @@
       }
 
       subscribeToReferencedData() {
-        // Find all ${data.xxx} references in current markdown
         const dataRefs = this.markdown.match(/\$\{data\.(\w+)\}/g);
-        if (dataRefs) {
-          const dataNames = [...new Set(dataRefs.map(ref => ref.match(/\$\{data\.(\w+)\}/)[1]))];
+        if (!dataRefs) return;
 
-          dataNames.forEach(dataName => {
-            if (!this._dataSubscriptions.has(dataName)) {
-              console.log(`[MarkdownPreview] Subscribing to data.${dataName}`);
-              const unsubscribe = storeManager.subscribe(`data.${dataName}`, () => {
-                // Debounce markdown updates to batch multiple data changes
-                if (!initialLoadComplete) {
-                  console.log(`[MarkdownPreview] data.${dataName} changed during initial load, deferring update`);
-                  return;
-                }
-                console.log(`[MarkdownPreview] data.${dataName} changed, re-processing markdown`);
-                this.processMarkdown();
-              });
-              this.unsubscribers.push(unsubscribe);
-              this._dataSubscriptions.add(dataName);
-            }
-          });
-        }
+        const dataNames = [...new Set(dataRefs.map(ref => ref.match(/\$\{data\.(\w+)\}/)[1]))];
+
+        dataNames.forEach(dataName => {
+          // Only subscribe if not already subscribed
+          if (!this._dataSubscriptions.has(dataName)) {
+            console.log(`[MarkdownPreview] Subscribing to data.${dataName}`);
+            const unsubscribe = storeManager.subscribe(`data.${dataName}`, () => {
+              if (!initialLoadTracker.isLoadComplete()) {
+                console.log(`[MarkdownPreview] data.${dataName} changed during initial load, deferring update`);
+                this._needsRenderAfterLoad = true;
+                return;
+              }
+              console.log(`[MarkdownPreview] data.${dataName} changed, re-processing markdown`);
+              this.processMarkdown();
+            });
+            this.unsubscribers.push(unsubscribe);
+            this._dataSubscriptions.add(dataName);
+          }
+        });
+      }
+
+      processMarkdown() {
+        const { data: frontmatter, content } = matter(this.markdown);
+
+        Object.entries(frontmatter).forEach(([key, value]) => {
+          storeManager.setState(`frontmatter.${key}`, value);
+        });
+
+        let htmlContent = marked.parse(content);
+
+        htmlContent = htmlContent.replace(/\$\{data\.(\w+)\}/g, (match, queryName) => {
+          const result = storeManager.getState(`data.${queryName}`);
+          if (result) {
+            return JSON.stringify(result).replace(/'/g, "&#39;");
+          }
+          return '[]';
+        });
+
+        htmlContent = htmlContent.replace(/\$\{frontmatter\.(\w+)\}/g, (match, varName) => {
+          const result = storeManager.getState(`frontmatter.${varName}`);
+          if (result !== undefined) {
+            return typeof result === 'object' ? JSON.stringify(result) : String(result);
+          }
+          return '';
+        });
+
+        console.log('[MarkdownPreview] Setting processedHtml, will trigger re-render');
+        this.processedHtml = htmlContent;
       }
 
       setupMarkedExtension() {
@@ -1176,20 +1418,22 @@
         if (changedProperties.has('markdown') && this.markdown !== this._lastMarkdown) {
           this._lastMarkdown = this.markdown;
 
-          // Clear old subscriptions and re-subscribe to new data references
+          // Clear old subscriptions before setting up new ones
           this.unsubscribers.forEach(unsub => unsub());
           this.unsubscribers = [];
           this._dataSubscriptions.clear();
-          this.subscribeToReferencedData();
 
+          // Process markdown first
           this.processMarkdown();
+
+          // Then subscribe to data changes
+          this.subscribeToReferencedData();
         }
       }
 
       processMarkdown() {
         const { data: frontmatter, content } = matter(this.markdown);
 
-        // Only update frontmatter if it changed
         Object.entries(frontmatter).forEach(([key, value]) => {
           storeManager.setState(`frontmatter.${key}`, value);
         });
@@ -1225,6 +1469,10 @@
         `;
       }
     }
+
+    // ============================================================================
+    // APP ROOT
+    // ============================================================================
 
     class AppRoot extends LitElement {
       static properties = { markdownText: { type: String } };
@@ -1424,6 +1672,10 @@ Content-Type: application/json
         `;
       }
     }
+
+    // ============================================================================
+    // REGISTER CUSTOM ELEMENTS
+    // ============================================================================
 
     customElements.define("dropdown-select", DropdownSelect);
     customElements.define("sql-code-block", SqlCodeBlock);
