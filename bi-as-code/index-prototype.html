@@ -632,6 +632,8 @@
 
               if (this._pendingDependencies.size === 0) {
                 console.log(`[${this.name}] All dependencies resolved, executing query`);
+                // Add to pending tracking before execution
+                initialLoadTracker.addPending(this.name);
                 this.execute();
               }
             }
@@ -713,7 +715,8 @@
     class HttpCodeBlock extends ExecutableCodeBlock {
       static properties = {
         ...ExecutableCodeBlock.properties,
-        insert: { type: Boolean }
+        insert: { type: Boolean },
+        onaction: { type: String }
       };
 
       static styles = css`
@@ -739,7 +742,89 @@
       constructor() {
         super();
         this.insert = false;
+        this.onaction = '';
         this.responseStatus = null;
+        this._actionTriggerHandler = null;
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._actionTriggerHandler) {
+          document.removeEventListener('action-trigger', this._actionTriggerHandler);
+        }
+      }
+
+      connectedCallback() {
+        super.connectedCallback();
+
+        // Set up action trigger listener if needed
+        if (this.onaction) {
+          this.setupActionTrigger();
+        }
+      }
+
+      disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this._actionTriggerHandler) {
+          document.removeEventListener('action-trigger', this._actionTriggerHandler);
+          this._actionTriggerHandler = null;
+        }
+      }
+
+      setupActionTrigger() {
+        // Remove any existing handler first
+        if (this._actionTriggerHandler) {
+          document.removeEventListener('action-trigger', this._actionTriggerHandler);
+        }
+
+        console.log(`[${this.name}] Setting up action trigger for: ${this.onaction}`);
+
+        this._actionTriggerHandler = (e) => {
+          const actionName = e.detail?.name;
+          if (actionName === this.onaction) {
+            console.log(`[${this.name}] Action ${actionName} triggered, executing request`);
+            this.execute();
+          }
+        };
+
+        document.addEventListener('action-trigger', this._actionTriggerHandler);
+      }
+
+      shouldExecuteImmediately() {
+        // If onAction is specified, don't execute immediately
+        if (this.onaction) {
+          console.log(`[${this.name}] Waiting for action trigger: ${this.onaction}`);
+          // Remove from initial load tracking since it won't execute immediately
+          initialLoadTracker.markComplete(this.name);
+          return false;
+        }
+
+        return true;
+      }
+
+      setupInputSubscriptions() {
+        const inputRefs = extractInputNames(this.code);
+
+        if (inputRefs.length > 0) {
+          console.log(`[${this.name}] Found input references in HTTP body:`, inputRefs);
+          this.inputSubscriptionManager = new InputSubscriptionManager(
+            this.name,
+            this.code,
+            () => {
+              // Don't auto-execute on input change if waiting for action
+              if (!this.onaction) {
+                this.onInputChanged();
+              } else {
+                console.log(`[${this.name}] Input changed but waiting for action: ${this.onaction}`);
+              }
+            }
+          );
+          this.inputSubscriptionManager.subscribe();
+        }
       }
 
       getCacheManager() {
@@ -810,11 +895,31 @@
           fetchOptions.headers[key] = value;
         });
 
+        // Process body with input variable substitution
+        let processedBody = body;
         if (body && ['POST', 'PUT', 'PATCH'].includes(method)) {
-          fetchOptions.body = body;
+          processedBody = body.replace(/\$\{input\.(\w+)\}/g, (match, inputName) => {
+            const value = storeManager.getState(`input.${inputName}`);
+            if (value === null || value === undefined) {
+              return '';
+            }
+            // If it's an array with single value (from dropdown), use first value
+            if (Array.isArray(value) && value.length === 1) {
+              return value[0];
+            }
+            // If it's an array with multiple values, join them
+            if (Array.isArray(value)) {
+              return value.join(', ');
+            }
+            return String(value);
+          });
+          fetchOptions.body = processedBody;
         }
 
         console.log(`[${this.name || 'http'}] Executing ${method} ${url}`);
+        if (processedBody) {
+          console.log(`[${this.name || 'http'}] Request body:`, processedBody);
+        }
 
         const response = await fetch(url, fetchOptions);
         this.responseStatus = response.status;
@@ -953,6 +1058,151 @@
               <pre .innerHTML=${this.syntaxHighlightJson(this.result)}></pre>
             </div>
           </details>
+        `;
+      }
+    }
+
+    // ============================================================================
+    // TEXT INPUT
+    // ============================================================================
+
+    class TextInput extends LitElement {
+      static properties = {
+        name: { type: String },
+        label: { type: String },
+        placeholder: { type: String },
+        value: { type: String }
+      };
+
+      static styles = css`
+        :host { display: block; margin: 20px 0; }
+        .input-container {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        label {
+          font-weight: 600;
+          font-size: 14px;
+        }
+        input {
+          padding: 8px 12px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          font-size: 14px;
+          font-family: inherit;
+        }
+        input:focus {
+          outline: none;
+          border-color: #4a90e2;
+          box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+      `;
+
+      constructor() {
+        super();
+        this.name = '';
+        this.label = '';
+        this.placeholder = '';
+        this.value = '';
+      }
+
+      handleInput(e) {
+        this.value = e.target.value;
+
+        console.log(`[text-input:${this.name}] Value changed:`, this.value);
+
+        this.dispatchEvent(new CustomEvent('value-change', {
+          detail: {
+            name: this.name,
+            value: this.value
+          },
+          bubbles: true,
+          composed: true
+        }));
+      }
+
+      render() {
+        return html`
+          <div class="input-container">
+            ${this.label ? html`<label for=${this.name}>${this.label}</label>` : ''}
+            <input
+              id=${this.name}
+              type="text"
+              .value=${this.value}
+              placeholder=${this.placeholder || ''}
+              @input=${this.handleInput}
+            />
+          </div>
+        `;
+      }
+    }
+
+    // ============================================================================
+    // ACTION BUTTON
+    // ============================================================================
+
+    class ActionButton extends LitElement {
+      static properties = {
+        name: { type: String },
+        label: { type: String },
+        disabled: { type: Boolean }
+      };
+
+      static styles = css`
+        :host { display: block; margin: 20px 0; }
+        button {
+          padding: 10px 20px;
+          background: #4a90e2;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: inherit;
+          transition: background 0.2s;
+        }
+        button:hover:not(:disabled) {
+          background: #357abd;
+        }
+        button:active:not(:disabled) {
+          background: #2868a8;
+        }
+        button:disabled {
+          background: #ccc;
+          cursor: not-allowed;
+        }
+      `;
+
+      constructor() {
+        super();
+        this.name = '';
+        this.label = 'Submit';
+        this.disabled = false;
+      }
+
+      handleClick() {
+        if (this.disabled) return;
+
+        console.log(`[action-button:${this.name}] Button clicked`);
+
+        this.dispatchEvent(new CustomEvent('action-trigger', {
+          detail: {
+            name: this.name
+          },
+          bubbles: true,
+          composed: true
+        }));
+      }
+
+      render() {
+        return html`
+          <button
+            ?disabled=${this.disabled}
+            @click=${this.handleClick}>
+            ${this.label}
+          </button>
         `;
       }
     }
@@ -1323,35 +1573,6 @@
         });
       }
 
-      processMarkdown() {
-        const { data: frontmatter, content } = matter(this.markdown);
-
-        Object.entries(frontmatter).forEach(([key, value]) => {
-          storeManager.setState(`frontmatter.${key}`, value);
-        });
-
-        let htmlContent = marked.parse(content);
-
-        htmlContent = htmlContent.replace(/\$\{data\.(\w+)\}/g, (match, queryName) => {
-          const result = storeManager.getState(`data.${queryName}`);
-          if (result) {
-            return JSON.stringify(result).replace(/'/g, "&#39;");
-          }
-          return '[]';
-        });
-
-        htmlContent = htmlContent.replace(/\$\{frontmatter\.(\w+)\}/g, (match, varName) => {
-          const result = storeManager.getState(`frontmatter.${varName}`);
-          if (result !== undefined) {
-            return typeof result === 'object' ? JSON.stringify(result) : String(result);
-          }
-          return '';
-        });
-
-        console.log('[MarkdownPreview] Setting processedHtml, will trigger re-render');
-        this.processedHtml = htmlContent;
-      }
-
       setupMarkedExtension() {
         marked.use({
           extensions: [{
@@ -1397,18 +1618,20 @@
                 const nameMatch = attrs.match(/name=([^\s]+)/);
                 const hideMatch = attrs.match(/hide=(true|false)/);
                 const insertMatch = attrs.match(/insert=(true|false)/);
+                const onActionMatch = attrs.match(/onAction=([^\s]+)/);
                 return {
                   type: 'httpCodeBlock',
                   raw: match[0],
                   code: code,
                   name: nameMatch ? nameMatch[1].replace(/['"]/g, '') : '',
                   hide: hideMatch ? hideMatch[1] === 'true' : false,
-                  insert: insertMatch ? insertMatch[1] === 'true' : false
+                  insert: insertMatch ? insertMatch[1] === 'true' : false,
+                  onAction: onActionMatch ? onActionMatch[1].replace(/['"]/g, '') : ''
                 };
               }
             },
             renderer(token) {
-              return `<http-code-block code='${token.code.replace(/'/g, "&#39;")}' name="${token.name}" ${token.hide ? 'hide' : ''} ${token.insert ? 'insert' : ''}></http-code-block>`;
+              return `<http-code-block code='${token.code.replace(/'/g, "&#39;")}' name="${token.name}" ${token.hide ? 'hide' : ''} ${token.insert ? 'insert' : ''} ${token.onAction ? `onaction="${token.onAction}"` : ''}></http-code-block>`;
             }
           }]
         });
@@ -1423,11 +1646,18 @@
           this.unsubscribers = [];
           this._dataSubscriptions.clear();
 
-          // Process markdown first
+          // Process markdown first (this will create the HTML structure)
           this.processMarkdown();
 
-          // Then subscribe to data changes
+          // Then subscribe to data changes for reactive updates
           this.subscribeToReferencedData();
+
+          // If initial load is already complete and we need to render with data
+          if (initialLoadTracker.isLoadComplete()) {
+            console.log('[MarkdownPreview] Initial load already complete, processing markdown with data');
+            // Small delay to ensure data is available
+            setTimeout(() => this.processMarkdown(), 50);
+          }
         }
       }
 
@@ -1440,8 +1670,10 @@
 
         let htmlContent = marked.parse(content);
 
+        // Replace data references with actual data from store
         htmlContent = htmlContent.replace(/\$\{data\.(\w+)\}/g, (match, queryName) => {
           const result = storeManager.getState(`data.${queryName}`);
+          console.log(`[MarkdownPreview] Replacing ${match} with data:`, result ? `${result.length} items` : 'null');
           if (result) {
             return JSON.stringify(result).replace(/'/g, "&#39;");
           }
@@ -1456,6 +1688,7 @@
           return '';
         });
 
+        console.log('[MarkdownPreview] Setting processedHtml, will trigger re-render');
         this.processedHtml = htmlContent;
       }
 
@@ -1628,6 +1861,25 @@ Content-Type: application/json
   "userId": 1
 }
 \`\`\`
+
+### Interactive Form with Action Button
+
+<text-input name="post_title" label="Post Title" placeholder="Enter the title of your post"></text-input>
+
+<text-input name="post_body" label="Post Body" placeholder="Enter the content of your post"></text-input>
+
+<action-button name="submit_post" label="Create Post"></action-button>
+
+\`\`\`http name=user_post hide=false onAction=submit_post
+POST https://jsonplaceholder.typicode.com/posts HTTP/1.1
+Content-Type: application/json
+
+{
+  "title": "\$\{input.post_title\}",
+  "body": "\$\{input.post_body\}",
+  "userId": 1
+}
+\`\`\`
 `;
       }
 
@@ -1639,13 +1891,23 @@ Content-Type: application/json
             storeManager.setState(`input.${name}`, value);
           }
         };
+
+        this._actionTriggerHandler = (e) => {
+          // Just pass through, components will handle their own action triggers
+          console.log('[AppRoot] Action trigger event:', e.detail);
+        };
+
         this.addEventListener('value-change', this._valueChangeHandler);
+        this.addEventListener('action-trigger', this._actionTriggerHandler);
       }
 
       disconnectedCallback() {
         super.disconnectedCallback();
         if (this._valueChangeHandler) {
           this.removeEventListener('value-change', this._valueChangeHandler);
+        }
+        if (this._actionTriggerHandler) {
+          this.removeEventListener('action-trigger', this._actionTriggerHandler);
         }
       }
 
@@ -1677,6 +1939,8 @@ Content-Type: application/json
     // REGISTER CUSTOM ELEMENTS
     // ============================================================================
 
+    customElements.define("text-input", TextInput);
+    customElements.define("action-button", ActionButton);
     customElements.define("dropdown-select", DropdownSelect);
     customElements.define("sql-code-block", SqlCodeBlock);
     customElements.define("http-code-block", HttpCodeBlock);
