@@ -1418,17 +1418,22 @@
         this.span = '1';
         this.rowspan = '1';
       }
+      willUpdate(changedProperties) {
+        if (changedProperties.has('span') || changedProperties.has('rowspan')) {
+          const colSpan = parseInt(this.span) || 1;
+          const rowSpan = parseInt(this.rowspan) || 1;
 
+          // Apply the grid properties directly to the host element's style
+          this.style.gridColumn = `span ${colSpan}`;
+          this.style.gridRow = `span ${rowSpan}`;
+        }
+      }
       render() {
         const colSpan = parseInt(this.span) || 1;
         const rowSpan = parseInt(this.rowspan) || 1;
         const style = `grid-column: span ${colSpan}; grid-row: span ${rowSpan};`;
 
-        return html`
-          <div style="${style}">
-            <slot></slot>
-          </div>
-        `;
+        return html`<slot></slot>`;
       }
     }
 
