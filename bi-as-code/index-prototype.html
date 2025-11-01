@@ -1340,11 +1340,7 @@
 
     class CardContainer extends LitElement {
       static styles = css`
-        :host {
-          display: block;
-        }
         .card {
-          background: white;
           border: 1px solid #e5e7eb;
           border-radius: 8px;
           padding: 20px;
@@ -1359,81 +1355,6 @@
             <slot></slot>
           </div>
         `;
-      }
-    }
-
-    // ============================================================================
-    // GRID LAYOUT COMPONENT
-    // ============================================================================
-
-    class GridLayout extends LitElement {
-      static properties = {
-        cols: { type: String },
-        gap: { type: String }
-      };
-
-      static styles = css`
-        :host {
-          display: block;
-        }
-        .grid {
-          display: grid;
-        }
-      `;
-
-      constructor() {
-        super();
-        this.cols = '2';
-        this.gap = '16px';
-      }
-
-      render() {
-        const colCount = parseInt(this.cols) || 2;
-        return html`
-          <div class="grid" style="grid-template-columns: repeat(${colCount}, minmax(0, 1fr)); gap: ${this.gap};">
-            <slot></slot>
-          </div>
-        `;
-      }
-    }
-
-    // ============================================================================
-    // GRID COLUMN COMPONENT
-    // ============================================================================
-
-    class GridCol extends LitElement {
-      static properties = {
-        span: { type: String },
-        rowspan: { type: String }
-      };
-
-      static styles = css`
-        :host {
-          display: block;
-        }
-      `;
-
-      constructor() {
-        super();
-        this.span = '1';
-        this.rowspan = '1';
-      }
-      willUpdate(changedProperties) {
-        if (changedProperties.has('span') || changedProperties.has('rowspan')) {
-          const colSpan = parseInt(this.span) || 1;
-          const rowSpan = parseInt(this.rowspan) || 1;
-
-          // Apply the grid properties directly to the host element's style
-          this.style.gridColumn = `span ${colSpan}`;
-          this.style.gridRow = `span ${rowSpan}`;
-        }
-      }
-      render() {
-        const colSpan = parseInt(this.span) || 1;
-        const rowSpan = parseInt(this.rowspan) || 1;
-        const style = `grid-column: span ${colSpan}; grid-row: span ${rowSpan};`;
-
-        return html`<slot></slot>`;
       }
     }
 
@@ -1880,7 +1801,164 @@
           overflow: auto;
           padding: 20px;
           background: #fafafa;
+
+          .grid {
+            display: grid;
+            gap: 10px;
+          }
+
+          .grid-cols-1 {
+            grid-template-columns: repeat(1, 1fr);
+          }
+
+          .grid-cols-2 {
+            grid-template-columns: repeat(2, 1fr);
+          }
+
+          .grid-cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+          }
+
+          .grid-cols-4 {
+            grid-template-columns: repeat(4, 1fr);
+          }
+
+          .grid-cols-5 {
+            grid-template-columns: repeat(5, 1fr);
+          }
+
+          .grid-cols-6 {
+            grid-template-columns: repeat(6, 1fr);
+          }
+
+          .grid-cols-7 {
+            grid-template-columns: repeat(7, 1fr);
+          }
+
+          .grid-cols-8 {
+            grid-template-columns: repeat(8, 1fr);
+          }
+
+          .grid-cols-9 {
+            grid-template-columns: repeat(9, 1fr);
+          }
+
+          .grid-cols-10 {
+            grid-template-columns: repeat(10, 1fr);
+          }
+
+          .grid-cols-11 {
+            grid-template-columns: repeat(11, 1fr);
+          }
+
+          .grid-cols-12 {
+            grid-template-columns: repeat(12, 1fr);
+          }
+
+          .card {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+          }
+
+          .grid-rowspan-1 {
+            grid-row: span 1;
+          }
+
+          .grid-rowspan-2 {
+            grid-row: span 2;
+          }
+
+          .grid-rowspan-3 {
+            grid-row: span 3;
+          }
+
+          .grid-rowspan-4 {
+            grid-row: span 4;
+          }
+
+          .grid-rowspan-5 {
+            grid-row: span 5;
+          }
+
+          .grid-rowspan-6 {
+            grid-row: span 6;
+          }
+
+          .grid-rowspan-7 {
+            grid-row: span 7;
+          }
+
+          .grid-rowspan-8 {
+            grid-row: span 8;
+          }
+
+          .grid-rowspan-9 {
+            grid-row: span 9;
+          }
+
+          .grid-rowspan-10 {
+            grid-row: span 10;
+          }
+
+          .grid-rowspan-11 {
+            grid-row: span 11;
+          }
+
+          .grid-rowspan-12 {
+            grid-row: span 12;
+          }
+
+          .grid-colspan-1 {
+            grid-column: span 1;
+          }
+
+          .grid-colspan-2 {
+            grid-column: span 2;
+          }
+
+          .grid-colspan-3 {
+            grid-column: span 3;
+          }
+
+          .grid-colspan-4 {
+            grid-column: span 4;
+          }
+
+          .grid-colspan-5 {
+            grid-column: span 5;
+          }
+
+          .grid-colspan-6 {
+            grid-column: span 6;
+          }
+
+          .grid-colspan-7 {
+            grid-column: span 7;
+          }
+
+          .grid-colspan-8 {
+            grid-column: span 8;
+          }
+
+          .grid-colspan-9 {
+            grid-column: span 9;
+          }
+
+          .grid-colspan-10 {
+            grid-column: span 10;
+          }
+
+          .grid-colspan-11 {
+            grid-column: span 11;
+          }
+
+          .grid-colspan-12 {
+            grid-column: span 12;
+          }
         }
+
         .preview {
           max-width: 800px;
           margin: 0 auto;
@@ -2256,34 +2334,14 @@ Content-Type: application/json
 }
 \`\`\`
 
-### Layout Examples with Utility Classes
+### Grid
 
-<grid-layout cols="2">
-  <grid-col span="1">
-    <card-container>
-      <h4>Card A</h4>
-      <p>Simple 1×1 card</p>
-    </card-container>
-  </grid-col>
-  <grid-col span="1" rowspan="2">
-    <card-container>
-      <h4>Card B</h4>
-      <p>This card spans 2 rows vertically</p>
-    </card-container>
-  </grid-col>
-  <grid-col span="1">
-    <card-container>
-      <h4>Card C</h4>
-      <p>Another 1×1 card</p>
-    </card-container>
-  </grid-col>
-  <grid-col span="2">
-    <card-container>
-      <h4>Card D</h4>
-      <p>This card spans 2 columns horizontally</p>
-    </card-container>
-  </grid-col>
-</grid-layout>
+<div class="grid grid-cols-2">
+  <div class="card"><span>A</span>1 × 1</div>
+  <div class="card grid-rowspan-2"><span>B</span>1 × 2</div>
+  <div class="card"><span>C</span>1 × 1</div>
+  <div class="card grid-colspan-2"><span>D</span>2 × 1</div>
+</div>
 
 ### Alert Styles
 
@@ -2302,38 +2360,6 @@ Content-Type: application/json
 <alert-message type="danger">
   <strong>Error:</strong> Something went wrong. Please try again.
 </alert-message>
-
-### Complex Grid Layout
-
-<grid-layout cols="3">
-  <grid-col span="2">
-    <card-container>
-      <h4>Wide Section</h4>
-      <p>This spans 2 columns</p>
-    </card-container>
-  </grid-col>
-  <grid-col span="1">
-    <card-container>
-      <h4>Sidebar</h4>
-      <p>Single column</p>
-    </card-container>
-  </grid-col>
-  <grid-col span="1">
-    <card-container>
-      <h4>Item 1</h4>
-    </card-container>
-  </grid-col>
-  <grid-col span="1">
-    <card-container>
-      <h4>Item 2</h4>
-    </card-container>
-  </grid-col>
-  <grid-col span="1">
-    <card-container>
-      <h4>Item 3</h4>
-    </card-container>
-  </grid-col>
-</grid-layout>
 `;
       }
 
@@ -2394,9 +2420,6 @@ Content-Type: application/json
     // ============================================================================
 
     customElements.define("alert-message", AlertMessage);
-    customElements.define("card-container", CardContainer);
-    customElements.define("grid-layout", GridLayout);
-    customElements.define("grid-col", GridCol);
     customElements.define("text-input", TextInput);
     customElements.define("action-button", ActionButton);
     customElements.define("dropdown-select", DropdownSelect);
