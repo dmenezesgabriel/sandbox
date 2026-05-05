@@ -1,0 +1,1 @@
+https://motherduck.com/dive-gallery/dives/dive-into-pivoting
