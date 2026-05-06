@@ -14,6 +14,7 @@
       "chrono-node/en": "https://esm.sh/chrono-node@2.7.7/en",
       "chrono-node/pt": "https://esm.sh/chrono-node@2.7.7/pt",
       "fuse.js": "https://esm.sh/fuse.js@7.0.0",
+      "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.0.1",
       "lit": "https://esm.sh/lit@3.1.0",
       "lit/": "https://esm.sh/lit@3.1.0/"
     }
@@ -410,6 +411,14 @@
         maxDimensions: 2,
         maxMetrics: 1,
         inferRelationships: true,
+        semanticMatching: {
+          enabled: true,
+          model: "onnx-community/all-MiniLM-L6-v2-ONNX",
+          dtype: "q4",
+          minScore: 0.42,
+          minMargin: 0.04,
+          batchSize: 16
+        },
         profiling: {
           maxDistinctValuesPerField: 100,
           maxSampleRows: 1000
@@ -442,6 +451,7 @@
             labels: { "pt-BR": "Vendas" },
             synonyms: ["revenue", "amount", "total sales"],
             localizedSynonyms: { "pt-BR": ["vendas", "receita", "faturamento", "valor"] },
+            description: "Monetary order value used for revenue, income, turnover and money questions.",
             format: "currency",
             default: true,
             priority: 20
@@ -454,6 +464,7 @@
             labels: { "pt-BR": "Data do Pedido" },
             synonyms: ["date", "time", "month", "year", "over time", "order time"],
             localizedSynonyms: { "pt-BR": ["data", "tempo", "mes", "mês", "ano", "data do pedido"] },
+            description: "Date when the customer order was placed; use for calendar periods, trends and time series.",
             parseFormat: "%d-%m-%Y",
             default: true,
             priority: 10
@@ -464,6 +475,7 @@
             role: "time",
             label: "Ship Date",
             synonyms: ["ship date", "shipping date"],
+            description: "Date when the order was shipped to the customer.",
             parseFormat: "%d-%m-%Y"
           },
           {
@@ -474,6 +486,7 @@
             labels: { "pt-BR": "Região" },
             synonyms: ["area", "territory"],
             localizedSynonyms: { "pt-BR": ["regiao", "região", "area", "área", "territorio", "território"] },
+            description: "Geographic sales region or market area.",
             priority: 10
           },
           {
@@ -482,8 +495,9 @@
             role: "dimension",
             label: "Segment",
             labels: { "pt-BR": "Segmento" },
-            synonyms: ["customer type", "market segment"],
+            synonyms: ["customer type", "customer group", "customer groups", "market segment"],
             localizedSynonyms: { "pt-BR": ["segmento", "tipo de cliente"] },
+            description: "Customer group or market segment classification.",
             priority: 8
           },
           {
@@ -494,6 +508,7 @@
             labels: { "pt-BR": "Categoria" },
             synonyms: ["product category"],
             localizedSynonyms: { "pt-BR": ["categoria", "categoria de produto"] },
+            description: "High-level product grouping.",
             priority: 9
           },
           {
@@ -502,6 +517,7 @@
             role: "dimension",
             label: "Sub-Category",
             synonyms: ["subcategory", "sub category"],
+            description: "More detailed product grouping inside a category.",
             priority: 7
           },
           {
@@ -512,11 +528,12 @@
             labels: { "pt-BR": "Produto" },
             synonyms: ["product", "item", "product name"],
             localizedSynonyms: { "pt-BR": ["produto", "produtos", "item", "itens", "nome do produto"] },
+            description: "Individual product or item name.",
             priority: 10
           }
         ],
         entities: [
-          { label: "Customers", labels: { "pt-BR": "Clientes" }, singular: "customer", table: "customer", key: "Customer ID", synonyms: ["clients", "buyers"], localizedTerms: { "pt-BR": ["cliente", "clientes"] } },
+          { label: "Customers", labels: { "pt-BR": "Clientes" }, singular: "customer", table: "customer", key: "Customer ID", synonyms: ["clients", "buyers"], localizedTerms: { "pt-BR": ["cliente", "clientes"] }, preferredDimensions: ["Segment"] },
           { label: "Orders", labels: { "pt-BR": "Pedidos" }, singular: "order", table: "sales", key: "Order ID", synonyms: ["purchases"], localizedTerms: { "pt-BR": ["pedido", "pedidos", "compras"] } },
           { label: "Products", labels: { "pt-BR": "Produtos" }, singular: "product", table: "product", key: "Product ID", synonyms: ["items"], localizedTerms: { "pt-BR": ["produto", "produtos", "itens"] } }
         ],
@@ -593,6 +610,7 @@
       .replace(/[^a-z0-9]+/g, ' ')
       .trim();
     const compact = value => norm(value).replaceAll(' ', '');
+    const escapeRegExp = value => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const singularize = value => String(value || '').replace(/ies$/i, 'y').replace(/s$/i, '');
     const isIdLike = name => /(^|\s|_|-)(id|key|code|postal|zip|row)(\s|_|-|$)/i.test(name) || / id$/i.test(name);
     const isNumericType = type => /int|double|float|decimal|numeric|real|hugeint|bigint|smallint|utinyint|uinteger/i.test(type || '');
@@ -757,6 +775,566 @@
       }
     }
 
+    class SemanticFieldMatcher {
+      constructor(config = {}, helpers = {}) {
+        this.config = config;
+        this.helpers = helpers;
+        this.enabled = config.enabled !== false;
+        this.model = config.model || 'onnx-community/all-MiniLM-L6-v2-ONNX';
+        this.dtype = config.dtype || 'q4';
+        this.minScore = config.minScore ?? 0.42;
+        this.minMargin = config.minMargin ?? 0.04;
+        this.batchSize = config.batchSize || 16;
+        this.extractor = null;
+        this.catalogKey = '';
+        this.index = [];
+        this.loading = null;
+        this.queryCache = new Map();
+      }
+
+      async matchField(text, roles, catalog) {
+        const clean = norm(text);
+        if (!this.enabled || !clean || clean.length < 2) return null;
+        const ready = await this.initialize(catalog);
+        if (!ready) return null;
+        const embedding = await this.embedOne(clean);
+        if (!embedding) return null;
+        const scored = this.index
+          .filter(item => roles.includes(item.field.role))
+          .map(item => ({ ...item, score: cosineSimilarity(embedding, item.embedding) }))
+          .sort((a, b) => b.score - a.score);
+        const best = scored[0];
+        if (!best || best.score < this.minScore) return null;
+        const second = scored[1];
+        if (second && best.score - second.score < this.minMargin) {
+          return { ambiguous: true, fields: scored.slice(0, 4).map(item => item.field), score: best.score };
+        }
+        return { field: best.field, score: best.score };
+      }
+
+      async initialize(catalog) {
+        const catalogKey = catalog.map(field => field.id).join('|');
+        if (this.extractor && this.catalogKey === catalogKey) return true;
+        if (this.loading) return this.loading;
+        this.loading = this.load(catalog, catalogKey);
+        return this.loading;
+      }
+
+      async load(catalog, catalogKey) {
+        try {
+          const { pipeline, env, LogLevel } = await import('@huggingface/transformers');
+          env.logLevel = LogLevel.ERROR;
+          this.extractor = await pipeline('feature-extraction', this.model, { dtype: this.dtype });
+          const texts = catalog.map(field => this.fieldText(field));
+          const embeddings = await this.embedBatch(texts);
+          this.index = catalog.map((field, index) => ({ field, embedding: embeddings[index] })).filter(item => item.embedding);
+          this.catalogKey = catalogKey;
+          this.queryCache.clear();
+          return true;
+        } catch (err) {
+          this.enabled = false;
+          console.warn('[AskData] Semantic field matching disabled', err);
+          return false;
+        } finally {
+          this.loading = null;
+        }
+      }
+
+      fieldText(field) {
+        const displayLabel = this.helpers.displayLabel?.(field) || field.label || field.column;
+        const localizedTerms = this.helpers.localizedTerms?.(field) || [];
+        return [
+          `field: ${displayLabel}`,
+          `column: ${field.column}`,
+          `table: ${field.table}`,
+          `role: ${field.role}`,
+          field.description,
+          ...(field.synonyms || []),
+          ...localizedTerms
+        ].filter(Boolean).join('. ');
+      }
+
+      async embedOne(text) {
+        const key = norm(text);
+        if (this.queryCache.has(key)) return this.queryCache.get(key);
+        const [embedding] = await this.embedBatch([text]);
+        this.queryCache.set(key, embedding);
+        return embedding;
+      }
+
+      async embedBatch(texts) {
+        const vectors = [];
+        for (let i = 0; i < texts.length; i += this.batchSize) {
+          const batch = texts.slice(i, i + this.batchSize);
+          const output = await this.extractor(batch, { pooling: 'mean', normalize: true });
+          vectors.push(...this.tensorRows(output));
+        }
+        return vectors;
+      }
+
+      tensorRows(tensor) {
+        const dims = tensor.dims || [];
+        const data = tensor.data || [];
+        if (dims.length === 1) return [Float32Array.from(data)];
+        const rows = dims[0] || 0;
+        const width = dims.slice(1).reduce((product, value) => product * value, 1);
+        return Array.from({ length: rows }, (_, row) => data.slice(row * width, (row + 1) * width));
+      }
+    }
+
+    const cosineSimilarity = (a, b) => {
+      let dot = 0, aNorm = 0, bNorm = 0;
+      for (let i = 0; i < Math.min(a.length, b.length); i++) {
+        dot += a[i] * b[i];
+        aNorm += a[i] * a[i];
+        bNorm += b[i] * b[i];
+      }
+      return aNorm && bNorm ? dot / (Math.sqrt(aNorm) * Math.sqrt(bNorm)) : 0;
+    };
+
+    class TermMatcher {
+      constructor(vocabulary, localeFamily) {
+        this.vocabulary = vocabulary || {};
+        this.localeFamily = localeFamily || 'en';
+      }
+
+      terms(group) {
+        return [...new Set(Object.values(this.vocabulary)
+          .flatMap(groups => groups?.[group] || [])
+          .map(norm)
+          .filter(Boolean))];
+      }
+
+      alternation(group) {
+        return this.terms(group)
+          .sort((a, b) => b.length - a.length)
+          .map(term => escapeRegExp(term).replace(/\s+/g, '\\s+'))
+          .join('|');
+      }
+
+      pattern(group, flags = '') {
+        const alt = this.alternation(group);
+        return alt ? new RegExp(`\\b(?:${alt})\\b`, flags) : null;
+      }
+
+      patternFromTerm(term, flags = '') {
+        const clean = norm(term);
+        return clean ? new RegExp(`\\b${escapeRegExp(clean).replace(/\s+/g, '\\s+')}\\b`, flags) : null;
+      }
+
+      has(text, group) {
+        const pattern = this.pattern(group);
+        return !!pattern && pattern.test(norm(text));
+      }
+
+      first(text, group) {
+        const pattern = this.pattern(group);
+        return pattern ? norm(text).match(pattern)?.[0] || null : null;
+      }
+    }
+
+    class MonthCatalog {
+      constructor(locale) {
+        this.locale = locale || 'en-US';
+        this.months = this.buildMonths();
+      }
+
+      buildMonths() {
+        const locales = [...new Set(['en-US', 'pt-BR', this.locale])];
+        const byTerm = new Map();
+        for (let month = 0; month < 12; month++) {
+          for (const locale of locales) {
+            for (const style of ['long', 'short']) {
+              const label = new Intl.DateTimeFormat(locale, { month: style }).format(new Date(2024, month, 15)).replace(/\.$/, '');
+              for (const term of [label, norm(label)]) {
+                if (term) byTerm.set(term.toLowerCase(), month + 1);
+              }
+            }
+          }
+        }
+        return [...byTerm.entries()]
+          .map(([term, number]) => ({ term, number }))
+          .sort((a, b) => b.term.length - a.term.length);
+      }
+
+      find(text) {
+        for (const item of this.months) {
+          const pattern = new RegExp(`\\b${escapeRegExp(item.term)}\\b(?:\\s+((?:19|20)\\d{2}))?`, 'i');
+          const match = String(text || '').match(pattern);
+          if (match) return { ...item, text: match[0], index: match.index ?? 0, year: match[1] ? Number(match[1]) : null };
+        }
+        return null;
+      }
+
+      has(text) {
+        return !!this.find(text);
+      }
+    }
+
+    class DateQuestionText {
+      removeText(question, text) {
+        const normalizedQuestion = norm(question);
+        const normalizedText = norm(text);
+        const normalizedPattern = new RegExp(`\\b${escapeRegExp(normalizedText).replace(/\s+/g, '\\s+')}\\b`);
+        const normalizedResult = normalizedQuestion.replace(normalizedPattern, ' ').replace(/\s+/g, ' ').trim();
+        if (normalizedResult !== normalizedQuestion) return normalizedResult;
+        const originalPattern = new RegExp(`\\b${escapeRegExp(text).replace(/\s+/g, '\\s+')}\\b`, 'i');
+        return String(question || '').replace(originalPattern, ' ').replace(/\s+/g, ' ').trim();
+      }
+
+      removeRange(question, index, length) {
+        return `${question.slice(0, index)} ${question.slice(index + length)}`.replace(/\s+/g, ' ').trim();
+      }
+    }
+
+    class RelativePeriodDateParser {
+      constructor(termMatcher, textTools) {
+        this.termMatcher = termMatcher;
+        this.textTools = textTools;
+      }
+
+      parse(question, field) {
+        const profile = field.dateProfile;
+        const specs = [
+          { group: 'latestYear', start: profile?.latestYearStart, end: profile?.latestYearEnd },
+          { group: 'latestMonth', start: profile?.latestMonthStart, end: profile?.latestMonthEnd },
+          { group: 'thisYear', calendar: 'year' },
+          { group: 'thisMonth', calendar: 'month' }
+        ];
+        for (const spec of specs) {
+          const text = this.termMatcher.first(question, spec.group);
+          if (!text) continue;
+          const range = this.rangeFor(spec);
+          if (!range) return null;
+          return {
+            dateRange: { field, ...range, text },
+            questionWithoutDate: this.textTools.removeText(question, text)
+          };
+        }
+        return null;
+      }
+
+      rangeFor(spec) {
+        if (!spec.calendar) return spec.start && spec.end ? { start: spec.start, end: spec.end } : null;
+        if (spec.calendar === 'year') {
+          const year = new Date().getFullYear();
+          return { start: `${year}-01-01`, end: `${year + 1}-01-01` };
+        }
+        if (spec.calendar === 'month') {
+          const monthStart = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1));
+          return { start: isoDate(monthStart), end: isoDate(addMonths(monthStart, 1)) };
+        }
+        return null;
+      }
+    }
+
+    class NamedMonthDateParser {
+      constructor(monthCatalog, textTools) {
+        this.monthCatalog = monthCatalog;
+        this.textTools = textTools;
+      }
+
+      parse(question, field) {
+        const match = this.monthCatalog.find(question);
+        if (!match) return null;
+        const questionWithoutDate = this.textTools.removeRange(question, match.index, match.text.length);
+        if (!match.year) {
+          return { dateRange: { field, kind: 'monthOfYear', month: match.number, text: match.text }, questionWithoutDate };
+        }
+        const startDate = new Date(Date.UTC(match.year, match.number - 1, 1));
+        return {
+          dateRange: { field, start: isoDate(startDate), end: isoDate(addMonths(startDate, 1)), text: match.text },
+          questionWithoutDate
+        };
+      }
+    }
+
+    class ChronoDateParser {
+      constructor({ primaryParser, fallbackParser, termMatcher, monthCatalog, textTools }) {
+        this.primaryParser = primaryParser;
+        this.fallbackParser = fallbackParser;
+        this.termMatcher = termMatcher;
+        this.monthCatalog = monthCatalog;
+        this.textTools = textTools;
+      }
+
+      parse(question, field) {
+        if (!this.primaryParser?.parse) return null;
+        const result = this.findResult(this.primaryParser.parse(question, new Date(), { forwardDate: false }) || [])
+          || this.findResult(this.fallbackParser?.parse?.(question, new Date(), { forwardDate: false }) || [], true);
+        if (!result) return null;
+        const range = this.toDateRange(result, field);
+        if (!range) return null;
+        return {
+          dateRange: range,
+          questionWithoutDate: this.textTools.removeRange(question, result.index, result.text.length)
+        };
+      }
+
+      findResult(results, strictNumeric = false) {
+        return results.find(result => this.hasDateCue(result.text) && (!strictNumeric || !this.isAmbiguousNumericDate(result.text)));
+      }
+
+      hasDateCue(text) {
+        const normalized = norm(text);
+        return this.termMatcher.has(normalized, 'dateCue')
+          || this.monthCatalog.has(text)
+          || /^\d{4}$/.test(normalized)
+          || this.isAmbiguousNumericDate(text);
+      }
+
+      isAmbiguousNumericDate(text) {
+        return /\d{1,2}[\/-]\d{1,2}(?:[\/-]\d{2,4})?/.test(String(text || ''));
+      }
+
+      toDateRange(result, field) {
+        const text = norm(result.text);
+        const startDate = result.start?.date?.();
+        if (!startDate || Number.isNaN(startDate.getTime())) return null;
+        const startUtc = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()));
+        let start = startUtc;
+        let end = result.end?.date?.();
+        if (end && !Number.isNaN(end.getTime())) end = addDays(new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())), 1);
+
+        const saysYear = this.termMatcher.has(text, 'yearCue') || /^\d{4}$/.test(text);
+        const saysMonth = this.termMatcher.has(text, 'monthCue') || this.monthCatalog.has(result.text);
+        const saysDay = this.termMatcher.has(text, 'dayCue');
+
+        if (!end) {
+          if (saysYear && !saysMonth && !saysDay) {
+            start = startOfYear(startUtc);
+            end = new Date(Date.UTC(start.getUTCFullYear() + 1, 0, 1));
+          } else if (saysMonth && !saysDay) {
+            start = startOfMonth(startUtc);
+            end = addMonths(start, 1);
+          } else {
+            end = addDays(startUtc, 1);
+          }
+        }
+        return { field, start: isoDate(start), end: isoDate(end), text: result.text };
+      }
+    }
+
+    class ExplicitYearDateParser {
+      constructor(textTools) {
+        this.textTools = textTools;
+      }
+
+      parse(question, field) {
+        const match = String(question || '').match(/\b(?:in|em|no|na)?\s*((?:19|20)\d{2})\b/i);
+        if (!match) return null;
+        const year = Number(match[1]);
+        return {
+          dateRange: { field, start: `${year}-01-01`, end: `${year + 1}-01-01`, text: match[0].trim() },
+          questionWithoutDate: this.textTools.removeRange(question, match.index ?? 0, match[0].length)
+        };
+      }
+    }
+
+    class DateRangeParser {
+      constructor({ primaryParser, fallbackParser, termMatcher, locale }) {
+        const textTools = new DateQuestionText();
+        const monthCatalog = new MonthCatalog(locale);
+        this.parsers = [
+          new RelativePeriodDateParser(termMatcher, textTools),
+          new NamedMonthDateParser(monthCatalog, textTools),
+          new ChronoDateParser({ primaryParser, fallbackParser, termMatcher, monthCatalog, textTools }),
+          new ExplicitYearDateParser(textTools)
+        ];
+      }
+
+      parse(question, field) {
+        if (!field) return { dateRange: null, questionWithoutDate: question };
+        for (const parser of this.parsers) {
+          const result = parser.parse(question, field);
+          if (result) return result;
+        }
+        return { dateRange: null, questionWithoutDate: question };
+      }
+    }
+
+    class IntentCueDetector {
+      constructor(termMatcher) {
+        this.termMatcher = termMatcher;
+      }
+
+      isListRequest(text) {
+        return (this.termMatcher.has(text, 'listAction') || this.termMatcher.has(text, 'listKind'))
+          && (this.termMatcher.has(text, 'listAvailability') || this.termMatcher.has(text, 'listKind') || this.termMatcher.has(text, 'listCategory') || this.termMatcher.has(text, 'listSubcategory'));
+      }
+
+      listFieldHint(text) {
+        if (this.termMatcher.has(text, 'listSubcategory')) return 'sub category';
+        if (this.termMatcher.has(text, 'listCategory')) return 'category';
+        return null;
+      }
+
+      extractListPhrase(text) {
+        const action = this.termMatcher.alternation('listAction');
+        const availability = this.termMatcher.alternation('listAvailability');
+        if (!action) return null;
+        const match = norm(text).match(new RegExp(`\\b(?:${action})\\s+(.+?)(?:\\s+(?:${availability})|$)`));
+        const phrase = match?.[1];
+        if (!phrase) return null;
+        return this.cleanListPhrase(phrase);
+      }
+
+      cleanListPhrase(phrase) {
+        const prepositions = this.termMatcher.alternation('prepositions');
+        const kind = this.termMatcher.alternation('listKind');
+        return phrase
+          .replace(prepositions ? new RegExp(`\\b(?:${prepositions})\\b.+$`) : /$a/, '')
+          .replace(kind ? new RegExp(`\\b(?:${kind})\\b\\s*(?:${prepositions})?`) : /$a/, '')
+          .trim();
+      }
+
+      superlativeDirection(text) {
+        if (this.termMatcher.has(text, 'bottom') || this.termMatcher.has(text, 'least')) return 'ASC';
+        if (this.termMatcher.has(text, 'top') || this.termMatcher.has(text, 'most')) return 'DESC';
+        return null;
+      }
+
+      extractSuperlativeSubject(text) {
+        const mostOrLeast = [this.termMatcher.alternation('most'), this.termMatcher.alternation('least')].filter(Boolean).join('|');
+        if (!mostOrLeast) return null;
+        const normalized = norm(text);
+        const question = this.termMatcher.alternation('subjectQuestion');
+        const verb = this.termMatcher.alternation('ownershipVerb');
+        const article = this.termMatcher.alternation('article');
+        const patterns = [
+          question && verb ? new RegExp(`\\b(?:${question})\\s+(.+?)\\s+(?:${verb})\\s+(?:(?:${article})\\s+)?(?:${mostOrLeast})\\b`) : null,
+          new RegExp(`\\b(?:${mostOrLeast})\\s+.+?\\s+(.+)$`)
+        ].filter(Boolean);
+        for (const pattern of patterns) {
+          const phrase = normalized.match(pattern)?.[1];
+          if (phrase) return singularize(phrase);
+        }
+        return null;
+      }
+
+      isYearOverYear(text) {
+        return this.termMatcher.has(text, 'yearOverYear');
+      }
+
+      timeGrain(text) {
+        if (this.termMatcher.has(text, 'dayGrain')) return 'day';
+        if (this.termMatcher.has(text, 'monthGrain') || this.termMatcher.has(text, 'overTime')) return 'month';
+        if (this.termMatcher.has(text, 'yearGrain')) return 'year';
+        return null;
+      }
+    }
+
+    class ExactFieldMatchStrategy {
+      constructor({ catalog, displayLabel, localizedTerms, termMatcher }) {
+        this.catalog = catalog;
+        this.displayLabel = displayLabel;
+        this.localizedTerms = localizedTerms;
+        this.termMatcher = termMatcher;
+      }
+
+      async matchPhrase(phrase, roles) {
+        const clean = norm(phrase);
+        if (!clean) return { field: null };
+        const direct = this.directMatches(clean, roles);
+        if (!direct.length) return null;
+        direct.sort((a, b) => b.score - a.score);
+        if (direct[1] && direct[0].score - direct[1].score < 0.03) return { ambiguous: true, fields: direct.slice(0, 4).map(match => match.field) };
+        return { field: direct[0].field };
+      }
+
+      async findInText(text, role) {
+        const candidates = [];
+        for (const field of this.catalog().filter(field => field.role === role)) {
+          for (const term of this.fieldTerms(field)) {
+            if (this.termMatcher.patternFromTerm(term)?.test(text)) {
+              candidates.push({ field, score: term.length + (field.priority || 0) + (this.activeTerms(field).includes(term) ? 10 : 0) });
+            }
+          }
+        }
+        candidates.sort((a, b) => b.score - a.score);
+        return candidates[0]?.field || null;
+      }
+
+      directMatches(clean, roles) {
+        const byField = new Map();
+        for (const field of this.catalog().filter(field => roles.includes(field.role))) {
+          for (const term of this.fieldTerms(field)) {
+            if (clean === term || clean === singularize(term) || term === singularize(clean)) {
+              const score = 1 + (field.priority || 0) / 100 + (this.activeTerms(field).includes(term) ? 0.1 : 0);
+              const previous = byField.get(field.id);
+              if (!previous || score > previous.score) byField.set(field.id, { field, score });
+            }
+          }
+        }
+        return [...byField.values()];
+      }
+
+      fieldTerms(field) {
+        return [...new Set([field.label, field.column, ...(field.synonyms || []), ...this.activeTerms(field)].map(norm).filter(Boolean))];
+      }
+
+      activeTerms(field) {
+        return [this.displayLabel(field), ...this.localizedTerms(field)].map(norm).filter(Boolean);
+      }
+    }
+
+    class FuseFieldMatchStrategy {
+      constructor({ fieldFuse }) {
+        this.fieldFuse = fieldFuse;
+      }
+
+      async matchPhrase(phrase, roles) {
+        const fuse = this.fieldFuse();
+        if (!fuse) return null;
+        const results = fuse.search(norm(phrase)).filter(result => roles.includes(result.item.field.role)).slice(0, 4);
+        if (!results.length || results[0].score > 0.28) return null;
+        if (results[1] && results[1].score - results[0].score < 0.04) return { ambiguous: true, fields: results.map(result => result.item.field) };
+        return { field: results[0].item.field };
+      }
+    }
+
+    class SemanticFieldMatchStrategy {
+      constructor({ semanticMatcher, catalog }) {
+        this.semanticMatcher = semanticMatcher;
+        this.catalog = catalog;
+      }
+
+      async matchPhrase(phrase, roles) {
+        return this.semanticMatcher.matchField(norm(phrase), roles, this.catalog());
+      }
+
+      async findInText(text, role) {
+        const result = await this.semanticMatcher.matchField(text, [role], this.catalog());
+        return result?.ambiguous ? null : result?.field || null;
+      }
+    }
+
+    class FieldResolver {
+      constructor(strategies, clarify) {
+        this.strategies = strategies;
+        this.clarify = clarify;
+      }
+
+      async resolvePhrase(phrase, roles) {
+        if (!norm(phrase)) return { field: null };
+        for (const strategy of this.strategies) {
+          const result = await strategy.matchPhrase?.(phrase, roles);
+          if (!result) continue;
+          if (result.ambiguous) return this.clarify(`Which field did you mean by "${phrase}"?`, result.fields);
+          if (result.field) return { field: result.field };
+        }
+        return { field: null };
+      }
+
+      async findInText(text, role) {
+        for (const strategy of this.strategies) {
+          const field = await strategy.findInText?.(text, role);
+          if (field) return field;
+        }
+        return null;
+      }
+    }
+
     class AskDataEngine {
       constructor(config, duckDBManager) {
         this.config = config;
@@ -773,10 +1351,32 @@
         this.locale = this.resolveLocale();
         this.localeFamily = this.locale.toLowerCase().startsWith('pt') ? 'pt' : 'en';
         this.vocabulary = this.buildVocabulary();
+        this.termMatcher = new TermMatcher(this.vocabulary, this.localeFamily);
         this.chronoParser = this.localeFamily === 'pt' ? chronoPt : chronoEn;
+        this.dateRangeParser = new DateRangeParser({
+          primaryParser: this.chronoParser,
+          fallbackParser: this.localeFamily === 'pt' ? chronoEn : chronoPt,
+          termMatcher: this.termMatcher,
+          locale: this.locale
+        });
+        this.intentCues = new IntentCueDetector(this.termMatcher);
         this.shapeAnalyzer = new ResultShapeAnalyzer();
         this.chartDecisionTree = new ChartDecisionTree(this.askConfig.chartCapabilities || {});
         this.insightGenerator = new InsightGenerator();
+        this.semanticMatcher = new SemanticFieldMatcher(this.askConfig.semanticMatching || {}, {
+          displayLabel: item => this.displayLabel(item),
+          localizedTerms: item => this.localizedTerms(item)
+        });
+        this.fieldResolver = new FieldResolver([
+          new ExactFieldMatchStrategy({
+            catalog: () => this.catalog,
+            displayLabel: field => this.displayLabel(field),
+            localizedTerms: field => this.localizedTerms(field),
+            termMatcher: this.termMatcher
+          }),
+          new FuseFieldMatchStrategy({ fieldFuse: () => this.fieldFuse }),
+          new SemanticFieldMatchStrategy({ semanticMatcher: this.semanticMatcher, catalog: () => this.catalog })
+        ], (message, fields) => this.fieldClarification(message, fields));
         this.initialized = false;
       }
 
@@ -789,8 +1389,72 @@
 
       buildVocabulary() {
         const defaults = {
-          en: { by: ['by'], top: ['top', 'best', 'highest'], bottom: ['bottom', 'worst', 'lowest'], count: ['count', 'number of', 'how many'], overTime: ['over time', 'trend'], filters: ['in', 'for', 'where', 'with'], and: ['and'] },
-          pt: { by: ['por'], top: ['top', 'maiores', 'melhores'], bottom: ['menores', 'piores'], count: ['contar', 'conte', 'quantos', 'numero de', 'número de'], overTime: ['ao longo do tempo', 'tendencia', 'tendência', 'evolucao', 'evolução'], filters: ['em', 'para', 'onde', 'com'], and: ['e'] }
+          en: {
+            by: ['by'],
+            top: ['top', 'best', 'highest'],
+            bottom: ['bottom', 'worst', 'lowest'],
+            most: ['most', 'highest', 'largest', 'biggest', 'best'],
+            least: ['least', 'lowest', 'smallest', 'worst'],
+            count: ['count', 'number of', 'how many'],
+            overTime: ['over time', 'trend'],
+            filters: ['in', 'for', 'where', 'with'],
+            and: ['and'],
+            prepositions: ['of', 'for', 'in'],
+            listAction: ['which', 'what', 'list', 'show'],
+            subjectQuestion: ['which', 'what'],
+            ownershipVerb: ['has'],
+            article: ['the'],
+            listAvailability: ['do i have', 'are there', 'exist', 'available'],
+            listKind: ['kind', 'kinds', 'type', 'types'],
+            listCategory: ['category', 'categories'],
+            listSubcategory: ['subcategory', 'sub category', 'sub categories'],
+            latestYear: ['latest year', 'last year'],
+            latestMonth: ['latest month', 'last month'],
+            thisYear: ['this year'],
+            thisMonth: ['this month'],
+            dateCue: ['today', 'yesterday', 'tomorrow', 'last', 'this', 'next', 'year', 'month', 'week', 'quarter', 'day'],
+            yearCue: ['year'],
+            monthCue: ['month'],
+            dayCue: ['day', 'today', 'yesterday', 'tomorrow'],
+            dayGrain: ['day', 'daily'],
+            monthGrain: ['month', 'monthly'],
+            yearGrain: ['year', 'yearly', 'annual'],
+            yearOverYear: ['year over year', 'yoy', 'year on year'],
+            unsupportedMetric: ['profit', 'margin', 'earnings', 'cost']
+          },
+          pt: {
+            by: ['por'],
+            top: ['top', 'maiores', 'melhores'],
+            bottom: ['menores', 'piores'],
+            most: ['maior', 'maiores', 'melhor', 'melhores', 'mais'],
+            least: ['menor', 'menores', 'pior', 'piores', 'menos'],
+            count: ['contar', 'conte', 'quantos', 'numero de', 'número de'],
+            overTime: ['ao longo do tempo', 'tendencia', 'tendência', 'evolucao', 'evolução'],
+            filters: ['em', 'para', 'onde', 'com'],
+            and: ['e'],
+            prepositions: ['de', 'do', 'da', 'para', 'em'],
+            listAction: ['quais', 'qual', 'liste', 'mostrar'],
+            subjectQuestion: ['quais', 'qual'],
+            ownershipVerb: ['tem', 'possui'],
+            article: ['o', 'a'],
+            listAvailability: ['tenho', 'existem', 'disponiveis', 'disponíveis'],
+            listKind: ['tipo', 'tipos'],
+            listCategory: ['categoria', 'categorias'],
+            listSubcategory: ['subcategoria', 'subcategorias', 'sub categoria'],
+            latestYear: ['ano mais recente', 'ultimo ano', 'último ano', 'ano passado', 'ano anterior'],
+            latestMonth: ['mes mais recente', 'mês mais recente', 'ultimo mes', 'último mês', 'mes passado', 'mês passado', 'mes anterior', 'mês anterior'],
+            thisYear: ['este ano', 'esse ano'],
+            thisMonth: ['este mes', 'este mês', 'esse mes', 'esse mês'],
+            dateCue: ['hoje', 'ontem', 'amanha', 'amanhã', 'passado', 'passada', 'este', 'esta', 'proximo', 'próximo', 'ano', 'mes', 'mês', 'semana', 'trimestre', 'dia'],
+            yearCue: ['ano'],
+            monthCue: ['mes', 'mês'],
+            dayCue: ['dia', 'hoje', 'ontem', 'amanha', 'amanhã'],
+            dayGrain: ['dia', 'diario', 'diária', 'diario', 'diaria'],
+            monthGrain: ['mes', 'mês', 'mensal'],
+            yearGrain: ['ano', 'anual'],
+            yearOverYear: ['ano a ano', 'ano contra ano'],
+            unsupportedMetric: ['lucro', 'margem', 'custo']
+          }
         };
         const configured = this.askConfig.vocabulary || {};
         const merged = structuredClone(defaults);
@@ -802,16 +1466,15 @@
       }
 
       terms(group) {
-        return [...new Set([...(this.vocabulary.en?.[group] || []), ...(this.vocabulary[this.localeFamily]?.[group] || [])].map(norm).filter(Boolean))];
+        return this.termMatcher.terms(group);
       }
 
       termAlternation(group) {
-        return this.terms(group).sort((a, b) => b.length - a.length).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+')).join('|');
+        return this.termMatcher.alternation(group);
       }
 
       hasTerm(q, group) {
-        const alt = this.termAlternation(group);
-        return !!alt && new RegExp(`\\b(?:${alt})\\b`).test(q);
+        return this.termMatcher.has(q, group);
       }
 
       localizedMapValue(map, fallback) {
@@ -820,8 +1483,11 @@
       }
 
       localizedTerms(item) {
-        const localized = this.localizedMapValue(item.localizedSynonyms || item.localizedTerms, []);
-        return Array.isArray(localized) ? localized : [];
+        const map = item.localizedSynonyms || item.localizedTerms;
+        if (!map) return [];
+        const active = this.localizedMapValue(map, []);
+        const all = Object.values(map).flat().filter(Boolean);
+        return [...new Set([...(Array.isArray(active) ? active : []), ...all])];
       }
 
       displayLabel(item) {
@@ -830,7 +1496,7 @@
 
       async initialize() {
         if (this.initialized) return;
-        console.info('[AskData] Building semantic catalog');
+        console.info('[AskData] Building data catalog');
         await this.buildCatalog();
         this.buildFuseIndexes();
         this.initialized = true;
@@ -1067,7 +1733,7 @@
 
       async ask(question) {
         await this.initialize();
-        const parsed = this.parseQuestion(question);
+        const parsed = await this.parseQuestion(question);
         if (parsed.error) return parsed;
         if (parsed.clarification) return parsed;
         const planned = this.planSql(parsed.intent);
@@ -1096,182 +1762,39 @@
       }
 
       parseDateRange(question) {
-        const timeField = this.getDefaultTimeField();
-        if (!timeField) return { dateRange: null, questionWithoutDate: question };
-        const relativePeriod = this.parseRelativePeriod(question, timeField);
-        if (relativePeriod) return relativePeriod;
-        const namedMonth = this.parseNamedMonth(question, timeField);
-        if (namedMonth) return namedMonth;
-        if (!this.chronoParser?.parse) return { dateRange: null, questionWithoutDate: question };
-        const results = this.chronoParser.parse(question, new Date(), { forwardDate: false }) || [];
-        let result = results.find(r => this.hasDateCue(r.text));
-        if (!result) {
-          const fallbackParser = this.localeFamily === 'pt' ? chronoEn : chronoPt;
-          const fallbackResults = fallbackParser.parse(question, new Date(), { forwardDate: false }) || [];
-          result = fallbackResults.find(r => this.hasDateCue(r.text) && !/^\d{1,2}[\/-]\d{1,2}(?:[\/-]\d{2,4})?$/.test(r.text.trim()));
-        }
-        if (!result) {
-          const explicitYear = this.parseExplicitYear(question, timeField);
-          return explicitYear || { dateRange: null, questionWithoutDate: question };
-        }
-        const range = this.resultToDateRange(result, timeField);
-        if (!range) return { dateRange: null, questionWithoutDate: question };
-        const questionWithoutDate = `${question.slice(0, result.index)} ${question.slice(result.index + result.text.length)}`.replace(/\s+/g, ' ').trim();
-        return { dateRange: range, questionWithoutDate };
+        return this.dateRangeParser.parse(question, this.getDefaultTimeField());
       }
 
-      parseRelativePeriod(question, field) {
-        const profile = field.dateProfile;
-        const specs = [
-          { re: /\b(latest year|last year|ano mais recente|ultimo ano|último ano|ano passado|ano anterior)\b/i, start: profile?.latestYearStart, end: profile?.latestYearEnd },
-          { re: /\b(latest month|last month|mes mais recente|mês mais recente|ultimo mes|último mês|m[eê]s passado|m[eê]s anterior)\b/i, start: profile?.latestMonthStart, end: profile?.latestMonthEnd },
-          { re: /\b(this year|este ano|esse ano)\b/i, calendar: 'year' },
-          { re: /\b(this month|este m[eê]s|esse m[eê]s)\b/i, calendar: 'month' }
-        ];
-        for (const spec of specs) {
-          const match = question.match(spec.re);
-          if (!match) continue;
-          let start = spec.start;
-          let end = spec.end;
-          if (spec.calendar === 'year') {
-            const year = new Date().getFullYear();
-            start = `${year}-01-01`;
-            end = `${year + 1}-01-01`;
-          } else if (spec.calendar === 'month') {
-            const monthStart = new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), 1));
-            start = isoDate(monthStart);
-            end = isoDate(addMonths(monthStart, 1));
-          }
-          if (!start || !end) return null;
-          const questionWithoutDate = `${question.slice(0, match.index)} ${question.slice(match.index + match[0].length)}`.replace(/\s+/g, ' ').trim();
-          return { dateRange: { field, start, end, text: match[0] }, questionWithoutDate };
-        }
-        return null;
-      }
+      async detectListField(q) {
+        if (!this.intentCues.isListRequest(q)) return null;
 
-      monthNumber(name) {
-        const months = {
-          january: 1, jan: 1, janeiro: 1,
-          february: 2, feb: 2, fevereiro: 2,
-          march: 3, mar: 3, marco: 3, março: 3,
-          april: 4, apr: 4, abril: 4,
-          may: 5, maio: 5,
-          june: 6, jun: 6, junho: 6,
-          july: 7, jul: 7, julho: 7,
-          august: 8, aug: 8, agosto: 8,
-          september: 9, sep: 9, setembro: 9,
-          october: 10, oct: 10, outubro: 10,
-          november: 11, nov: 11, novembro: 11,
-          december: 12, dec: 12, dezembro: 12
-        };
-        return months[norm(name)] || null;
-      }
+        const hintedField = this.intentCues.listFieldHint(q);
+        if (hintedField) return (await this.resolveFieldPhrase(hintedField, ['dimension'])).field;
 
-      parseNamedMonth(question, field) {
-        const match = question.match(/\b(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|october|oct|november|nov|december|dec|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b(?:\s+((?:19|20)\d{2}))?/i);
-        if (!match) return null;
-        const month = this.monthNumber(match[1]);
-        if (!month) return null;
-        const questionWithoutDate = `${question.slice(0, match.index)} ${question.slice(match.index + match[0].length)}`.replace(/\s+/g, ' ').trim();
-        if (match[2]) {
-          const year = Number(match[2]);
-          const start = isoDate(new Date(Date.UTC(year, month - 1, 1)));
-          const end = isoDate(addMonths(new Date(Date.UTC(year, month - 1, 1)), 1));
-          return { dateRange: { field, start, end, text: match[0] }, questionWithoutDate };
-        }
-        return { dateRange: { field, kind: 'monthOfYear', month, text: match[0] }, questionWithoutDate };
-      }
-
-      parseExplicitYear(question, field) {
-        const match = question.match(/\b(?:in|em|no|na)?\s*((?:19|20)\d{2})\b/i);
-        if (!match) return null;
-        const year = Number(match[1]);
-        const start = `${year}-01-01`;
-        const end = `${year + 1}-01-01`;
-        const questionWithoutDate = `${question.slice(0, match.index)} ${question.slice(match.index + match[0].length)}`.replace(/\s+/g, ' ').trim();
-        return { dateRange: { field, start, end, text: match[0].trim() }, questionWithoutDate };
-      }
-
-      hasDateCue(text) {
-        const t = norm(text);
-        const cues = [
-          'today', 'yesterday', 'tomorrow', 'last', 'this', 'next', 'year', 'month', 'week', 'quarter', 'day',
-          'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december',
-          'hoje', 'ontem', 'amanha', 'amanhã', 'passado', 'passada', 'este', 'esta', 'proximo', 'próximo', 'ano', 'mes', 'mês', 'semana', 'trimestre', 'dia',
-          'janeiro', 'fevereiro', 'marco', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'
-        ].map(norm);
-        return cues.some(cue => new RegExp(`\\b${cue}\\b`).test(t)) || /^\d{4}$/.test(t) || /\d{1,2}[\/-]\d{1,2}(?:[\/-]\d{2,4})?/.test(text);
-      }
-
-      resultToDateRange(result, field) {
-        const text = norm(result.text);
-        const startDate = result.start?.date?.();
-        if (!startDate || Number.isNaN(startDate.getTime())) return null;
-        const startUtc = new Date(Date.UTC(startDate.getFullYear(), startDate.getMonth(), startDate.getDate()));
-        let start = startUtc;
-        let end = result.end?.date?.();
-        if (end && !Number.isNaN(end.getTime())) end = addDays(new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate())), 1);
-
-        const saysYear = /\b(year|ano)\b/.test(text) || (/^\d{4}$/.test(text));
-        const saysMonth = /\b(month|mes|january|february|march|april|may|june|july|august|september|october|november|december|janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/.test(text);
-        const saysDay = /\b(day|dia|today|yesterday|tomorrow|hoje|ontem|amanha)\b/.test(text);
-
-        if (!end) {
-          if (saysYear && !saysMonth && !saysDay) {
-            start = startOfYear(startUtc);
-            end = new Date(Date.UTC(start.getUTCFullYear() + 1, 0, 1));
-          } else if (saysMonth && !saysDay) {
-            start = startOfMonth(startUtc);
-            end = addMonths(start, 1);
-          } else {
-            end = addDays(startUtc, 1);
-          }
-        }
-        return { field, start: isoDate(start), end: isoDate(end), text: result.text };
-      }
-
-      detectListField(q) {
-        if (!/\b(which|what|list|show|quais|qual|liste|mostrar)\b/.test(q) && !/\b(kind|kinds|type|types|tipos?|categorias?)\b/.test(q)) return null;
-        if (!/\b(do i have|are there|exist|available|tenho|existem|disponiveis|disponíveis)\b/.test(q) && !/\b(kind|kinds|type|types|tipos?|categorias?)\b/.test(q)) return null;
-
-        if (/\b(categories|category|categorias?|categoria)\b/.test(q)) return this.resolveFieldPhrase('category', ['dimension']).field;
-        if (/\b(sub categories|sub category|subcategory|subcategorias?|sub categoria)\b/.test(q)) return this.resolveFieldPhrase('sub category', ['dimension']).field;
-
-        const entity = this.entities.find(e => e.terms.some(term => new RegExp(`\\b${term}\\b`).test(q)));
-        if (/\b(kind|kinds|type|types|tipos?)\b/.test(q) && entity?.preferredDimensionFields?.length) return entity.preferredDimensionFields[0];
+        const entity = this.entities.find(e => e.terms.some(term => this.termMatcher.patternFromTerm(term)?.test(q)));
+        if (this.hasTerm(q, 'listKind') && entity?.preferredDimensionFields?.length) return entity.preferredDimensionFields[0];
         if (entity) return entity.preferredDimensionFields?.find(f => /name|nome/i.test(f.column)) || entity.preferredDimensionFields?.[0];
 
-        const phrase = q.match(/\b(?:which|what|list|show|quais|qual|liste|mostrar)\s+(.+?)(?:\s+(?:do i have|are there|exist|available|tenho|existem|disponiveis|disponíveis)|\?|$)/)?.[1];
-        if (!phrase) return null;
-        const cleaned = phrase.replace(/\b(of|de|do|da)\b.+$/i, '').replace(/\b(kind|kinds|type|types|tipos?)\b\s+(of|de)?/i, '').trim();
-        return this.resolveFieldPhrase(cleaned, ['dimension']).field;
+        const phrase = this.intentCues.extractListPhrase(q);
+        return phrase ? (await this.resolveFieldPhrase(phrase, ['dimension'])).field : null;
       }
 
-      detectSuperlative(q) {
-        const most = /\b(most|highest|largest|biggest|best|maior|maiores|melhor|melhores|mais)\b/.test(q);
-        const least = /\b(least|lowest|smallest|worst|menor|menores|pior|piores|menos)\b/.test(q);
-        if (!most && !least) return null;
-        const metric = this.findBestFieldInText(q, 'measure') || this.getDefaultMetric();
-        const patterns = [
-          /\bwhich\s+(.+?)\s+has\s+(?:the\s+)?(?:most|highest|largest|biggest|best|least|lowest|smallest|worst)\b/,
-          /\bqual\s+(.+?)\s+(?:tem|possui)\s+(?:o|a)?\s*(?:maior|menor|melhor|pior|mais|menos)\b/,
-          /\b(?:most|highest|largest|biggest|best|least|lowest|smallest|worst)\s+.+?\s+(.+)$/,
-          /\b(?:maior|menor|melhor|pior|mais|menos)\s+.+?\s+(?:por|de)\s+(.+)$/
-        ];
-        for (const pattern of patterns) {
-          const phrase = q.match(pattern)?.[1];
-          if (!phrase) continue;
-          const field = this.resolveFieldPhrase(singularize(phrase), ['dimension']).field;
-          if (field) return { field, metric, direction: least ? 'ASC' : 'DESC' };
-        }
-        return null;
+      async detectSuperlative(q) {
+        const direction = this.intentCues.superlativeDirection(q);
+        if (!direction) return null;
+        const phrase = this.intentCues.extractSuperlativeSubject(q);
+        if (!phrase) return null;
+        const field = (await this.resolveFieldPhrase(phrase, ['dimension'])).field;
+        if (!field) return null;
+        const metric = await this.findBestFieldInText(q, 'measure') || this.getDefaultMetric();
+        return { field, metric, direction };
       }
 
       isYearOverYear(q) {
-        return /\b(year over year|yoy|year on year|ano a ano|ano contra ano)\b/.test(q);
+        return this.intentCues.isYearOverYear(q);
       }
 
-      parseQuestion(question) {
+      async parseQuestion(question) {
         const dateInfo = this.parseDateRange(question);
         const q = norm(dateInfo.questionWithoutDate || question);
         const warnings = [];
@@ -1285,7 +1808,7 @@
           };
         }
 
-        const listField = this.detectListField(q);
+        const listField = await this.detectListField(q);
         if (listField) {
           const filters = this.detectFilters(q, [listField]);
           if (filters.clarification) return filters;
@@ -1307,7 +1830,7 @@
 
         const topOrBottom = [this.termAlternation('top'), this.termAlternation('bottom')].filter(Boolean).join('|');
         const topMatch = topOrBottom ? q.match(new RegExp(`\\b(${topOrBottom})\\s+(\\d+)\\b`)) : null;
-        const superlative = this.detectSuperlative(q);
+        const superlative = await this.detectSuperlative(q);
         const limit = superlative ? 1 : (topMatch ? Math.min(Number(topMatch[2]), this.askConfig.maxRows || 25) : (this.askConfig.maxRows || 25));
         const sortDirection = superlative?.direction || (topMatch && this.terms('bottom').includes(norm(topMatch[1])) ? 'ASC' : 'DESC');
         const isRanking = !!topMatch || !!superlative;
@@ -1318,10 +1841,10 @@
         let metric = null;
         let countEntity = null;
         if (isCount) {
-          countEntity = this.entities.find(entity => entity.terms.some(term => new RegExp(`\\b${term}\\b`).test(q)));
+          countEntity = this.entities.find(entity => entity.terms.some(term => this.termMatcher.patternFromTerm(term)?.test(q)));
           metric = countEntity ? { kind: 'count_distinct', entity: countEntity, field: countEntity.field, label: countEntity.label } : { kind: 'count_star', label: 'Records' };
         } else {
-          metric = superlative?.metric || this.findBestFieldInText(q, 'measure') || this.getDefaultMetric();
+          metric = superlative?.metric || await this.findBestFieldInText(q, 'measure') || this.getDefaultMetric();
         }
 
         const dimensions = [];
@@ -1329,14 +1852,14 @@
         if (superlative?.field) dimensions.push(superlative.field);
         const byPhrases = this.extractByPhrases(q);
         if (topDimensionPhrase) {
-          const field = this.resolveFieldPhrase(topDimensionPhrase, ['dimension', 'time']);
+          const field = await this.resolveFieldPhrase(topDimensionPhrase, ['dimension', 'time']);
           if (field.clarification) return field;
           if (field.field) dimensions.push(field.field);
         }
         for (const phrase of byPhrases) {
           if (dimensions.length >= (this.askConfig.maxDimensions || 2)) break;
           if (['month', 'year', 'day', 'date', 'time'].includes(phrase) || /over time/.test(q)) continue;
-          const field = this.resolveFieldPhrase(phrase, ['dimension', 'time']);
+          const field = await this.resolveFieldPhrase(phrase, ['dimension', 'time']);
           if (field.clarification) return field;
           if (field.field && !dimensions.some(d => d.id === field.field.id)) dimensions.push(field.field);
         }
@@ -1348,7 +1871,7 @@
         if (!dimensions.length && isCount) {
           const byAfterCount = byPhrases[0];
           if (byAfterCount) {
-            const field = this.resolveFieldPhrase(byAfterCount, ['dimension', 'time']);
+            const field = await this.resolveFieldPhrase(byAfterCount, ['dimension', 'time']);
             if (field.field) dimensions.push(field.field);
           }
         }
@@ -1376,17 +1899,12 @@
 
       detectUnsupportedMetric(q) {
         const knownMetricTerms = new Set(this.catalog.filter(f => f.role === 'measure').flatMap(f => [f.label, f.column, ...(f.synonyms || []), ...this.localizedTerms(f)].map(norm)));
-        for (const term of ['profit', 'margin', 'earnings', 'cost', 'lucro', 'margem', 'custo']) {
-          if (new RegExp(`\\b${term}\\b`).test(q) && !knownMetricTerms.has(term)) return term;
-        }
-        return null;
+        const term = this.termMatcher.first(q, 'unsupportedMetric');
+        return term && !knownMetricTerms.has(term) ? term : null;
       }
 
       detectTimeGrain(q) {
-        if (/\b(day|daily|dia|diario|diaria)\b/.test(q)) return 'day';
-        if (/\b(month|monthly|mes|mensal)\b/.test(q) || this.hasTerm(q, 'overTime')) return 'month';
-        if (/\b(year|yearly|annual|ano|anual)\b/.test(q)) return 'year';
-        return null;
+        return this.intentCues.timeGrain(q);
       }
 
       extractTopDimensionPhrase(q) {
@@ -1404,7 +1922,7 @@
         if (!m) return [];
         const filters = this.termAlternation('filters');
         let rest = m[1]
-          .replace(filters ? new RegExp(`\\b(?:${filters})\\b.+$`, 'i') : /$a/, '')
+          .replace(filters ? new RegExp(`\\b(?:${filters})\\b.*$`, 'i') : /$a/, '')
           .replace(/\bsorted.*$/i, '')
           .trim();
         if (!rest) return [];
@@ -1413,52 +1931,12 @@
         return rest.split(splitRe).map(p => singularize(p.trim())).filter(Boolean);
       }
 
-      findBestFieldInText(q, role) {
-        const candidates = [];
-        for (const field of this.catalog.filter(f => f.role === role)) {
-          const activeTerms = [this.displayLabel(field), ...this.localizedTerms(field)].map(norm).filter(Boolean);
-          const terms = [...new Set([field.label, field.column, ...(field.synonyms || []), ...activeTerms].map(norm).filter(Boolean))];
-          for (const term of terms) {
-            if (new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(q)) {
-              candidates.push({ field, score: term.length + (field.priority || 0) + (activeTerms.includes(term) ? 10 : 0) });
-            }
-          }
-        }
-        candidates.sort((a, b) => b.score - a.score);
-        return candidates[0]?.field || null;
+      async findBestFieldInText(q, role) {
+        return this.fieldResolver.findInText(q, role);
       }
 
-      resolveFieldPhrase(phrase, roles) {
-        const clean = norm(phrase);
-        if (!clean) return { field: null };
-        const directByField = new Map();
-        for (const field of this.catalog.filter(f => roles.includes(f.role))) {
-          const activeTerms = [this.displayLabel(field), ...this.localizedTerms(field)].map(norm).filter(Boolean);
-          const terms = [...new Set([field.label, field.column, ...(field.synonyms || []), ...activeTerms].map(norm).filter(Boolean))];
-          for (const term of terms) {
-            if (clean === term || clean === singularize(term) || term === singularize(clean)) {
-              const score = 1 + (field.priority || 0) / 100 + (activeTerms.includes(term) ? 0.1 : 0);
-              const previous = directByField.get(field.id);
-              if (!previous || score > previous.score) directByField.set(field.id, { field, score });
-            }
-          }
-        }
-        const direct = [...directByField.values()];
-        if (direct.length) {
-          direct.sort((a, b) => b.score - a.score);
-          if (direct[1] && direct[0].score - direct[1].score < 0.03) {
-            return this.fieldClarification(`Which field did you mean by "${phrase}"?`, direct.slice(0, 4).map(d => d.field));
-          }
-          return { field: direct[0].field };
-        }
-        const results = this.fieldFuse.search(clean)
-          .filter(r => roles.includes(r.item.field.role))
-          .slice(0, 4);
-        if (!results.length || results[0].score > 0.28) return { field: null };
-        if (results[1] && results[1].score - results[0].score < 0.04) {
-          return this.fieldClarification(`Which field did you mean by "${phrase}"?`, results.map(r => r.item.field));
-        }
-        return { field: results[0].item.field };
+      async resolveFieldPhrase(phrase, roles) {
+        return this.fieldResolver.resolvePhrase(phrase, roles);
       }
 
       fieldClarification(message, fields) {
@@ -1600,7 +2078,8 @@
         if (intent.analysisType === 'list_values') {
           const dim = intent.dimensions[0];
           const expr = `${aliases.get(dim.table)}.${quoteIdent(dim.column)}`;
-          sql = `SELECT DISTINCT ${expr} AS label\nFROM ${from}\n${joins.join('\n')}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}\nORDER BY label ASC\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
+          const listWhereParts = [...whereParts, `${expr} IS NOT NULL`, `CAST(${expr} AS VARCHAR) <> ''`];
+          sql = `SELECT DISTINCT ${expr} AS label\nFROM ${from}\n${joins.join('\n')}\nWHERE ${listWhereParts.join(' AND ')}\nORDER BY label ASC\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
           return { sql, columns: ['label'] };
         }
         if (intent.analysisType === 'yoy') {
