@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portable BI</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "@duckdb/duckdb-wasm": "https://esm.sh/@duckdb/duckdb-wasm@1.30.0",
+      "lit": "https://esm.sh/lit@3.1.0",
+      "lit/": "https://esm.sh/lit@3.1.0/"
+    }
+  }
+</script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', Arial, sans-serif;
+      background: #f8fafc;
+      color: #212529;
+    }
+
+    header {
+      background: #23395d;
+      color: #fff;
+      padding: 1.7rem 2rem 1.25rem 2rem;
+      border-bottom: 3px solid #406ac1;
+      text-align: left;
+      box-shadow: 0 1px 6px #0001;
+    }
+
+    .subtitle {
+      font-weight: 500;
+      font-size: 1.1rem;
+      color: #c8d5ee;
+      margin-left: .5rem;
+    }
+
+    #kpi-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 2rem 2rem 1.2rem 2rem;
+    }
+
+    .kpi-card {
+      flex: 1;
+      min-width: 200px;
+      background: #fff;
+      border-radius: 1.1em;
+      box-shadow: 0 1px 5px #c8cdd63a;
+      padding: 1.2rem 1.6rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      font-size: 1.15rem;
+      border-left: 6px solid #406ac1;
+    }
+
+    .kpi-title {
+      color: #406ac1;
+      font-weight: 700;
+      font-size: 1.07em;
+      margin-bottom: .32em;
+    }
+
+    .kpi-value {
+      font-size: 2.2em;
+      font-weight: bold;
+      margin-bottom: .16em;
+    }
+
+    .kpi-trend {
+      color: #2ecc70;
+      font-size: 1.01rem
+    }
+
+    #viz-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      margin: 1.25rem 2rem 0 2rem;
+    }
+
+    .chart-card {
+      background: #fff;
+      padding: 1.1rem;
+      border-radius: .85em;
+      box-shadow: 0 2px 7px #d9e1ea61;
+      flex: 1;
+      min-width: 330px;
+    }
+
+    #table-section {
+      background: #f4f7fb;
+      margin: 2rem 2rem 2.5rem 2rem;
+      padding: 1.6rem 1.4rem 1.7rem 1.4rem;
+      border-radius: 0 0 1.2em 1.2em;
+      box-shadow: 0 2px 16px #b3b8c440;
+    }
+
+    #table-section h2 {
+      color: #364a6f;
+      margin-bottom: .7em;
+      margin-top: .2em;
+    }
+
+    #data-table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: #fff;
+      margin: 0;
+      border-radius: .7em;
+      box-shadow: 0 1px 4px #b2c5d93d;
+    }
+
+    th,
+    td {
+      padding: .65em 1.15em;
+      white-space: nowrap;
+      border-bottom: 1px solid #e6edf2;
+    }
+
+    th {
+      background: #e8f0fa;
+      font-weight: 700;
+      color: #295287;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    #loading-state {
+      background: #23395ddc;
+      color: #fff;
+      border-radius: .6em;
+      padding: 1.2em 1em;
+      right: 1.6em;
+      bottom: 1.6em;
+      position: fixed;
+      z-index: 110;
+      box-shadow: 0 4px 16px #23395de0;
+      text-align: center;
+      font-size: 1.22em;
+    }
+
+    #error-state {
+      background: #fff0f2;
+      border: 2px solid #e86c7a;
+      border-radius: .7em;
+      margin: 1.5rem 2.2rem 1.5rem 2.2rem;
+      padding: 1.4em;
+      font-size: 1.15em;
+      box-shadow: 0 .5px 4px #edccd2aa;
+    }
+
+    @media(max-width:900px) {
+      #viz-section {
+        flex-direction: column;
+      }
+    }
+
+    @media(max-width:600px) {
+
+      #kpi-cards,
+      #viz-section,
+      #table-section {
+        margin: .6rem;
+      }
+
+      .chart-card {
+        min-width: unset;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <portable-bi-dashboard></portable-bi-dashboard>
+  <div id="loading-state" style="display:none">Loading data, please wait…</div>
+  <div id="error-state" style="display:none;color:#e74c3c"></div>
+  <script type="module">
+    import * as duckdb from '@duckdb/duckdb-wasm';
+    import { LitElement, html, css, nothing } from "lit";
+    import { property, state, customElement } from "lit/decorators.js";
+
+    class DuckDBManager {
+      constructor() {
+        this.dbInstance = null;
+        this.dbConnection = null;
+      }
+      async initialize() {
+        if (this.dbInstance) return this.dbInstance;
+        const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+        const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+        const worker_url = URL.createObjectURL(
+          new Blob([`importScripts(\"${bundle.mainWorker}\");`], { type: 'text/javascript' })
+        );
+        const worker = new Worker(worker_url);
+        const logger = new duckdb.ConsoleLogger();
+        const db = new duckdb.AsyncDuckDB(logger, worker);
+        await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+        URL.revokeObjectURL(worker_url);
+        this.dbInstance = db;
+        this.dbConnection = await db.connect();
+        return db;
+      }
+      async getConnection() {
+        await this.initialize();
+        return this.dbConnection;
+      }
+      async query(sql) {
+        const connection = await this.getConnection();
+        return connection.query(sql);
+      }
+    }
+    const duckDBManager = new DuckDBManager();
+
+    const DASHBOARD_CONFIG = {
+      title: "Portable BI Dashboard",
+      subtitle: "Your Data, Any Data, Instantly Explained",
+      dataSources: [
+        { name: "customer", url: "https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/customer.csv" },
+        { name: "product", url: "https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/product.csv" },
+        { name: "sales", url: "https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/sales.csv" }
+      ],
+      filters: [
+        { field: "Region", label: "Region", source: { table: "customer", column: "Region" }, type: "select" },
+        { field: "Category", label: "Category", source: { table: "product", column: "Category" }, type: "select" }
+      ],
+      kpis: [
+        {
+          title: "Total Sales",
+          query: "SELECT SUM(Sales) AS value FROM sales JOIN customer USING(\"Customer ID\") WHERE --filter:Region--",
+          format: v => "$" + Math.round(v).toLocaleString()
+        },
+        {
+          title: "Total Customers",
+          query: "SELECT COUNT(DISTINCT \"Customer ID\") AS value FROM customer WHERE --filter:Region--"
+        },
+        {
+          title: "Categories",
+          query: "SELECT COUNT(DISTINCT Category) AS value FROM product WHERE --filter:Category--"
+        },
+        {
+          title: "Top Region",
+          query: "SELECT Region AS value FROM (SELECT Region, SUM(Sales) as s FROM sales JOIN customer USING(\"Customer ID\") WHERE --filter:Region-- GROUP BY Region ORDER BY s DESC LIMIT 1)"
+        }
+      ],
+      charts: [
+        {
+          id: "top10-bar",
+          type: "bar",
+          query: `SELECT c.Region || ' / ' || p.Category AS label, SUM(s.Sales) AS value
+             FROM sales s JOIN customer c ON s.\"Customer ID\"=c.\"Customer ID\" JOIN product p ON s.\"Product ID\"=p.\"Product ID\"
+             WHERE --filter:Region-- AND --filter:Category--
+             GROUP BY c.Region, p.Category ORDER BY value DESC LIMIT 10`,
+          options: { aspectRatio: 1.7, plugins: { legend: { display: false } } },
+          section: "viz"
+        },
+        {
+          id: "region-pie",
+          type: "pie",
+          query: "SELECT Region AS label, SUM(Sales) AS value FROM sales JOIN customer USING(\"Customer ID\") WHERE --filter:Region-- GROUP BY Region",
+          options: { aspectRatio: 1.3, plugins: { legend: { position: 'bottom' } } },
+          section: "viz"
+        }
+      ],
+      tables: [
+        {
+          id: "combo-table",
+          title: "Top Region/Category Combinations",
+          query: `SELECT c.Region, p.Category, SUM(s.Sales) AS Sales
+        FROM sales s JOIN customer c ON s.\"Customer ID\"=c.\"Customer ID\" JOIN product p ON s.\"Product ID\"=p.\"Product ID\"
+        WHERE --filter:Region-- AND --filter:Category--
+        GROUP BY c.Region, p.Category ORDER BY Sales DESC LIMIT 20` ,
+          columns: ["Region", "Category", "Sales"]
+        }
+      ]
+    };
+
+    customElements.define('portable-bi-dashboard', class extends LitElement {
+      createRenderRoot() { return this; }
+      static properties = {
+        config: { type: Object },
+        filters: { type: Object },
+        _filterOptions: { state: true },
+        _kpiResults: { state: true },
+        _chartData: { state: true },
+        _tableRows: { state: true },
+        loading: { state: true },
+        error: { state: true }
+      };
+      constructor() {
+        super();
+        this.config = DASHBOARD_CONFIG;
+        this.filters = {};
+        this._filterOptions = {};
+        this._kpiResults = [];
+        this._chartData = [];
+        this._tableRows = [];
+        this.loading = false;
+        this.error = '';
+      }
+      connectedCallback() {
+        super.connectedCallback();
+        this._initDashboard();
+      }
+      async _initDashboard() {
+        this.loading = true;
+        this.error = '';
+        // Setup data sources
+        try {
+          for (const s of this.config.dataSources) {
+            await duckDBManager.query(`CREATE OR REPLACE VIEW ${s.name} AS SELECT * FROM read_csv_auto('${s.url}')`);
+          }
+          // Gather filter options
+          let filterOptions = {};
+          for (const filter of this.config.filters) {
+            let optq = `SELECT DISTINCT ${filter.source.column} AS val FROM ${filter.source.table} ORDER BY val`;
+            let optres = await duckDBManager.query(optq);
+            let opts = (typeof optres.toArray === 'function' ? optres.toArray() : optres.rows || optres).map(x => x.val);
+            opts.unshift('All');
+            filterOptions[filter.field] = opts;
+            // Initialize selected
+            if (!this.filters[filter.field]) this.filters[filter.field] = 'All';
+          }
+          this._filterOptions = filterOptions;
+          // Run KPIs
+          let kpiResults = [];
+          for (const kpi of this.config.kpis) {
+            let q = kpi.query;
+            for (const filter of (this.config.filters || [])) {
+              const val = this.filters[filter.field] || 'All';
+              const filterExpr = (val && val !== 'All') ? `${filter.source.table}.${filter.source.column} = '${val.replace(/'/g, "''")}'` : '1=1';
+              q = q.replaceAll(`--filter:${filter.field}--`, filterExpr);
+            }
+            let r = await duckDBManager.query(q);
+            let v = (typeof r.toArray === 'function' ? r.toArray() : r.rows || r)[0]?.value;
+            kpiResults.push(v);
+          }
+          this._kpiResults = kpiResults;
+          // Charts
+          let chartData = [];
+          for (const chartDef of this.config.charts) {
+            let q = chartDef.query;
+            // map: table name -> alias (if any)
+            let aliasMap = {};
+            // scan from ... JOIN table alias ... or FROM table alias ...
+            (q.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/gi) || []).forEach(s => {
+                const m = s.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/i);
+                if (m) aliasMap[m[1]] = m[2];
+            });
+            for (const filter of (this.config.filters || [])) {
+              const val = this.filters[filter.field] || 'All';
+              let tableRef = aliasMap[filter.source.table] || filter.source.table;
+              const filterExpr = (val && val !== 'All') ? `${tableRef}.${filter.source.column} = '${val.replace(/'/g, "''")}'` : '1=1';
+              q = q.replaceAll(`--filter:${filter.field}--`, filterExpr);
+            }
+            let r = await duckDBManager.query(q);
+            let rows = typeof r.toArray === "function" ? r.toArray() : r.rows || r;
+            let labels = rows.map(row => row.label);
+            let data = rows.map(row => row.value);
+            chartData.push({ chartDef, labels, data });
+          }
+          this._chartData = chartData;
+          // Tables
+          let tableRows = [];
+          for (const tableDef of this.config.tables) {
+            let q = tableDef.query;
+            // map: table name -> alias (if any)
+            let aliasMap = {};
+            (q.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/gi) || []).forEach(s => {
+                const m = s.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/i);
+                if (m) aliasMap[m[1]] = m[2];
+            });
+            for (const filter of (this.config.filters || [])) {
+              const val = this.filters[filter.field] || 'All';
+              let tableRef = aliasMap[filter.source.table] || filter.source.table;
+              const filterExpr = (val && val !== 'All') ? `${tableRef}.${filter.source.column} = '${val.replace(/'/g, "''")}'` : '1=1';
+              q = q.replaceAll(`--filter:${filter.field}--`, filterExpr);
+            }
+            let r = await duckDBManager.query(q);
+            let rows = typeof r.toArray === "function" ? r.toArray() : r.rows || r;
+            tableRows.push(rows);
+          }
+          this._tableRows = tableRows;
+          this.loading = false;
+        } catch (err) {
+          this.loading = false;
+          this.error = 'Failed to load data or render dashboard: ' + err;
+        }
+      }
+      _onFilterChange(e, field) {
+        this.filters = { ...this.filters, [field]: e.target.value };
+        this._initDashboard();
+      }
+      _chartInstances = {};
+      firstUpdated() {
+        this._drawCharts();
+      }
+      updated(changed) {
+        if (changed.has('_chartData')) {
+          this._drawCharts();
+        }
+      }
+      _drawCharts() {
+        // Destroy previous charts!
+        if (this._chartInstances) {
+          Object.values(this._chartInstances).forEach(inst => {
+            try { inst?.destroy?.(); } catch (e) {}
+          });
+        }
+        this._chartInstances = {};
+        this._chartData.forEach(({ chartDef, labels, data }, i) => {
+          const canvas = this.querySelector(`#${chartDef.id}`);
+          if (!canvas) return;
+          this._chartInstances[chartDef.id] = new Chart(canvas.getContext('2d'), {
+            type: chartDef.type,
+            data: { labels: labels, datasets: [{ label: chartDef.title || chartDef.id, data }] },
+            options: chartDef.options || {}
+          });
+        });
+      }
+      render() {
+        const c = this.config;
+        return html`
+          <header>
+            <h1>${c.title}</h1>
+            <span class="subtitle">${c.subtitle}</span>
+          </header>
+
+          <form id="filter-bar">
+            ${c.filters.map(f => html`
+              <label>${f.label}:
+                <select name="${f.field}"
+                        .value=${this.filters[f.field] || 'All'}
+                        @change=${e => this._onFilterChange(e, f.field)}
+                        style="margin-right:.8em;font-size:1em;padding:0.12em .9em;border-radius:.5em;border:1.5px solid #b0c4e7;background:#fff;">
+                  ${this._filterOptions[f.field]?.map(o => html`<option value=${o}>${o}</option>`) || nothing}
+                </select>
+              </label>
+            `)}
+          </form>
+
+          <section id="kpi-cards">
+            ${c.kpis.map((kpi, i) => html`
+              <div class="kpi-card">
+                <div class="kpi-title">${kpi.title}</div>
+                <div class="kpi-value">${kpi.format ? kpi.format(this._kpiResults[i]) : this._kpiResults[i]}</div>
+              </div>
+            `)}
+          </section>
+
+          <section id="viz-section">
+            ${this._chartData.map(({ chartDef }, i) => html`
+              <div class="chart-card">
+                <canvas id="${chartDef.id}"></canvas>
+              </div>
+            `)}
+          </section>
+
+          ${c.tables.map((t, i) => html`
+            <section id="table-section">
+              <h2>${t.title}</h2>
+              <div id="data-table-wrap">
+                <table>
+                  <thead><tr>${t.columns.map(col => html`<th>${col}</th>`)}</tr></thead>
+                  <tbody>
+                  ${(this._tableRows[i] || []).map(r => html`<tr>${t.columns.map(col => html`<td>${r[col]}</td>`)}</tr>`)}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          `)}
+
+          ${(this.loading || this.error) ? html`
+            <div id="loading-state" style="display:${this.loading?'block':'none'}">Loading data, please wait…</div>
+            <div id="error-state" style="display:${this.error?'block':'none'}">${this.error}</div>
+          ` : nothing}
+        `;
+      }
+    });
+  </script>
+</body>
+
+</html>
