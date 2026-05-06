@@ -420,6 +420,18 @@
           sampleSize: 1000
         },
         defaultMetric: { table: "sales", column: "Sales", aggregation: "SUM" },
+        chartCapabilities: {
+          kpi: true,
+          table: true,
+          bar: true,
+          line: true,
+          area: true,
+          pie: true,
+          donut: true,
+          scatter: true,
+          bubble: true,
+          histogram: true
+        },
         fields: [
           {
             table: "sales",
@@ -641,6 +653,110 @@
       return best && best.score / values.length >= 0.6 ? best.format : null;
     }
 
+    class ResultShapeAnalyzer {
+      analyze(rows, columns, intent) {
+        const cols = columns || Object.keys(rows[0] || {});
+        const numeric = [];
+        const categoric = [];
+        const time = [];
+        for (const col of cols) {
+          const values = rows.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
+          if (intent.dimensions?.some(d => d.role === 'time') && (col === 'label' || col === 'period')) time.push(col);
+          else if (values.length && values.every(v => Number.isFinite(Number(v)))) numeric.push(col);
+          else categoric.push(col);
+        }
+        const seriesCount = intent.dimensions?.length > 1 ? new Set(rows.map(r => String(r.label || '').split(' / ')[0])).size : 1;
+        const groupCount = new Set(rows.map(r => String(r.label ?? r.period ?? ''))).size;
+        return {
+          columns: cols,
+          rowCount: rows.length,
+          numeric,
+          categoric,
+          time,
+          numericCount: numeric.length,
+          categoricCount: categoric.length,
+          timeCount: time.length,
+          seriesCount,
+          groupCount,
+          hasMetric: numeric.length > 0,
+          oneObservationPerGroup: groupCount === rows.length
+        };
+      }
+    }
+
+    class ChartDecisionTree {
+      constructor(capabilities = {}) {
+        this.capabilities = { kpi: true, table: true, bar: true, line: true, area: true, pie: true, ...capabilities };
+      }
+
+      decide(shape, intent) {
+        if (intent.analysisType === 'list_values') return this.decision(['CATEGORIC only', '1 variable'], 'table', ['bar'], 'Listing distinct categorical values is clearest as a table.');
+        if (intent.analysisType === 'yoy') return this.decision(['TIME SERIES', '1 series', 'year-over-year calculation'], 'table', ['line'], 'YoY includes multiple derived numeric columns, so a table preserves exact values and change percentages.');
+        if (!intent.dimensions?.length && shape.numericCount === 1) return this.decision(['NUMERIC only', '1 variable', 'single aggregate'], 'kpi', ['bar'], 'A single aggregate value is best shown as a KPI.');
+        if (intent.dimensions?.[0]?.role === 'time') {
+          const path = ['TIME SERIES', shape.seriesCount > 1 ? 'several series' : '1 series'];
+          if (shape.seriesCount > 7) return this.decision([...path, 'many series'], 'table', ['heatmap', 'small multiples'], 'More than 7 line series would be hard to read; table is the enabled fallback.');
+          return this.decision([...path, shape.seriesCount > 1 ? 'few series (<7)' : 'single metric over ordered time'], 'line', ['area', 'bar'], 'Time is ordered, so a line chart shows trend direction clearly.');
+        }
+        if (shape.categoricCount >= 1 && shape.numericCount === 1) {
+          const path = ['NUMERIC + CATEGORIC (mixed)', 'one observation per group', '1 numeric'];
+          if (shape.rowCount <= 5 && !intent.sort?.direction && this.capabilities.pie) return this.decision(path, 'pie', ['bar', 'donut'], 'Few categories with one numeric can be shown as part-to-whole; anti-pattern guard prevents large pies.');
+          return this.decision(path, 'bar', ['lollipop', 'treemap'], 'One numeric metric grouped by categories is most reliably compared with a bar chart.');
+        }
+        if (shape.numericCount === 2 && shape.categoricCount === 0) return this.decision(['NUMERIC only', '2 variables', shape.rowCount < 2000 ? 'few points (<2000)' : 'many points'], shape.rowCount < 2000 ? 'scatter' : 'table', ['2D density', 'hex bin'], 'Two numeric variables can be compared as points; dense renderers are not enabled.');
+        return this.decision(['Fallback'], 'table', [], 'The result shape is best preserved as a table with the enabled renderers.');
+      }
+
+      decision(path, recommended, alternatives, reason) {
+        const rendered = this.capabilities[recommended] ? recommended : 'table';
+        return {
+          path,
+          recommended,
+          rendered,
+          alternatives,
+          reason: rendered === recommended ? reason : `${reason} ${recommended} is not enabled, so rendering as table.`
+        };
+      }
+    }
+
+    class InsightGenerator {
+      generate(rows, intent, shape) {
+        if (!rows?.length) return ['No rows matched this question.'];
+        if (intent.analysisType === 'list_values') return [`Found ${rows.filter(r => r.label !== null && r.label !== undefined && r.label !== '').length} distinct ${intent.dimensions.map(d => d.label).join(' / ')} values.`];
+        if (intent.analysisType === 'yoy') return this.yoyInsights(rows);
+        if (!intent.dimensions?.length && rows[0]?.value !== undefined) return [`Total ${intent.metric?.label || intent.metric?.column || 'value'} is ${formatValue(rows[0].value, intent.metric?.format)}.`];
+        if (rows[0]?.value !== undefined) return this.groupedMetricInsights(rows, intent);
+        return [];
+      }
+
+      groupedMetricInsights(rows, intent) {
+        const metricFormat = intent.metric?.format;
+        const valid = rows.filter(r => Number.isFinite(Number(r.value)));
+        if (!valid.length) return [];
+        const total = valid.reduce((sum, r) => sum + Number(r.value), 0);
+        const top = [...valid].sort((a, b) => Number(b.value) - Number(a.value))[0];
+        const bottom = [...valid].sort((a, b) => Number(a.value) - Number(b.value))[0];
+        const insights = [];
+        if (top) insights.push(`${top.label} is highest at ${formatValue(top.value, metricFormat)}${total ? ` (${formatValue(Number(top.value) / total, 'percent')} of total)` : ''}.`);
+        if (bottom && bottom.label !== top?.label) insights.push(`${bottom.label} is lowest at ${formatValue(bottom.value, metricFormat)}.`);
+        if (valid.length >= 4) {
+          const avg = total / valid.length;
+          const outliers = valid.filter(r => Number(r.value) > avg * 1.5).map(r => r.label).slice(0, 3);
+          if (outliers.length) insights.push(`Above-average standout categories: ${outliers.join(', ')}.`);
+        }
+        return insights;
+      }
+
+      yoyInsights(rows) {
+        const last = [...rows].reverse().find(r => r.change_percent !== null && r.change_percent !== undefined && r.change_percent !== '');
+        const insights = [];
+        if (last) insights.push(`Latest YoY change is ${formatValue(last.change_percent, 'percent')} (${formatValue(last.change, 'currency')}).`);
+        const best = rows.filter(r => Number.isFinite(Number(r.change_percent))).sort((a, b) => Number(b.change_percent) - Number(a.change_percent))[0];
+        if (best) insights.push(`Strongest YoY growth was ${String(best.period).slice(0, 4)} at ${formatValue(best.change_percent, 'percent')}.`);
+        return insights;
+      }
+    }
+
     class AskDataEngine {
       constructor(config, duckDBManager) {
         this.config = config;
@@ -658,6 +774,9 @@
         this.localeFamily = this.locale.toLowerCase().startsWith('pt') ? 'pt' : 'en';
         this.vocabulary = this.buildVocabulary();
         this.chronoParser = this.localeFamily === 'pt' ? chronoPt : chronoEn;
+        this.shapeAnalyzer = new ResultShapeAnalyzer();
+        this.chartDecisionTree = new ChartDecisionTree(this.askConfig.chartCapabilities || {});
+        this.insightGenerator = new InsightGenerator();
         this.initialized = false;
       }
 
@@ -956,15 +1075,21 @@
         console.info('[AskData] SQL', planned.sql);
         const result = await this.duckDBManager.query(planned.sql);
         const rows = toRows(result).map(row => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v])));
-        const chartType = this.recommendChart(parsed.intent, rows);
+        const columns = rows.length ? Object.keys(rows[0]) : planned.columns;
+        const shape = this.shapeAnalyzer.analyze(rows, columns, parsed.intent);
+        const chartDecision = this.chartDecisionTree.decide(shape, parsed.intent);
+        const insights = this.insightGenerator.generate(rows, parsed.intent, shape);
         return {
           question,
           interpretation: this.describeIntent(parsed.intent),
           intent: parsed.intent,
           sql: planned.sql,
           rows,
-          columns: rows.length ? Object.keys(rows[0]) : planned.columns,
-          chartType,
+          columns,
+          shape,
+          chartDecision,
+          insights,
+          chartType: chartDecision.rendered,
           warnings: parsed.warnings || [],
           confidence: parsed.confidence || 0.85
         };
@@ -1712,22 +1837,23 @@
       _drawAskChart() {
         try { this._askChartInstance?.destroy?.(); } catch (e) {}
         this._askChartInstance = null;
-        if (this._activeTab !== 'askData' || !this._askResult || !['bar', 'line', 'pie'].includes(this._askResult.chartType)) return;
+        if (this._activeTab !== 'askData' || !this._askResult || !['bar', 'line', 'area', 'pie', 'donut'].includes(this._askResult.chartType)) return;
         const canvas = this.querySelector('#ask-data-chart');
         if (!canvas) return;
         const rows = this._askResult.rows || [];
         this._askChartInstance = new Chart(canvas.getContext('2d'), {
-          type: this._askResult.chartType,
+          type: ['area', 'donut'].includes(this._askResult.chartType) ? (this._askResult.chartType === 'area' ? 'line' : 'doughnut') : this._askResult.chartType,
           data: {
             labels: rows.map(row => String(row.label)),
             datasets: [{
               label: this._askResult.interpretation,
               data: rows.map(row => numberValue(row.value)),
+              fill: this._askResult.chartType === 'area',
               borderColor: '#406ac1',
-              backgroundColor: ['#406ac1', '#6aa7e8', '#8fd0a6', '#f2bf5e', '#e07a72', '#8d7ae8', '#6cc5c0', '#c0d065']
+              backgroundColor: this._askResult.chartType === 'area' ? '#406ac133' : ['#406ac1', '#6aa7e8', '#8fd0a6', '#f2bf5e', '#e07a72', '#8d7ae8', '#6cc5c0', '#c0d065']
             }]
           },
-          options: { responsive: true, plugins: { legend: { display: this._askResult.chartType === 'pie' } } }
+          options: { responsive: true, scales: this._askResult.chartType === 'bar' ? { y: { beginAtZero: true } } : {}, plugins: { legend: { display: ['pie', 'donut'].includes(this._askResult.chartType) } } }
         });
       }
       async _runAsk() {
@@ -1853,15 +1979,41 @@
               <section class="ask-card">
                 <div class="interpretation"><strong>Interpreted as:</strong> ${result.interpretation}</div>
                 ${(result.warnings || []).map(w => html`<div class="warning">${w}</div>`)}
+                ${this.renderAskDecision(result)}
+                ${this.renderAskInsights(result)}
                 ${this.renderAskResult(result)}
                 <details class="sql-details">
                   <summary>Show SQL and details</summary>
                   <pre>${result.sql}</pre>
+                  <p><strong>Decision path:</strong> ${(result.chartDecision?.path || []).join(' → ')}</p>
+                  <p><strong>Recommended chart:</strong> ${result.chartDecision?.recommended}; <strong>Rendered:</strong> ${result.chartDecision?.rendered}</p>
                   <p><strong>Confidence:</strong> ${Math.round((result.confidence || 0) * 100)}%</p>
                 </details>
               </section>
             ` : nothing}
           </main>
+        `;
+      }
+      renderAskDecision(result) {
+        const decision = result.chartDecision;
+        if (!decision) return nothing;
+        return html`
+          <div class="interpretation">
+            <strong>Chart decision:</strong> ${decision.path.join(' → ')} → ${decision.rendered}.
+            ${decision.reason}
+          </div>
+        `;
+      }
+      renderAskInsights(result) {
+        const insights = result.insights || [];
+        if (!insights.length) return nothing;
+        return html`
+          <div class="interpretation">
+            <strong>Insights:</strong>
+            <ul style="margin:.45rem 0 0 1.1rem;padding:0;">
+              ${insights.map(insight => html`<li>${insight}</li>`)}
+            </ul>
+          </div>
         `;
       }
       renderAskResult(result) {
@@ -1870,7 +2022,7 @@
           const metric = result.intent.metric?.field || result.intent.metric;
           return html`<div class="ask-kpi-value">${formatValue(value, metric?.format)}</div>${this.renderAskTable(result)}`;
         }
-        if (['bar', 'line', 'pie'].includes(result.chartType)) {
+        if (['bar', 'line', 'area', 'pie', 'donut'].includes(result.chartType)) {
           return html`
             <div class="ask-result-grid">
               <div><canvas id="ask-data-chart"></canvas></div>
