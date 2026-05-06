@@ -1,0 +1,54 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Portable BI Dashboard" [level=1] [ref=e4]
+    - generic [ref=e5]: Your Data, Any Data, Instantly Explained
+  - navigation "App sections" [ref=e6]:
+    - button "Dashboard" [ref=e7] [cursor=pointer]
+    - button "Ask Data" [ref=e8] [cursor=pointer]
+  - main [ref=e34]:
+    - generic [ref=e35]:
+      - heading "Ask Data" [level=2] [ref=e36]
+      - generic [ref=e37]:
+        - textbox "Ask your data" [ref=e38]:
+          - /placeholder: sales by region
+          - text: sales by region
+        - button "Ask" [ref=e39] [cursor=pointer]
+      - generic [ref=e40]:
+        - text: "Try:"
+        - button "sales by region" [ref=e41] [cursor=pointer]
+        - text: ·
+        - button "top 10 products by sales" [ref=e42] [cursor=pointer]
+        - text: ·
+        - button "sales over time" [ref=e43] [cursor=pointer]
+        - text: ·
+        - button "sales by category in west" [ref=e44] [cursor=pointer]
+        - text: ·
+        - button "count customers by segment" [ref=e45] [cursor=pointer]
+    - generic [ref=e71]:
+      - generic [ref=e72]:
+        - strong [ref=e73]: "Interpreted as:"
+        - text: SUM(Sales) by Region, sorted descending, limit 25
+      - table [ref=e78]:
+        - rowgroup [ref=e79]:
+          - row "label value" [ref=e80]:
+            - columnheader "label" [ref=e81]
+            - columnheader "value" [ref=e82]
+        - rowgroup [ref=e83]:
+          - row "West $744,294" [ref=e84]:
+            - cell "West" [ref=e85]
+            - cell "$744,294" [ref=e86]
+          - row "East $606,351" [ref=e87]:
+            - cell "East" [ref=e88]
+            - cell "$606,351" [ref=e89]
+          - row "Central $514,251" [ref=e90]:
+            - cell "Central" [ref=e91]
+            - cell "$514,251" [ref=e92]
+          - row "South $396,641" [ref=e93]:
+            - cell "South" [ref=e94]
+            - cell "$396,641" [ref=e95]
+      - group [ref=e96]:
+        - generic "Show SQL and details" [active] [ref=e97]
+        - generic [ref=e98]: SELECT CAST(d1 AS VARCHAR) AS label, value FROM ( SELECT t1_customer."Region" AS "d1", SUM(t0_sales."Sales") AS value FROM "sales" t0_sales JOIN "customer" t1_customer ON t0_sales."Customer ID" = t1_customer."Customer ID" GROUP BY 1 ) q ORDER BY value DESC LIMIT 25
+        - paragraph [ref=e99]:
+          - strong [ref=e100]: "Confidence:"
+          - text: 86%

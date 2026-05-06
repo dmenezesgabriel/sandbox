@@ -10,6 +10,7 @@
   {
     "imports": {
       "@duckdb/duckdb-wasm": "https://esm.sh/@duckdb/duckdb-wasm@1.30.0",
+      "fuse.js": "https://esm.sh/fuse.js@7.0.0",
       "lit": "https://esm.sh/lit@3.1.0",
       "lit/": "https://esm.sh/lit@3.1.0/"
     }
@@ -37,6 +38,35 @@
       font-size: 1.1rem;
       color: #c8d5ee;
       margin-left: .5rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: .5rem;
+      padding: 1rem 2rem 0 2rem;
+      background: #eef3f9;
+      border-bottom: 1px solid #d7e2ef;
+    }
+
+    .tab-button {
+      border: 1px solid #c3d4ea;
+      border-bottom: none;
+      border-radius: .75em .75em 0 0;
+      padding: .75em 1.1em;
+      color: #29466f;
+      background: #e5eef9;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .tab-button.active {
+      background: #fff;
+      color: #23395d;
+      box-shadow: 0 -1px 5px #ccd7e640;
+    }
+
+    #filter-bar {
+      margin: 1.2rem 2rem 0 2rem;
     }
 
     #kpi-cards {
@@ -74,11 +104,6 @@
       margin-bottom: .16em;
     }
 
-    .kpi-trend {
-      color: #2ecc70;
-      font-size: 1.01rem
-    }
-
     #viz-section {
       display: flex;
       flex-wrap: wrap;
@@ -109,7 +134,7 @@
       margin-top: .2em;
     }
 
-    #data-table-wrap {
+    #data-table-wrap, .ask-table-wrap {
       overflow-x: auto;
     }
 
@@ -139,6 +164,111 @@
       border-bottom: none;
     }
 
+    .ask-page {
+      margin: 1.5rem 2rem 2.5rem 2rem;
+    }
+
+    .ask-card {
+      background: #fff;
+      border-radius: 1.05em;
+      box-shadow: 0 2px 14px #c8d2df52;
+      padding: 1.3rem;
+      margin-bottom: 1rem;
+    }
+
+    .ask-input-row {
+      display: flex;
+      gap: .65rem;
+      align-items: center;
+    }
+
+    .ask-input-row input {
+      flex: 1;
+      font-size: 1.05rem;
+      padding: .75em .9em;
+      border: 1.5px solid #b8cae4;
+      border-radius: .65em;
+    }
+
+    .primary-button, .choice-button {
+      border: none;
+      border-radius: .65em;
+      background: #406ac1;
+      color: #fff;
+      font-weight: 700;
+      padding: .8em 1.05em;
+      cursor: pointer;
+    }
+
+    .choice-button {
+      margin: .35rem .35rem 0 0;
+      background: #edf4ff;
+      color: #29466f;
+      border: 1px solid #bfd1ec;
+    }
+
+    .ask-examples {
+      margin-top: .85rem;
+      color: #61748e;
+      font-size: .95rem;
+    }
+
+    .ask-examples button {
+      border: none;
+      background: transparent;
+      color: #315fb8;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 0 .25em;
+      font: inherit;
+    }
+
+    .interpretation {
+      background: #f3f7fc;
+      border: 1px solid #d9e5f4;
+      border-radius: .75em;
+      padding: .85em 1em;
+      color: #2a405f;
+      margin-bottom: 1rem;
+    }
+
+    .warning {
+      background: #fff7e6;
+      border: 1px solid #f0ca75;
+      color: #735111;
+      border-radius: .75em;
+      padding: .85em 1em;
+      margin: .6rem 0;
+    }
+
+    .ask-result-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .ask-kpi-value {
+      font-size: 3rem;
+      color: #23395d;
+      font-weight: 800;
+      margin: .5rem 0;
+    }
+
+    details.sql-details {
+      margin-top: 1rem;
+    }
+
+    details.sql-details pre {
+      white-space: pre-wrap;
+      overflow-x: auto;
+      background: #172033;
+      color: #d8e6ff;
+      border-radius: .7em;
+      padding: 1em;
+      font-size: .9rem;
+    }
+
     #loading-state {
       background: #23395ddc;
       color: #fff;
@@ -164,7 +294,8 @@
     }
 
     @media(max-width:900px) {
-      #viz-section {
+      #viz-section, .ask-result-grid {
+        grid-template-columns: 1fr;
         flex-direction: column;
       }
     }
@@ -173,12 +304,23 @@
 
       #kpi-cards,
       #viz-section,
-      #table-section {
-        margin: .6rem;
+      #table-section,
+      .ask-page,
+      #filter-bar,
+      .tabs {
+        margin-left: .6rem;
+        margin-right: .6rem;
+        padding-left: 0;
+        padding-right: 0;
       }
 
       .chart-card {
         min-width: unset;
+      }
+
+      .ask-input-row {
+        flex-direction: column;
+        align-items: stretch;
       }
     }
   </style>
@@ -186,12 +328,10 @@
 
 <body>
   <portable-bi-dashboard></portable-bi-dashboard>
-  <div id="loading-state" style="display:none">Loading data, please wait…</div>
-  <div id="error-state" style="display:none;color:#e74c3c"></div>
   <script type="module">
     import * as duckdb from '@duckdb/duckdb-wasm';
-    import { LitElement, html, css, nothing } from "lit";
-    import { property, state, customElement } from "lit/decorators.js";
+    import Fuse from 'fuse.js';
+    import { LitElement, html, nothing } from "lit";
 
     class DuckDBManager {
       constructor() {
@@ -233,6 +373,107 @@
         { name: "product", url: "https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/product.csv" },
         { name: "sales", url: "https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/sales.csv" }
       ],
+      askData: {
+        enabled: true,
+        defaultQuestion: "sales by region",
+        maxRows: 25,
+        maxDimensions: 2,
+        maxMetrics: 1,
+        inferRelationships: true,
+        profiling: {
+          maxDistinctValuesPerField: 100,
+          maxSampleRows: 1000
+        },
+        relationshipInference: {
+          autoAcceptThreshold: 0.85,
+          ambiguousThreshold: 0.6,
+          sampleSize: 1000
+        },
+        defaultMetric: { table: "sales", column: "Sales", aggregation: "SUM" },
+        fields: [
+          {
+            table: "sales",
+            column: "Sales",
+            role: "measure",
+            aggregation: "SUM",
+            label: "Sales",
+            synonyms: ["revenue", "amount", "total sales"],
+            format: "currency",
+            default: true,
+            priority: 20
+          },
+          {
+            table: "sales",
+            column: "Order Date",
+            role: "time",
+            label: "Order Date",
+            synonyms: ["date", "time", "month", "year", "over time", "order time"],
+            parseFormat: "%d-%m-%Y",
+            default: true,
+            priority: 10
+          },
+          {
+            table: "sales",
+            column: "Ship Date",
+            role: "time",
+            label: "Ship Date",
+            synonyms: ["ship date", "shipping date"],
+            parseFormat: "%d-%m-%Y"
+          },
+          {
+            table: "customer",
+            column: "Region",
+            role: "dimension",
+            label: "Region",
+            synonyms: ["area", "territory"],
+            priority: 10
+          },
+          {
+            table: "customer",
+            column: "Segment",
+            role: "dimension",
+            label: "Segment",
+            synonyms: ["customer type", "market segment"],
+            priority: 8
+          },
+          {
+            table: "product",
+            column: "Category",
+            role: "dimension",
+            label: "Category",
+            synonyms: ["product category"],
+            priority: 9
+          },
+          {
+            table: "product",
+            column: "Sub-Category",
+            role: "dimension",
+            label: "Sub-Category",
+            synonyms: ["subcategory", "sub category"],
+            priority: 7
+          },
+          {
+            table: "product",
+            column: "Product Name",
+            role: "dimension",
+            label: "Product",
+            synonyms: ["product", "item", "product name"],
+            priority: 10
+          }
+        ],
+        entities: [
+          { label: "Customers", singular: "customer", table: "customer", key: "Customer ID", synonyms: ["clients", "buyers"] },
+          { label: "Orders", singular: "order", table: "sales", key: "Order ID", synonyms: ["purchases"] },
+          { label: "Products", singular: "product", table: "product", key: "Product ID", synonyms: ["items"] }
+        ],
+        examples: [
+          "sales by region",
+          "top 10 products by sales",
+          "sales over time",
+          "sales by category in west",
+          "count customers by segment"
+        ]
+      },
       filters: [
         { field: "Region", label: "Region", source: { table: "customer", column: "Region" }, type: "select" },
         { field: "Category", label: "Category", source: { table: "product", column: "Category" }, type: "select" }
@@ -241,7 +482,7 @@
         {
           title: "Total Sales",
           query: "SELECT SUM(Sales) AS value FROM sales JOIN customer USING(\"Customer ID\") WHERE --filter:Region--",
-          format: v => "$" + Math.round(v).toLocaleString()
+          format: v => "$" + Math.round(Number(v || 0)).toLocaleString()
         },
         {
           title: "Total Customers",
@@ -288,6 +529,631 @@
       ]
     };
 
+    const toRows = result => typeof result?.toArray === "function" ? result.toArray() : result?.rows || result || [];
+    const quoteIdent = name => `"${String(name).replaceAll('"', '""')}"`;
+    const escapeSqlString = value => String(value).replaceAll("'", "''");
+    const norm = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const compact = value => norm(value).replaceAll(' ', '');
+    const singularize = value => String(value || '').replace(/ies$/i, 'y').replace(/s$/i, '');
+    const isIdLike = name => /(^|\s|_|-)(id|key|code|postal|zip|row)(\s|_|-|$)/i.test(name) || / id$/i.test(name);
+    const isNumericType = type => /int|double|float|decimal|numeric|real|hugeint|bigint|smallint|utinyint|uinteger/i.test(type || '');
+    const isDateName = name => /date|time|month|year|timestamp/i.test(name || '');
+    const numberValue = value => typeof value === 'bigint' ? Number(value) : Number(value || 0);
+
+    function formatValue(value, format) {
+      const n = numberValue(value);
+      if (format === 'currency') return "$" + Math.round(n).toLocaleString();
+      if (format === 'percent') return (n * 100).toFixed(1) + "%";
+      if (Number.isFinite(n)) return n.toLocaleString();
+      return String(value ?? '');
+    }
+
+    function fieldKey(table, column) {
+      return `${table}::${column}`;
+    }
+
+    function safeAlias(tableName, index) {
+      return `t${index}_${String(tableName).replace(/[^a-zA-Z0-9_]/g, '_')}`;
+    }
+
+    function detectDateFormat(samples) {
+      const values = samples.map(String).filter(Boolean).slice(0, 200);
+      if (!values.length) return null;
+      const candidates = [
+        { fmt: "%Y-%m-%d", re: /^(\d{4})-(\d{1,2})-(\d{1,2})$/, order: ['y', 'm', 'd'] },
+        { fmt: "%d-%m-%Y", re: /^(\d{1,2})-(\d{1,2})-(\d{4})$/, order: ['d', 'm', 'y'] },
+        { fmt: "%m-%d-%Y", re: /^(\d{1,2})-(\d{1,2})-(\d{4})$/, order: ['m', 'd', 'y'] },
+        { fmt: "%d/%m/%Y", re: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, order: ['d', 'm', 'y'] },
+        { fmt: "%m/%d/%Y", re: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, order: ['m', 'd', 'y'] },
+        { fmt: "%Y/%m/%d", re: /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/, order: ['y', 'm', 'd'] }
+      ];
+      let best = null;
+      for (const c of candidates) {
+        let score = 0;
+        for (const value of values) {
+          const m = value.match(c.re);
+          if (!m) continue;
+          const parts = Object.fromEntries(c.order.map((name, i) => [name, Number(m[i + 1])]));
+          if (parts.y >= 1900 && parts.y <= 2200 && parts.m >= 1 && parts.m <= 12 && parts.d >= 1 && parts.d <= 31) score++;
+        }
+        if (!best || score > best.score) best = { format: c.fmt, score };
+      }
+      return best && best.score / values.length >= 0.6 ? best.format : null;
+    }
+
+    class AskDataEngine {
+      constructor(config, duckDBManager) {
+        this.config = config;
+        this.askConfig = config.askData || {};
+        this.duckDBManager = duckDBManager;
+        this.catalog = [];
+        this.fieldByKey = new Map();
+        this.relationships = [];
+        this.ambiguousRelationships = [];
+        this.entities = [];
+        this.fieldFuse = null;
+        this.valueFuse = null;
+        this.valueItems = [];
+        this.initialized = false;
+      }
+
+      async initialize() {
+        if (this.initialized) return;
+        console.info('[AskData] Building semantic catalog');
+        await this.buildCatalog();
+        this.buildFuseIndexes();
+        this.initialized = true;
+        console.info('[AskData] Ready', {
+          fields: this.catalog.length,
+          relationships: this.relationships,
+          ambiguousRelationships: this.ambiguousRelationships
+        });
+      }
+
+      async buildCatalog() {
+        const overrides = new Map((this.askConfig.fields || []).map(f => [fieldKey(f.table, f.column), f]));
+        const tableProfiles = new Map();
+        const fields = [];
+
+        for (const source of this.config.dataSources || []) {
+          const table = source.name;
+          const countRows = toRows(await this.duckDBManager.query(`SELECT COUNT(*) AS row_count FROM ${quoteIdent(table)}`));
+          const rowCount = numberValue(countRows[0]?.row_count ?? countRows[0]?.rowCount ?? countRows[0]?.count_star ?? 0);
+          tableProfiles.set(table, { rowCount });
+
+          const schemaRows = toRows(await this.duckDBManager.query(`DESCRIBE SELECT * FROM ${quoteIdent(table)}`));
+          for (const col of schemaRows) {
+            const column = col.column_name || col.columnName || col.name;
+            const type = col.column_type || col.columnType || col.type || '';
+            if (!column) continue;
+            const override = overrides.get(fieldKey(table, column)) || {};
+            const sampleRows = toRows(await this.duckDBManager.query(`SELECT ${quoteIdent(column)} AS v FROM ${quoteIdent(table)} WHERE ${quoteIdent(column)} IS NOT NULL LIMIT ${this.askConfig.profiling?.maxSampleRows || 1000}`));
+            const samples = sampleRows.map(r => r.v).filter(v => v !== null && v !== undefined);
+            const distinctRows = toRows(await this.duckDBManager.query(`SELECT COUNT(DISTINCT ${quoteIdent(column)}) AS distinct_count FROM ${quoteIdent(table)}`));
+            const cardinality = numberValue(distinctRows[0]?.distinct_count ?? 0);
+            const nameLooksDate = isDateName(column);
+            const parseFormat = override.parseFormat || (nameLooksDate ? detectDateFormat(samples) : null);
+            let role = override.role;
+            if (!role) {
+              if (parseFormat || nameLooksDate) role = 'time';
+              else if (isIdLike(column)) role = 'key';
+              else if (isNumericType(type)) role = 'measure';
+              else role = 'dimension';
+            }
+            const lowEnoughCardinality = cardinality <= (this.askConfig.profiling?.maxDistinctValuesPerField || 100);
+            const sampleValues = (role === 'dimension' && lowEnoughCardinality)
+              ? [...new Set(samples.map(String))].sort().slice(0, this.askConfig.profiling?.maxDistinctValuesPerField || 100)
+              : [];
+            const field = {
+              id: fieldKey(table, column),
+              table,
+              column,
+              type,
+              role,
+              label: override.label || column,
+              aggregation: override.aggregation || (role === 'measure' ? 'SUM' : undefined),
+              synonyms: override.synonyms || [],
+              description: override.description || '',
+              format: override.format,
+              default: !!override.default,
+              priority: override.priority || 0,
+              parseFormat,
+              sampleValues,
+              samples: samples.slice(0, 100),
+              cardinality,
+              rowCount
+            };
+            fields.push(field);
+            this.fieldByKey.set(field.id, field);
+          }
+        }
+
+        this.catalog = fields;
+        this.inferRelationships(fields, tableProfiles);
+        this.buildEntities(fields);
+      }
+
+      inferRelationships(fields, tableProfiles) {
+        const explicit = this.config.relationships || this.askConfig.relationships || [];
+        if (explicit.length) {
+          this.relationships = explicit.map(r => ({ ...r, confidence: 1, inferred: false }));
+          return;
+        }
+        if (this.askConfig.inferRelationships === false) return;
+
+        const byColumn = new Map();
+        for (const f of fields.filter(f => f.role === 'key' || isIdLike(f.column))) {
+          const key = compact(f.column);
+          if (!byColumn.has(key)) byColumn.set(key, []);
+          byColumn.get(key).push(f);
+        }
+
+        const accepted = [];
+        const ambiguous = [];
+        for (const matches of byColumn.values()) {
+          for (let i = 0; i < matches.length; i++) {
+            for (let j = i + 1; j < matches.length; j++) {
+              const a = matches[i], b = matches[j];
+              if (a.table === b.table) continue;
+              const overlap = this.sampleOverlap(a.samples, b.samples);
+              const aUnique = a.cardinality / Math.max(1, a.rowCount);
+              const bUnique = b.cardinality / Math.max(1, b.rowCount);
+              const oneSideLookup = (aUnique > 0.75 && bUnique < 0.95) || (bUnique > 0.75 && aUnique < 0.95);
+              let score = 0.45;
+              if (/id$/i.test(norm(a.column).replaceAll(' ', ''))) score += 0.25;
+              if (overlap > 0.2) score += 0.2;
+              if (oneSideLookup) score += 0.1;
+              const rel = {
+                left: { table: a.table, column: a.column },
+                right: { table: b.table, column: b.column },
+                confidence: Number(score.toFixed(2)),
+                inferred: true,
+                overlap: Number(overlap.toFixed(2))
+              };
+              if (score >= (this.askConfig.relationshipInference?.autoAcceptThreshold || 0.85)) accepted.push(rel);
+              else if (score >= (this.askConfig.relationshipInference?.ambiguousThreshold || 0.6)) ambiguous.push(rel);
+            }
+          }
+        }
+        this.relationships = accepted;
+        this.ambiguousRelationships = ambiguous;
+      }
+
+      sampleOverlap(aValues, bValues) {
+        const a = new Set(aValues.map(String));
+        const b = new Set(bValues.map(String));
+        if (!a.size || !b.size) return 0;
+        let overlap = 0;
+        for (const v of a) if (b.has(v)) overlap++;
+        return overlap / Math.min(a.size, b.size);
+      }
+
+      buildEntities(fields) {
+        const configured = this.askConfig.entities || [];
+        const entities = configured.map(e => ({
+          ...e,
+          field: this.fieldByKey.get(fieldKey(e.table, e.key)),
+          terms: [e.label, e.singular, ...(e.synonyms || [])].filter(Boolean).map(norm)
+        })).filter(e => e.field);
+
+        for (const field of fields.filter(f => f.role === 'key' && / id$/i.test(f.column))) {
+          const base = field.column.replace(/\s*ID$/i, '');
+          if (!entities.some(e => e.table === field.table && e.key === field.column)) {
+            entities.push({
+              label: `${base}s`,
+              singular: base,
+              table: field.table,
+              key: field.column,
+              field,
+              terms: [norm(base), norm(`${base}s`)]
+            });
+          }
+        }
+        this.entities = entities;
+      }
+
+      buildFuseIndexes() {
+        const fieldItems = this.catalog.map(field => ({
+          field,
+          text: [field.label, field.column, ...(field.synonyms || [])].join(' '),
+          label: field.label,
+          column: field.column,
+          synonyms: field.synonyms || [],
+          role: field.role
+        }));
+        this.fieldFuse = new Fuse(fieldItems, {
+          includeScore: true,
+          threshold: 0.35,
+          keys: [
+            { name: 'label', weight: 0.5 },
+            { name: 'column', weight: 0.3 },
+            { name: 'synonyms', weight: 0.4 },
+            { name: 'text', weight: 0.1 }
+          ]
+        });
+
+        this.valueItems = [];
+        for (const field of this.catalog.filter(f => f.role === 'dimension')) {
+          for (const value of field.sampleValues || []) {
+            this.valueItems.push({ value, normalizedValue: norm(value), field });
+          }
+        }
+        this.valueFuse = new Fuse(this.valueItems, {
+          includeScore: true,
+          threshold: 0.2,
+          keys: ['value', 'normalizedValue']
+        });
+      }
+
+      async ask(question) {
+        await this.initialize();
+        const parsed = this.parseQuestion(question);
+        if (parsed.error) return parsed;
+        if (parsed.clarification) return parsed;
+        const planned = this.planSql(parsed.intent);
+        if (planned.error) return planned;
+        console.info('[AskData] SQL', planned.sql);
+        const result = await this.duckDBManager.query(planned.sql);
+        const rows = toRows(result).map(row => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v])));
+        const chartType = this.recommendChart(parsed.intent, rows);
+        return {
+          question,
+          interpretation: this.describeIntent(parsed.intent),
+          intent: parsed.intent,
+          sql: planned.sql,
+          rows,
+          columns: rows.length ? Object.keys(rows[0]) : planned.columns,
+          chartType,
+          warnings: parsed.warnings || [],
+          confidence: parsed.confidence || 0.85
+        };
+      }
+
+      parseQuestion(question) {
+        const q = norm(question);
+        const warnings = [];
+        if (!q) return { error: 'Ask a question first.' };
+        const unsupportedMetric = this.detectUnsupportedMetric(q);
+        if (unsupportedMetric) {
+          const available = this.catalog.filter(f => f.role === 'measure').map(f => f.label).join(', ') || 'none';
+          return {
+            error: `I could not find a "${unsupportedMetric}" metric in this dataset. Available measures: ${available}.`,
+            suggestions: this.catalog.filter(f => f.role === 'measure').slice(0, 4).map(f => question.replace(new RegExp(unsupportedMetric, 'ig'), f.label.toLowerCase()))
+          };
+        }
+
+        const topMatch = q.match(/\b(top|bottom)\s+(\d+)\b/);
+        const limit = topMatch ? Math.min(Number(topMatch[2]), this.askConfig.maxRows || 25) : (this.askConfig.maxRows || 25);
+        const sortDirection = topMatch?.[1] === 'bottom' ? 'ASC' : 'DESC';
+        const isRanking = !!topMatch;
+        const timeGrain = this.detectTimeGrain(q);
+        const isCount = /\b(count|number of|how many)\b/.test(q);
+
+        let metric = null;
+        let countEntity = null;
+        if (isCount) {
+          countEntity = this.entities.find(entity => entity.terms.some(term => new RegExp(`\\b${term}\\b`).test(q)));
+          metric = countEntity ? { kind: 'count_distinct', entity: countEntity, field: countEntity.field, label: countEntity.label } : { kind: 'count_star', label: 'Records' };
+        } else {
+          metric = this.findBestFieldInText(q, 'measure') || this.getDefaultMetric();
+        }
+
+        const dimensions = [];
+        const topDimensionPhrase = this.extractTopDimensionPhrase(q);
+        const byPhrases = this.extractByPhrases(q);
+        if (topDimensionPhrase) {
+          const field = this.resolveFieldPhrase(topDimensionPhrase, ['dimension', 'time']);
+          if (field.clarification) return field;
+          if (field.field) dimensions.push(field.field);
+        }
+        for (const phrase of byPhrases) {
+          if (dimensions.length >= (this.askConfig.maxDimensions || 2)) break;
+          if (['month', 'year', 'day', 'date', 'time'].includes(phrase) || /over time/.test(q)) continue;
+          const field = this.resolveFieldPhrase(phrase, ['dimension', 'time']);
+          if (field.clarification) return field;
+          if (field.field && !dimensions.some(d => d.id === field.field.id)) dimensions.push(field.field);
+        }
+        if ((timeGrain || /\bover time\b|\btrend\b/.test(q)) && !dimensions.some(d => d.role === 'time')) {
+          const timeField = this.getDefaultTimeField();
+          if (timeField) dimensions.unshift(timeField);
+          else warnings.push('I could not find a date/time field for a trend.');
+        }
+        if (!dimensions.length && isCount) {
+          const byAfterCount = byPhrases[0];
+          if (byAfterCount) {
+            const field = this.resolveFieldPhrase(byAfterCount, ['dimension', 'time']);
+            if (field.field) dimensions.push(field.field);
+          }
+        }
+
+        const filters = this.detectFilters(q, dimensions);
+        if (filters.clarification) return filters;
+
+        return {
+          intent: {
+            question,
+            analysisType: dimensions.some(d => d.role === 'time') ? 'trend' : (isRanking || dimensions.length ? 'ranking' : 'kpi'),
+            metric,
+            dimensions: dimensions.slice(0, this.askConfig.maxDimensions || 2),
+            filters: filters.filters,
+            sort: { by: 'value', direction: sortDirection },
+            limit,
+            timeGrain: timeGrain || (dimensions.some(d => d.role === 'time') ? 'month' : undefined)
+          },
+          warnings,
+          confidence: 0.86
+        };
+      }
+
+      detectUnsupportedMetric(q) {
+        const knownMetricTerms = new Set(this.catalog.filter(f => f.role === 'measure').flatMap(f => [f.label, f.column, ...(f.synonyms || [])].map(norm)));
+        for (const term of ['profit', 'margin', 'earnings', 'cost']) {
+          if (new RegExp(`\\b${term}\\b`).test(q) && !knownMetricTerms.has(term)) return term;
+        }
+        return null;
+      }
+
+      detectTimeGrain(q) {
+        if (/\bday|daily\b/.test(q)) return 'day';
+        if (/\bmonth|monthly\b|over time|trend/.test(q)) return 'month';
+        if (/\byear|yearly|annual\b/.test(q)) return 'year';
+        return null;
+      }
+
+      extractTopDimensionPhrase(q) {
+        const m = q.match(/\b(?:top|bottom)\s+\d+\s+(.+?)\s+by\s+/);
+        return m ? singularize(m[1].replace(/\b(by|with|for|in)\b.*$/, '').trim()) : null;
+      }
+
+      extractByPhrases(q) {
+        const m = q.match(/\bby\s+(.+)$/);
+        if (!m) return [];
+        let rest = m[1]
+          .replace(/\b(in|for|where|with)\b.+$/i, '')
+          .replace(/\bsorted.*$/i, '')
+          .trim();
+        if (!rest) return [];
+        return rest.split(/\s+and\s+|\s*,\s*/).map(p => singularize(p.trim())).filter(Boolean);
+      }
+
+      findBestFieldInText(q, role) {
+        const candidates = [];
+        for (const field of this.catalog.filter(f => f.role === role)) {
+          const terms = [field.label, field.column, ...(field.synonyms || [])].map(norm).filter(Boolean);
+          for (const term of terms) {
+            if (new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(q)) {
+              candidates.push({ field, score: term.length + (field.priority || 0) });
+            }
+          }
+        }
+        candidates.sort((a, b) => b.score - a.score);
+        return candidates[0]?.field || null;
+      }
+
+      resolveFieldPhrase(phrase, roles) {
+        const clean = norm(phrase);
+        if (!clean) return { field: null };
+        const directByField = new Map();
+        for (const field of this.catalog.filter(f => roles.includes(f.role))) {
+          const terms = [...new Set([field.label, field.column, ...(field.synonyms || [])].map(norm).filter(Boolean))];
+          for (const term of terms) {
+            if (clean === term || clean === singularize(term) || term === singularize(clean)) {
+              const score = 1 + (field.priority || 0) / 100;
+              const previous = directByField.get(field.id);
+              if (!previous || score > previous.score) directByField.set(field.id, { field, score });
+            }
+          }
+        }
+        const direct = [...directByField.values()];
+        if (direct.length) {
+          direct.sort((a, b) => b.score - a.score);
+          if (direct[1] && direct[0].score - direct[1].score < 0.03) {
+            return this.fieldClarification(`Which field did you mean by "${phrase}"?`, direct.slice(0, 4).map(d => d.field));
+          }
+          return { field: direct[0].field };
+        }
+        const results = this.fieldFuse.search(clean)
+          .filter(r => roles.includes(r.item.field.role))
+          .slice(0, 4);
+        if (!results.length || results[0].score > 0.28) return { field: null };
+        if (results[1] && results[1].score - results[0].score < 0.04) {
+          return this.fieldClarification(`Which field did you mean by "${phrase}"?`, results.map(r => r.item.field));
+        }
+        return { field: results[0].item.field };
+      }
+
+      fieldClarification(message, fields) {
+        return {
+          clarification: {
+            message,
+            choices: fields.map(field => ({ label: `${field.label} (${field.table}.${field.column})`, replacement: field.label }))
+          }
+        };
+      }
+
+      detectFilters(q, dimensions) {
+        const matches = [];
+        for (const item of this.valueItems) {
+          const v = item.normalizedValue;
+          if (!v || v.length < 2) continue;
+          const pattern = v.includes(' ') ? v.replace(/\s+/g, '\\s+') : `\\b${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`;
+          if (new RegExp(pattern).test(q)) matches.push(item);
+        }
+        const byValue = new Map();
+        for (const match of matches.sort((a, b) => b.normalizedValue.length - a.normalizedValue.length)) {
+          if ([...byValue.keys()].some(v => v.includes(match.normalizedValue))) continue;
+          if (!byValue.has(match.normalizedValue)) byValue.set(match.normalizedValue, []);
+          byValue.get(match.normalizedValue).push(match);
+        }
+        const filters = [];
+        for (const [value, items] of byValue) {
+          const uniqueFields = [...new Map(items.map(i => [i.field.id, i])).values()];
+          if (uniqueFields.length > 1) {
+            const cueHasFieldName = uniqueFields.find(i => q.includes(norm(i.field.label)) || q.includes(norm(i.field.column)));
+            if (cueHasFieldName) {
+              filters.push({ field: cueHasFieldName.field, operator: '=', value: cueHasFieldName.value });
+            } else {
+              return {
+                clarification: {
+                  message: `Which field should "${items[0].value}" filter?`,
+                  choices: uniqueFields.slice(0, 5).map(i => ({ label: `${i.field.label} = ${i.value}`, replacement: `${i.field.label} ${i.value}` }))
+                }
+              };
+            }
+          } else {
+            const item = uniqueFields[0];
+            filters.push({ field: item.field, operator: '=', value: item.value });
+          }
+        }
+        return { filters };
+      }
+
+      getDefaultMetric() {
+        const explicit = this.askConfig.defaultMetric;
+        if (explicit) {
+          const field = this.fieldByKey.get(fieldKey(explicit.table, explicit.column));
+          if (field) return field;
+        }
+        const measures = this.catalog.filter(f => f.role === 'measure');
+        return measures.find(f => f.default) || measures.sort((a, b) => this.measurePriority(b) - this.measurePriority(a))[0] || { kind: 'count_star', label: 'Records' };
+      }
+
+      measurePriority(field) {
+        const n = norm(field.label + ' ' + field.column);
+        const names = ['sales', 'revenue', 'amount', 'profit', 'margin', 'quantity', 'count', 'total', 'value'];
+        const index = names.findIndex(name => n.includes(name));
+        return (field.priority || 0) + (index >= 0 ? 100 - index : 0);
+      }
+
+      getDefaultTimeField() {
+        const times = this.catalog.filter(f => f.role === 'time');
+        return times.find(f => f.default) || times.sort((a, b) => (b.priority || 0) - (a.priority || 0))[0];
+      }
+
+      planSql(intent) {
+        const fields = [intent.metric?.field || intent.metric, ...intent.dimensions, ...intent.filters.map(f => f.field)].filter(f => f && f.table);
+        const baseTable = intent.metric?.field?.table || intent.metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
+        const neededTables = [...new Set([baseTable, ...fields.map(f => f.table)])];
+        const joinPlan = this.buildJoinPlan(baseTable, neededTables);
+        if (joinPlan.error) return joinPlan;
+
+        const aliases = new Map(joinPlan.tables.map((table, i) => [table, safeAlias(table, i)]));
+        const selectParts = [];
+        const groupParts = [];
+        const labelParts = [];
+        for (const dim of intent.dimensions) {
+          const alias = aliases.get(dim.table);
+          let expr;
+          if (dim.role === 'time') {
+            const isNativeDate = /date|timestamp|time/i.test(dim.type || '');
+            const parsed = isNativeDate
+              ? `${alias}.${quoteIdent(dim.column)}`
+              : (dim.parseFormat ? `STRPTIME(CAST(${alias}.${quoteIdent(dim.column)} AS VARCHAR), '${dim.parseFormat}')` : `TRY_CAST(${alias}.${quoteIdent(dim.column)} AS DATE)`);
+            expr = `DATE_TRUNC('${intent.timeGrain || 'month'}', ${parsed})`;
+          } else {
+            expr = `${alias}.${quoteIdent(dim.column)}`;
+          }
+          const dimAlias = `d${selectParts.length + 1}`;
+          selectParts.push(`${expr} AS ${quoteIdent(dimAlias)}`);
+          groupParts.push(expr);
+          labelParts.push(`CAST(${quoteIdent(dimAlias)} AS VARCHAR)`);
+        }
+
+        let metricExpr;
+        let metricFormat;
+        if (intent.metric?.kind === 'count_star') {
+          metricExpr = 'COUNT(*)';
+        } else if (intent.metric?.kind === 'count_distinct') {
+          const f = intent.metric.field;
+          metricExpr = `COUNT(DISTINCT ${aliases.get(f.table)}.${quoteIdent(f.column)})`;
+        } else {
+          const m = intent.metric;
+          metricFormat = m.format;
+          metricExpr = `${m.aggregation || 'SUM'}(${aliases.get(m.table)}.${quoteIdent(m.column)})`;
+        }
+
+        const whereParts = intent.filters.map(filter => `${aliases.get(filter.field.table)}.${quoteIdent(filter.field.column)} = '${escapeSqlString(filter.value)}'`);
+        const from = `${quoteIdent(baseTable)} ${aliases.get(baseTable)}`;
+        const joins = joinPlan.joins.map(rel => {
+          const leftAlias = aliases.get(rel.left.table);
+          const rightAlias = aliases.get(rel.right.table);
+          const joinTable = rel.right.table;
+          return `JOIN ${quoteIdent(joinTable)} ${rightAlias} ON ${leftAlias}.${quoteIdent(rel.left.column)} = ${rightAlias}.${quoteIdent(rel.right.column)}`;
+        });
+
+        let sql;
+        if (intent.dimensions.length) {
+          const innerSelect = [...selectParts, `${metricExpr} AS value`].join(',\n  ');
+          const inner = `SELECT\n  ${innerSelect}\nFROM ${from}\n${joins.join('\n')}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}\nGROUP BY ${groupParts.map((_, i) => i + 1).join(', ')}`;
+          const labelExpr = intent.dimensions.length === 1 ? `CAST(d1 AS VARCHAR)` : intent.dimensions.map((_, i) => `CAST(d${i + 1} AS VARCHAR)`).join(` || ' / ' || `);
+          const orderBy = intent.dimensions[0]?.role === 'time' ? 'label ASC' : `value ${intent.sort?.direction || 'DESC'}`;
+          sql = `SELECT ${labelExpr} AS label, value\nFROM (\n${inner}\n) q\nORDER BY ${orderBy}\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
+        } else {
+          sql = `SELECT ${metricExpr} AS value\nFROM ${from}\n${joins.join('\n')}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}`;
+        }
+        return { sql, columns: intent.dimensions.length ? ['label', 'value'] : ['value'], metricFormat };
+      }
+
+      buildJoinPlan(baseTable, neededTables) {
+        const tables = [baseTable];
+        const joins = [];
+        for (const table of neededTables) {
+          if (tables.includes(table)) continue;
+          const path = this.findRelationshipPath(tables, table);
+          if (!path) return { error: `I do not know how to join ${baseTable} to ${table}. Add a relationship or confirm an inferred join.` };
+          for (const rel of path) {
+            const leftKnown = tables.includes(rel.left.table);
+            const rightKnown = tables.includes(rel.right.table);
+            if (leftKnown && !rightKnown) {
+              joins.push(rel);
+              tables.push(rel.right.table);
+            } else if (rightKnown && !leftKnown) {
+              joins.push({ left: rel.right, right: rel.left, confidence: rel.confidence, inferred: rel.inferred });
+              tables.push(rel.left.table);
+            }
+          }
+        }
+        return { tables, joins };
+      }
+
+      findRelationshipPath(startTables, targetTable) {
+        const queue = startTables.map(table => ({ table, path: [] }));
+        const visited = new Set(startTables);
+        while (queue.length) {
+          const current = queue.shift();
+          if (current.table === targetTable) return current.path;
+          for (const rel of this.relationships) {
+            const next = rel.left.table === current.table ? rel.right.table : (rel.right.table === current.table ? rel.left.table : null);
+            if (!next || visited.has(next)) continue;
+            visited.add(next);
+            queue.push({ table: next, path: [...current.path, rel] });
+          }
+        }
+        return null;
+      }
+
+      recommendChart(intent, rows) {
+        if (!intent.dimensions.length) return 'kpi';
+        if (intent.dimensions[0].role === 'time') return 'line';
+        if (intent.dimensions.length === 1 && rows.length <= 6 && intent.analysisType !== 'ranking') return 'pie';
+        if (intent.dimensions.length <= 2) return 'bar';
+        return 'table';
+      }
+
+      describeIntent(intent) {
+        const metric = intent.metric?.kind === 'count_star'
+          ? 'Count records'
+          : intent.metric?.kind === 'count_distinct'
+            ? `Count distinct ${intent.metric.label}`
+            : `${intent.metric?.aggregation || 'SUM'}(${intent.metric?.label || intent.metric?.column})`;
+        const dims = intent.dimensions.length ? ` by ${intent.dimensions.map(d => d.label).join(' and ')}` : '';
+        const filters = intent.filters.length ? ` where ${intent.filters.map(f => `${f.field.label} = ${f.value}`).join(' and ')}` : '';
+        const grain = intent.dimensions.some(d => d.role === 'time') ? ` (${intent.timeGrain || 'month'})` : '';
+        const limit = intent.dimensions.length ? `, sorted ${intent.sort?.direction === 'ASC' ? 'ascending' : 'descending'}, limit ${intent.limit}` : '';
+        return `${metric}${dims}${grain}${filters}${limit}`;
+      }
+    }
+
     customElements.define('portable-bi-dashboard', class extends LitElement {
       createRenderRoot() { return this; }
       static properties = {
@@ -297,6 +1163,12 @@
         _kpiResults: { state: true },
         _chartData: { state: true },
         _tableRows: { state: true },
+        _activeTab: { state: true },
+        _askQuestion: { state: true },
+        _askResult: { state: true },
+        _askLoading: { state: true },
+        _askError: { state: true },
+        _askClarification: { state: true },
         loading: { state: true },
         error: { state: true }
       };
@@ -308,8 +1180,15 @@
         this._kpiResults = [];
         this._chartData = [];
         this._tableRows = [];
+        this._activeTab = 'dashboard';
+        this._askQuestion = DASHBOARD_CONFIG.askData.defaultQuestion;
+        this._askResult = null;
+        this._askLoading = false;
+        this._askError = '';
+        this._askClarification = null;
         this.loading = false;
         this.error = '';
+        this.askEngine = new AskDataEngine(this.config, duckDBManager);
       }
       connectedCallback() {
         super.connectedCallback();
@@ -318,44 +1197,38 @@
       async _initDashboard() {
         this.loading = true;
         this.error = '';
-        // Setup data sources
         try {
           for (const s of this.config.dataSources) {
-            await duckDBManager.query(`CREATE OR REPLACE VIEW ${s.name} AS SELECT * FROM read_csv_auto('${s.url}')`);
+            await duckDBManager.query(`CREATE OR REPLACE VIEW ${quoteIdent(s.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(s.url)}')`);
           }
-          // Gather filter options
+          await this.askEngine.initialize();
           let filterOptions = {};
           for (const filter of this.config.filters) {
-            let optq = `SELECT DISTINCT ${filter.source.column} AS val FROM ${filter.source.table} ORDER BY val`;
+            let optq = `SELECT DISTINCT ${quoteIdent(filter.source.column)} AS val FROM ${quoteIdent(filter.source.table)} ORDER BY val`;
             let optres = await duckDBManager.query(optq);
-            let opts = (typeof optres.toArray === 'function' ? optres.toArray() : optres.rows || optres).map(x => x.val);
+            let opts = toRows(optres).map(x => x.val);
             opts.unshift('All');
             filterOptions[filter.field] = opts;
-            // Initialize selected
             if (!this.filters[filter.field]) this.filters[filter.field] = 'All';
           }
           this._filterOptions = filterOptions;
-          // Run KPIs
           let kpiResults = [];
           for (const kpi of this.config.kpis) {
             let q = kpi.query;
             for (const filter of (this.config.filters || [])) {
               const val = this.filters[filter.field] || 'All';
-              const filterExpr = (val && val !== 'All') ? `${filter.source.table}.${filter.source.column} = '${val.replace(/'/g, "''")}'` : '1=1';
+              const filterExpr = (val && val !== 'All') ? `${filter.source.table}.${quoteIdent(filter.source.column)} = '${escapeSqlString(val)}'` : '1=1';
               q = q.replaceAll(`--filter:${filter.field}--`, filterExpr);
             }
             let r = await duckDBManager.query(q);
-            let v = (typeof r.toArray === 'function' ? r.toArray() : r.rows || r)[0]?.value;
+            let v = toRows(r)[0]?.value;
             kpiResults.push(v);
           }
           this._kpiResults = kpiResults;
-          // Charts
           let chartData = [];
           for (const chartDef of this.config.charts) {
             let q = chartDef.query;
-            // map: table name -> alias (if any)
             let aliasMap = {};
-            // scan from ... JOIN table alias ... or FROM table alias ...
             (q.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/gi) || []).forEach(s => {
                 const m = s.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/i);
                 if (m) aliasMap[m[1]] = m[2];
@@ -363,21 +1236,19 @@
             for (const filter of (this.config.filters || [])) {
               const val = this.filters[filter.field] || 'All';
               let tableRef = aliasMap[filter.source.table] || filter.source.table;
-              const filterExpr = (val && val !== 'All') ? `${tableRef}.${filter.source.column} = '${val.replace(/'/g, "''")}'` : '1=1';
+              const filterExpr = (val && val !== 'All') ? `${tableRef}.${quoteIdent(filter.source.column)} = '${escapeSqlString(val)}'` : '1=1';
               q = q.replaceAll(`--filter:${filter.field}--`, filterExpr);
             }
             let r = await duckDBManager.query(q);
-            let rows = typeof r.toArray === "function" ? r.toArray() : r.rows || r;
-            let labels = rows.map(row => row.label);
-            let data = rows.map(row => row.value);
+            let rows = toRows(r);
+            let labels = rows.map(row => String(row.label));
+            let data = rows.map(row => numberValue(row.value));
             chartData.push({ chartDef, labels, data });
           }
           this._chartData = chartData;
-          // Tables
           let tableRows = [];
           for (const tableDef of this.config.tables) {
             let q = tableDef.query;
-            // map: table name -> alias (if any)
             let aliasMap = {};
             (q.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/gi) || []).forEach(s => {
                 const m = s.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/i);
@@ -386,16 +1257,16 @@
             for (const filter of (this.config.filters || [])) {
               const val = this.filters[filter.field] || 'All';
               let tableRef = aliasMap[filter.source.table] || filter.source.table;
-              const filterExpr = (val && val !== 'All') ? `${tableRef}.${filter.source.column} = '${val.replace(/'/g, "''")}'` : '1=1';
+              const filterExpr = (val && val !== 'All') ? `${tableRef}.${quoteIdent(filter.source.column)} = '${escapeSqlString(val)}'` : '1=1';
               q = q.replaceAll(`--filter:${filter.field}--`, filterExpr);
             }
             let r = await duckDBManager.query(q);
-            let rows = typeof r.toArray === "function" ? r.toArray() : r.rows || r;
-            tableRows.push(rows);
+            tableRows.push(toRows(r));
           }
           this._tableRows = tableRows;
           this.loading = false;
         } catch (err) {
+          console.error(err);
           this.loading = false;
           this.error = 'Failed to load data or render dashboard: ' + err;
         }
@@ -405,23 +1276,23 @@
         this._initDashboard();
       }
       _chartInstances = {};
+      _askChartInstance = null;
       firstUpdated() {
         this._drawCharts();
       }
       updated(changed) {
-        if (changed.has('_chartData')) {
-          this._drawCharts();
-        }
+        if (changed.has('_chartData') || changed.has('_activeTab')) this._drawCharts();
+        if (changed.has('_askResult') || changed.has('_activeTab')) this._drawAskChart();
       }
       _drawCharts() {
-        // Destroy previous charts!
+        if (this._activeTab !== 'dashboard') return;
         if (this._chartInstances) {
           Object.values(this._chartInstances).forEach(inst => {
             try { inst?.destroy?.(); } catch (e) {}
           });
         }
         this._chartInstances = {};
-        this._chartData.forEach(({ chartDef, labels, data }, i) => {
+        this._chartData.forEach(({ chartDef, labels, data }) => {
           const canvas = this.querySelector(`#${chartDef.id}`);
           if (!canvas) return;
           this._chartInstances[chartDef.id] = new Chart(canvas.getContext('2d'), {
@@ -431,6 +1302,53 @@
           });
         });
       }
+      _drawAskChart() {
+        try { this._askChartInstance?.destroy?.(); } catch (e) {}
+        this._askChartInstance = null;
+        if (this._activeTab !== 'askData' || !this._askResult || !['bar', 'line', 'pie'].includes(this._askResult.chartType)) return;
+        const canvas = this.querySelector('#ask-data-chart');
+        if (!canvas) return;
+        const rows = this._askResult.rows || [];
+        this._askChartInstance = new Chart(canvas.getContext('2d'), {
+          type: this._askResult.chartType,
+          data: {
+            labels: rows.map(row => String(row.label)),
+            datasets: [{
+              label: this._askResult.interpretation,
+              data: rows.map(row => numberValue(row.value)),
+              borderColor: '#406ac1',
+              backgroundColor: ['#406ac1', '#6aa7e8', '#8fd0a6', '#f2bf5e', '#e07a72', '#8d7ae8', '#6cc5c0', '#c0d065']
+            }]
+          },
+          options: { responsive: true, plugins: { legend: { display: this._askResult.chartType === 'pie' } } }
+        });
+      }
+      async _runAsk() {
+        this._askLoading = true;
+        this._askError = '';
+        this._askClarification = null;
+        this._askResult = null;
+        try {
+          const result = await this.askEngine.ask(this._askQuestion);
+          if (result.clarification) this._askClarification = result.clarification;
+          else if (result.error) this._askError = result.error;
+          else this._askResult = result;
+        } catch (err) {
+          console.error(err);
+          this._askError = String(err);
+        } finally {
+          this._askLoading = false;
+        }
+      }
+      _chooseClarification(choice) {
+        this._askQuestion = `${this._askQuestion} ${choice.replacement}`;
+        this._runAsk();
+      }
+      _setExample(example) {
+        this._askQuestion = example;
+        this._askError = '';
+        this._askClarification = null;
+      }
       render() {
         const c = this.config;
         return html`
@@ -439,6 +1357,21 @@
             <span class="subtitle">${c.subtitle}</span>
           </header>
 
+          <nav class="tabs" aria-label="App sections">
+            <button class="tab-button ${this._activeTab === 'dashboard' ? 'active' : ''}" @click=${() => { this._activeTab = 'dashboard'; }}>Dashboard</button>
+            <button class="tab-button ${this._activeTab === 'askData' ? 'active' : ''}" @click=${() => { this._activeTab = 'askData'; }}>Ask Data</button>
+          </nav>
+
+          ${this._activeTab === 'dashboard' ? this.renderDashboard(c) : this.renderAskData(c)}
+
+          ${(this.loading || this.error || this._askLoading) ? html`
+            <div id="loading-state" style="display:${(this.loading || this._askLoading)?'block':'none'}">${this._askLoading ? 'Asking data…' : 'Loading data, please wait…'}</div>
+            <div id="error-state" style="display:${this.error?'block':'none'};color:#e74c3c">${this.error}</div>
+          ` : nothing}
+        `;
+      }
+      renderDashboard(c) {
+        return html`
           <form id="filter-bar">
             ${c.filters.map(f => html`
               <label>${f.label}:
@@ -462,7 +1395,7 @@
           </section>
 
           <section id="viz-section">
-            ${this._chartData.map(({ chartDef }, i) => html`
+            ${this._chartData.map(({ chartDef }) => html`
               <div class="chart-card">
                 <canvas id="${chartDef.id}"></canvas>
               </div>
@@ -482,11 +1415,76 @@
               </div>
             </section>
           `)}
+        `;
+      }
+      renderAskData(c) {
+        const result = this._askResult;
+        return html`
+          <main class="ask-page">
+            <section class="ask-card">
+              <h2>Ask Data</h2>
+              <div class="ask-input-row">
+                <input aria-label="Ask your data" .value=${this._askQuestion} @input=${e => this._askQuestion = e.target.value} @keydown=${e => { if (e.key === 'Enter') this._runAsk(); }} placeholder="sales by region">
+                <button class="primary-button" @click=${this._runAsk} ?disabled=${this._askLoading}>Ask</button>
+              </div>
+              <div class="ask-examples">
+                Try:
+                ${(c.askData.examples || []).map((example, i) => html`${i ? ' · ' : ''}<button @click=${() => this._setExample(example)}>${example}</button>`)}
+              </div>
+            </section>
 
-          ${(this.loading || this.error) ? html`
-            <div id="loading-state" style="display:${this.loading?'block':'none'}">Loading data, please wait…</div>
-            <div id="error-state" style="display:${this.error?'block':'none'}">${this.error}</div>
-          ` : nothing}
+            ${this._askError ? html`<div class="warning">${this._askError}</div>` : nothing}
+            ${this._askClarification ? html`
+              <section class="ask-card">
+                <h3>Clarification needed</h3>
+                <p>${this._askClarification.message}</p>
+                ${this._askClarification.choices.map(choice => html`<button class="choice-button" @click=${() => this._chooseClarification(choice)}>${choice.label}</button>`)}
+              </section>
+            ` : nothing}
+
+            ${result ? html`
+              <section class="ask-card">
+                <div class="interpretation"><strong>Interpreted as:</strong> ${result.interpretation}</div>
+                ${(result.warnings || []).map(w => html`<div class="warning">${w}</div>`)}
+                ${this.renderAskResult(result)}
+                <details class="sql-details">
+                  <summary>Show SQL and details</summary>
+                  <pre>${result.sql}</pre>
+                  <p><strong>Confidence:</strong> ${Math.round((result.confidence || 0) * 100)}%</p>
+                </details>
+              </section>
+            ` : nothing}
+          </main>
+        `;
+      }
+      renderAskResult(result) {
+        if (result.chartType === 'kpi') {
+          const value = result.rows[0]?.value;
+          const metric = result.intent.metric?.field || result.intent.metric;
+          return html`<div class="ask-kpi-value">${formatValue(value, metric?.format)}</div>${this.renderAskTable(result)}`;
+        }
+        if (['bar', 'line', 'pie'].includes(result.chartType)) {
+          return html`
+            <div class="ask-result-grid">
+              <div><canvas id="ask-data-chart"></canvas></div>
+              ${this.renderAskTable(result)}
+            </div>
+          `;
+        }
+        return this.renderAskTable(result);
+      }
+      renderAskTable(result) {
+        const columns = result.columns || [];
+        const metric = result.intent.metric?.field || result.intent.metric;
+        return html`
+          <div class="ask-table-wrap">
+            <table>
+              <thead><tr>${columns.map(col => html`<th>${col}</th>`)}</tr></thead>
+              <tbody>
+                ${(result.rows || []).map(row => html`<tr>${columns.map(col => html`<td>${col === 'value' ? formatValue(row[col], metric?.format) : String(row[col] ?? '')}</td>`)}</tr>`)}
+              </tbody>
+            </table>
+          </div>
         `;
       }
     });

@@ -1,0 +1,113 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Portable BI Dashboard" [level=1] [ref=e4]
+    - generic [ref=e5]: Your Data, Any Data, Instantly Explained
+  - navigation "App sections" [ref=e6]:
+    - button "Dashboard" [ref=e7] [cursor=pointer]
+    - button "Ask Data" [ref=e8] [cursor=pointer]
+  - main [ref=e34]:
+    - generic [ref=e35]:
+      - heading "Ask Data" [level=2] [ref=e36]
+      - generic [ref=e37]:
+        - textbox "Ask your data" [ref=e38]:
+          - /placeholder: sales by region
+          - text: sales over time
+        - button "Ask" [ref=e39] [cursor=pointer]
+      - generic [ref=e40]:
+        - text: "Try:"
+        - button "sales by region" [ref=e41] [cursor=pointer]
+        - text: ·
+        - button "top 10 products by sales" [ref=e42] [cursor=pointer]
+        - text: ·
+        - button "sales over time" [ref=e43] [cursor=pointer]
+        - text: ·
+        - button "sales by category in west" [ref=e44] [cursor=pointer]
+        - text: ·
+        - button "count customers by segment" [ref=e45] [cursor=pointer]
+    - generic [ref=e46]:
+      - generic [ref=e47]:
+        - strong [ref=e48]: "Interpreted as:"
+        - text: SUM(Sales) by Order Date (month), sorted descending, limit 25
+      - table [ref=e53]:
+        - rowgroup [ref=e54]:
+          - row "label value" [ref=e55]:
+            - columnheader "label" [ref=e56]
+            - columnheader "value" [ref=e57]
+        - rowgroup [ref=e58]:
+          - row "2018-11-01 $117,938" [ref=e59]:
+            - cell "2018-11-01" [ref=e60]
+            - cell "$117,938" [ref=e61]
+          - row "2017-12-01 $95,739" [ref=e62]:
+            - cell "2017-12-01" [ref=e63]
+            - cell "$95,739" [ref=e64]
+          - row "2018-09-01 $86,153" [ref=e65]:
+            - cell "2018-09-01" [ref=e66]
+            - cell "$86,153" [ref=e67]
+          - row "2018-12-01 $83,030" [ref=e68]:
+            - cell "2018-12-01" [ref=e69]
+            - cell "$83,030" [ref=e70]
+          - row "2015-09-01 $81,624" [ref=e71]:
+            - cell "2015-09-01" [ref=e72]
+            - cell "$81,624" [ref=e73]
+          - row "2017-11-01 $79,066" [ref=e74]:
+            - cell "2017-11-01" [ref=e75]
+            - cell "$79,066" [ref=e76]
+          - row "2015-11-01 $77,908" [ref=e77]:
+            - cell "2015-11-01" [ref=e78]
+            - cell "$77,908" [ref=e79]
+          - row "2018-10-01 $77,448" [ref=e80]:
+            - cell "2018-10-01" [ref=e81]
+            - cell "$77,448" [ref=e82]
+          - row "2016-11-01 $75,249" [ref=e83]:
+            - cell "2016-11-01" [ref=e84]
+            - cell "$75,249" [ref=e85]
+          - row "2016-12-01 $74,544" [ref=e86]:
+            - cell "2016-12-01" [ref=e87]
+            - cell "$74,544" [ref=e88]
+          - row "2017-09-01 $69,193" [ref=e89]:
+            - cell "2017-09-01" [ref=e90]
+            - cell "$69,193" [ref=e91]
+          - row "2015-12-01 $68,167" [ref=e92]:
+            - cell "2015-12-01" [ref=e93]
+            - cell "$68,167" [ref=e94]
+          - row "2016-09-01 $63,134" [ref=e95]:
+            - cell "2016-09-01" [ref=e96]
+            - cell "$63,134" [ref=e97]
+          - row "2018-08-01 $62,838" [ref=e98]:
+            - cell "2018-08-01" [ref=e99]
+            - cell "$62,838" [ref=e100]
+          - row "2017-10-01 $59,583" [ref=e101]:
+            - cell "2017-10-01" [ref=e102]
+            - cell "$59,583" [ref=e103]
+          - row "2018-03-01 $58,863" [ref=e104]:
+            - cell "2018-03-01" [ref=e105]
+            - cell "$58,863" [ref=e106]
+          - row "2017-05-01 $56,657" [ref=e107]:
+            - cell "2017-05-01" [ref=e108]
+            - cell "$56,657" [ref=e109]
+          - row "2015-03-01 $55,206" [ref=e110]:
+            - cell "2015-03-01" [ref=e111]
+            - cell "$55,206" [ref=e112]
+          - row "2017-03-01 $51,165" [ref=e113]:
+            - cell "2017-03-01" [ref=e114]
+            - cell "$51,165" [ref=e115]
+          - row "2018-06-01 $48,191" [ref=e116]:
+            - cell "2018-06-01" [ref=e117]
+            - cell "$48,191" [ref=e118]
+          - row "2018-07-01 $44,825" [ref=e119]:
+            - cell "2018-07-01" [ref=e120]
+            - cell "$44,825" [ref=e121]
+          - row "2018-05-01 $43,826" [ref=e122]:
+            - cell "2018-05-01" [ref=e123]
+            - cell "$43,826" [ref=e124]
+          - row "2018-01-01 $43,476" [ref=e125]:
+            - cell "2018-01-01" [ref=e126]
+            - cell "$43,476" [ref=e127]
+          - row "2017-06-01 $39,724" [ref=e128]:
+            - cell "2017-06-01" [ref=e129]
+            - cell "$39,724" [ref=e130]
+          - row "2017-04-01 $38,680" [ref=e131]:
+            - cell "2017-04-01" [ref=e132]
+            - cell "$38,680" [ref=e133]
+      - group [ref=e134]:
+        - generic "Show SQL and details" [ref=e135]

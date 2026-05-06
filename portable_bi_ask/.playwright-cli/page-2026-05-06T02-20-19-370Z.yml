@@ -1,0 +1,31 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - heading "Portable BI Dashboard" [level=1] [ref=e4]
+    - generic [ref=e5]: Your Data, Any Data, Instantly Explained
+  - navigation "App sections" [ref=e6]:
+    - button "Dashboard" [ref=e7] [cursor=pointer]
+    - button "Ask Data" [ref=e8] [cursor=pointer]
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - text: "Region:"
+      - combobox "Region:" [ref=e11]
+    - generic [ref=e12]:
+      - text: "Category:"
+      - combobox "Category:" [ref=e13]
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]: Total Sales
+      - generic [ref=e17]: $0
+    - generic [ref=e19]: Total Customers
+    - generic [ref=e21]: Categories
+    - generic [ref=e23]: Top Region
+  - generic [ref=e24]:
+    - heading "Top Region/Category Combinations" [level=2] [ref=e25]
+    - table [ref=e27]:
+      - rowgroup [ref=e28]:
+        - row "Region Category Sales" [ref=e29]:
+          - columnheader "Region" [ref=e30]
+          - columnheader "Category" [ref=e31]
+          - columnheader "Sales" [ref=e32]
+      - rowgroup
+  - generic [ref=e33]: Loading data, please wait…
