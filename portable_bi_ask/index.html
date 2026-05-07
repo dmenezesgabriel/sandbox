@@ -14,6 +14,7 @@
       "chrono-node/en": "https://esm.sh/chrono-node@2.7.7/en",
       "chrono-node/pt": "https://esm.sh/chrono-node@2.7.7/pt",
       "fuse.js": "https://esm.sh/fuse.js@7.0.0",
+      "minisearch": "https://esm.sh/minisearch@7.1.2",
       "@huggingface/transformers": "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.0.1",
       "lit": "https://esm.sh/lit@3.1.0",
       "lit/": "https://esm.sh/lit@3.1.0/"
@@ -337,6 +338,7 @@
     import * as chronoEn from 'chrono-node/en';
     import * as chronoPt from 'chrono-node/pt';
     import Fuse from 'fuse.js';
+    import MiniSearch from 'minisearch';
     import { LitElement, html, nothing } from "lit";
 
     class DuckDBManager {
@@ -385,26 +387,6 @@
         locales: {
           supported: ["en-US", "pt-BR"],
           fallback: "en-US"
-        },
-        vocabulary: {
-          en: {
-            by: ["by"],
-            top: ["top", "best", "highest"],
-            bottom: ["bottom", "worst", "lowest"],
-            count: ["count", "number of", "how many"],
-            overTime: ["over time", "trend"],
-            filters: ["in", "for", "where", "with"],
-            and: ["and"]
-          },
-          pt: {
-            by: ["por"],
-            top: ["top", "maiores", "melhores"],
-            bottom: ["menores", "piores"],
-            count: ["contar", "conte", "quantos", "numero de", "número de"],
-            overTime: ["ao longo do tempo", "tendencia", "tendência", "evolucao", "evolução"],
-            filters: ["em", "para", "onde", "com"],
-            and: ["e"]
-          }
         },
         defaultQuestion: "sales by region",
         maxRows: 25,
@@ -757,10 +739,22 @@
         const insights = [];
         if (top) insights.push(`${top.label} is highest at ${formatValue(top.value, metricFormat)}${total ? ` (${formatValue(Number(top.value) / total, 'percent')} of total)` : ''}.`);
         if (bottom && bottom.label !== top?.label) insights.push(`${bottom.label} is lowest at ${formatValue(bottom.value, metricFormat)}.`);
+        if (valid.length >= 3 && total) {
+          const topN = [...valid].sort((a, b) => Number(b.value) - Number(a.value)).slice(0, Math.min(3, valid.length));
+          const share = topN.reduce((sum, row) => sum + Number(row.value), 0) / total;
+          insights.push(`Top ${topN.length} ${intent.dimensions?.[0]?.role === 'time' ? 'periods' : 'groups'} account for ${formatValue(share, 'percent')} of total.`);
+        }
+        if (intent.dimensions?.[0]?.role === 'time' && valid.length >= 2) {
+          const first = valid[0];
+          const last = valid[valid.length - 1];
+          const change = Number(last.value) - Number(first.value);
+          const pct = Number(first.value) ? change / Number(first.value) : null;
+          insights.push(`${last.label} is ${change >= 0 ? 'up' : 'down'} ${formatValue(Math.abs(change), metricFormat)}${pct === null ? '' : ` (${formatValue(Math.abs(pct), 'percent')})`} versus ${first.label}.`);
+        }
         if (valid.length >= 4) {
           const avg = total / valid.length;
           const outliers = valid.filter(r => Number(r.value) > avg * 1.5).map(r => r.label).slice(0, 3);
-          if (outliers.length) insights.push(`Above-average standout categories: ${outliers.join(', ')}.`);
+          if (outliers.length) insights.push(`Above-average standout ${intent.dimensions?.[0]?.role === 'time' ? 'periods' : 'groups'}: ${outliers.join(', ')}.`);
         }
         return insights;
       }
@@ -1224,6 +1218,72 @@
       }
     }
 
+    class FieldSearchIndex {
+      constructor({ catalog, displayLabel, localizedTerms }) {
+        this.catalog = catalog;
+        this.displayLabel = displayLabel;
+        this.localizedTerms = localizedTerms;
+        this.fieldById = new Map();
+        this.index = new MiniSearch({ fields: ['text'], storeFields: ['role'], searchOptions: { combineWith: 'AND' } });
+      }
+
+      rebuild() {
+        this.index = new MiniSearch({ fields: ['text'], storeFields: ['role'], searchOptions: { combineWith: 'AND' } });
+        this.fieldById.clear();
+        const docs = this.catalog().map(field => {
+          this.fieldById.set(field.id, field);
+          return {
+            id: field.id,
+            role: field.role,
+            text: norm([
+              this.displayLabel(field),
+              field.label,
+              field.column,
+              field.table,
+              field.role,
+              field.description,
+              ...(field.synonyms || []),
+              ...Object.values(field.localizedSynonyms || {}).flat(),
+              ...this.localizedTerms(field)
+            ].filter(Boolean).join(' '))
+          };
+        });
+        this.index.addAll(docs);
+      }
+
+      search(query, roles) {
+        const clean = norm(query);
+        if (!clean) return [];
+        return this.index.search(clean, { combineWith: 'AND' })
+          .filter(result => roles.includes(result.role))
+          .map(result => ({ field: this.fieldById.get(result.id), score: result.score }))
+          .filter(result => result.field)
+          .sort((a, b) => b.score - a.score);
+      }
+    }
+
+    class TextSearchFieldMatchStrategy {
+      constructor({ fieldSearchIndex }) {
+        this.fieldSearchIndex = fieldSearchIndex;
+      }
+
+      async matchPhrase(phrase, roles) {
+        const index = this.fieldSearchIndex();
+        if (!index) return null;
+        const results = index.search(phrase, roles).slice(0, 4);
+        if (!results.length || results[0].score < 0.9) return null;
+        if (results[1] && results[0].score - results[1].score < 0.15) return { ambiguous: true, fields: results.map(result => result.field), score: results[0].score };
+        return { field: results[0].field, score: Math.min(0.9, results[0].score / 3) };
+      }
+
+      async findInText(text, role) {
+        const index = this.fieldSearchIndex();
+        if (!index) return null;
+        const result = index.search(text, [role])[0];
+        return result && result.score >= 1.1 ? result.field : null;
+      }
+    }
+
     class ExactFieldMatchStrategy {
       constructor({ catalog, displayLabel, localizedTerms, termMatcher }) {
         this.catalog = catalog;
@@ -1346,8 +1406,10 @@
         this.ambiguousRelationships = [];
         this.entities = [];
         this.fieldFuse = null;
+        this.fieldSearchIndex = null;
         this.valueFuse = null;
         this.valueItems = [];
+        this.valuePhraseMaxWords = 1;
         this.locale = this.resolveLocale();
         this.localeFamily = this.locale.toLowerCase().startsWith('pt') ? 'pt' : 'en';
         this.vocabulary = this.buildVocabulary();
@@ -1374,6 +1436,7 @@
             localizedTerms: field => this.localizedTerms(field),
             termMatcher: this.termMatcher
           }),
+          new TextSearchFieldMatchStrategy({ fieldSearchIndex: () => this.fieldSearchIndex }),
           new FuseFieldMatchStrategy({ fieldFuse: () => this.fieldFuse }),
           new SemanticFieldMatchStrategy({ semanticMatcher: this.semanticMatcher, catalog: () => this.catalog })
         ], (message, fields) => this.fieldClarification(message, fields));
@@ -1717,17 +1780,26 @@
             { name: 'text', weight: 0.1 }
           ]
         });
+        this.fieldSearchIndex = new FieldSearchIndex({
+          catalog: () => this.catalog,
+          displayLabel: field => this.displayLabel(field),
+          localizedTerms: field => this.localizedTerms(field)
+        });
+        this.fieldSearchIndex.rebuild();
 
         this.valueItems = [];
         for (const field of this.catalog.filter(f => f.role === 'dimension')) {
           for (const value of field.sampleValues || []) {
-            this.valueItems.push({ value, normalizedValue: norm(value), field });
+            const normalizedValue = norm(value);
+            if (normalizedValue) this.valueItems.push({ value, normalizedValue, field });
           }
         }
+        this.valuePhraseMaxWords = Math.max(1, ...this.valueItems.map(item => item.normalizedValue.split(/\s+/).length));
         this.valueFuse = new Fuse(this.valueItems, {
           includeScore: true,
           threshold: 0.2,
-          keys: ['value', 'normalizedValue']
+          ignoreLocation: true,
+          keys: ['normalizedValue', 'value']
         });
       }
 
@@ -1745,6 +1817,7 @@
         const shape = this.shapeAnalyzer.analyze(rows, columns, parsed.intent);
         const chartDecision = this.chartDecisionTree.decide(shape, parsed.intent);
         const insights = this.insightGenerator.generate(rows, parsed.intent, shape);
+        const confidence = this.estimateIntentConfidence(parsed.intent);
         return {
           question,
           interpretation: this.describeIntent(parsed.intent),
@@ -1757,7 +1830,7 @@
           insights,
           chartType: chartDecision.rendered,
           warnings: parsed.warnings || [],
-          confidence: parsed.confidence || 0.85
+          confidence
         };
       }
 
@@ -1767,6 +1840,7 @@
 
       async detectListField(q) {
         if (!this.intentCues.isListRequest(q)) return null;
+        if (await this.findBestFieldInText(q, 'measure')) return null;
 
         const hintedField = this.intentCues.listFieldHint(q);
         if (hintedField) return (await this.resolveFieldPhrase(hintedField, ['dimension'])).field;
@@ -1823,8 +1897,7 @@
               sort: { by: 'label', direction: 'ASC' },
               limit: this.askConfig.maxRows || 25
             },
-            warnings,
-            confidence: 0.88
+            warnings
           };
         }
 
@@ -1892,8 +1965,7 @@
             limit,
             timeGrain: timeGrain || (dimensions.some(d => d.role === 'time') ? 'month' : undefined)
           },
-          warnings,
-          confidence: 0.86
+          warnings
         };
       }
 
@@ -1918,16 +1990,19 @@
       extractByPhrases(q) {
         const by = this.termAlternation('by');
         if (!by) return [];
-        const m = q.match(new RegExp(`\\b(?:${by})\\s+(.+)$`));
-        if (!m) return [];
+        const byRe = new RegExp(`\\b(?:${by})\\b\\s*`, 'i');
+        const firstBy = q.search(byRe);
+        if (firstBy < 0) return [];
         const filters = this.termAlternation('filters');
-        let rest = m[1]
+        let rest = q.slice(firstBy).replace(byRe, '')
           .replace(filters ? new RegExp(`\\b(?:${filters})\\b.*$`, 'i') : /$a/, '')
           .replace(/\bsorted.*$/i, '')
           .trim();
         if (!rest) return [];
         const and = this.termAlternation('and');
-        const splitRe = and ? new RegExp(`\\s+(?:${and})\\s+|\\s*,\\s*`) : /\s*,\s*/;
+        const separators = [`\\s+(?:${by})\\s+`, '\\s*,\\s*'];
+        if (and) separators.push(`\\s+(?:${and})\\s+`);
+        const splitRe = new RegExp(separators.join('|'), 'i');
         return rest.split(splitRe).map(p => singularize(p.trim())).filter(Boolean);
       }
 
@@ -1950,11 +2025,39 @@
 
       detectFilters(q, dimensions) {
         const matches = [];
+        const seen = new Set();
+        const addMatch = (item, match = {}) => {
+          const key = `${item.field.id}::${item.normalizedValue}`;
+          const enriched = { ...item, matchScore: match.score ?? 1, matchSource: match.source || 'exact' };
+          if (!seen.has(key)) {
+            seen.add(key);
+            matches.push(enriched);
+          } else {
+            const existing = matches.find(m => `${m.field.id}::${m.normalizedValue}` === key);
+            if (existing && enriched.matchScore > (existing.matchScore || 0)) Object.assign(existing, enriched);
+          }
+        };
         for (const item of this.valueItems) {
           const v = item.normalizedValue;
           if (!v || v.length < 2) continue;
-          const pattern = v.includes(' ') ? v.replace(/\s+/g, '\\s+') : `\\b${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`;
-          if (new RegExp(pattern).test(q)) matches.push(item);
+          const pattern = `\\b${escapeRegExp(v).replace(/\s+/g, '\\s+')}\\b`;
+          if (new RegExp(pattern).test(q)) addMatch(item, { score: 1, source: 'exact_value' });
+        }
+        if (this.valueFuse) {
+          const words = q.split(/\s+/).filter(Boolean);
+          const maxWindow = Math.min(this.valuePhraseMaxWords || 1, 8, words.length);
+          for (let size = 1; size <= maxWindow; size++) {
+            for (let start = 0; start + size <= words.length; start++) {
+              const phrase = words.slice(start, start + size).join(' ');
+              if (phrase.length < 3) continue;
+              for (const result of this.valueFuse.search(phrase, { limit: 3 })) {
+                const itemWordCount = result.item.normalizedValue.split(/\s+/).length;
+                if (itemWordCount !== size) continue;
+                const fuzzyLimit = itemWordCount > 1 ? 0.025 : 0.001;
+                if ((result.score ?? 1) <= fuzzyLimit) addMatch(result.item, { score: Math.max(0.75, 1 - (result.score || 0) * 10), source: 'fuzzy_value' });
+              }
+            }
+          }
         }
         const byValue = new Map();
         for (const match of matches.sort((a, b) => b.normalizedValue.length - a.normalizedValue.length)) {
@@ -1968,7 +2071,7 @@
           if (uniqueFields.length > 1) {
             const cueHasFieldName = uniqueFields.find(i => [this.displayLabel(i.field), i.field.label, i.field.column, ...this.localizedTerms(i.field)].map(norm).some(term => term && q.includes(term)));
             if (cueHasFieldName) {
-              filters.push({ field: cueHasFieldName.field, operator: '=', value: cueHasFieldName.value });
+              filters.push({ field: cueHasFieldName.field, operator: '=', value: cueHasFieldName.value, score: cueHasFieldName.matchScore || 0.9, source: cueHasFieldName.matchSource });
             } else {
               return {
                 clarification: {
@@ -1979,7 +2082,7 @@
             }
           } else {
             const item = uniqueFields[0];
-            filters.push({ field: item.field, operator: '=', value: item.value });
+            filters.push({ field: item.field, operator: '=', value: item.value, score: item.matchScore || 0.9, source: item.matchSource });
           }
         }
         return { filters };
@@ -2139,13 +2242,43 @@
         return null;
       }
 
-      recommendChart(intent, rows) {
-        if (intent.analysisType === 'list_values' || intent.analysisType === 'yoy') return 'table';
-        if (!intent.dimensions.length) return 'kpi';
-        if (intent.dimensions[0].role === 'time') return 'line';
-        if (intent.dimensions.length === 1 && rows.length <= 6 && intent.analysisType !== 'ranking') return 'pie';
-        if (intent.dimensions.length <= 2) return 'bar';
-        return 'table';
+      estimateIntentConfidence(intent) {
+        const q = norm(intent.question || '');
+        const scores = [];
+        const add = value => { if (Number.isFinite(value)) scores.push(Math.max(0, Math.min(1, value))); };
+        if (intent.analysisType !== 'list_values') {
+          if (intent.metric?.kind) add(0.95);
+          else add(this.fieldEvidenceScore(q, intent.metric, 0.76));
+        }
+        for (const dim of intent.dimensions || []) add(this.fieldEvidenceScore(q, dim, 0.82));
+        for (const filter of intent.filters || []) add(filter.score || 0.85);
+        if (intent.dateRange) add(0.9);
+        add(this.joinConfidence(intent));
+        const confidence = scores.length ? Math.min(...scores) : 0.7;
+        return Number(confidence.toFixed(2));
+      }
+
+      fieldEvidenceScore(q, field, fallback = 0.75) {
+        if (!field) return fallback;
+        const activeTerms = [this.displayLabel(field), field.label, field.column, ...(field.synonyms || []), ...this.localizedTerms(field)].map(norm).filter(Boolean);
+        const exact = activeTerms.some(term => this.termMatcher.patternFromTerm(term)?.test(q));
+        if (exact) return 0.97;
+        const questionTokens = new Set(q.split(/\s+/));
+        const evidenceTokens = new Set(activeTerms.flatMap(term => term.split(/\s+/)));
+        const tokenOverlap = [...questionTokens].some(token => evidenceTokens.has(token));
+        if (tokenOverlap) return 0.88;
+        return field.default ? Math.max(fallback, 0.78) : fallback;
+      }
+
+      joinConfidence(intent) {
+        const fields = [intent.metric?.field || intent.metric, intent.timeField, ...intent.dimensions, ...intent.filters.map(f => f.field), intent.dateRange?.field].filter(f => f && f.table);
+        if (!fields.length) return 0.9;
+        const baseTable = intent.metric?.field?.table || intent.metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
+        const neededTables = [...new Set([baseTable, ...fields.map(f => f.table)])];
+        const joinPlan = this.buildJoinPlan(baseTable, neededTables);
+        if (joinPlan.error) return 0.4;
+        if (!joinPlan.joins?.length) return 0.95;
+        return Math.min(...joinPlan.joins.map(rel => rel.confidence ?? 0.85));
       }
 
       describeIntent(intent) {
@@ -2199,6 +2332,7 @@
         this._askClarification = null;
         this.loading = false;
         this.error = '';
+        this._dataReady = false;
         this.askEngine = new AskDataEngine(this.config, duckDBManager);
       }
       connectedCallback() {
@@ -2209,78 +2343,81 @@
         this.loading = true;
         this.error = '';
         try {
-          for (const s of this.config.dataSources) {
-            await duckDBManager.query(`CREATE OR REPLACE VIEW ${quoteIdent(s.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(s.url)}')`);
-          }
-          await this.askEngine.initialize();
-          let filterOptions = {};
-          for (const filter of this.config.filters) {
-            let optq = `SELECT DISTINCT ${quoteIdent(filter.source.column)} AS val FROM ${quoteIdent(filter.source.table)} ORDER BY val`;
-            let optres = await duckDBManager.query(optq);
-            let opts = toRows(optres).map(x => x.val);
-            opts.unshift('All');
-            filterOptions[filter.field] = opts;
-            if (!this.filters[filter.field]) this.filters[filter.field] = 'All';
-          }
-          this._filterOptions = filterOptions;
-          let kpiResults = [];
-          for (const kpi of this.config.kpis) {
-            let q = kpi.query;
-            for (const filter of (this.config.filters || [])) {
-              const val = this.filters[filter.field] || 'All';
-              const filterExpr = (val && val !== 'All') ? `${filter.source.table}.${quoteIdent(filter.source.column)} = '${escapeSqlString(val)}'` : '1=1';
-              q = q.replaceAll(`--filter:${filter.field}--`, filterExpr);
-            }
-            let r = await duckDBManager.query(q);
-            let v = toRows(r)[0]?.value;
-            kpiResults.push(v);
-          }
-          this._kpiResults = kpiResults;
-          let chartData = [];
-          for (const chartDef of this.config.charts) {
-            let q = chartDef.query;
-            let aliasMap = {};
-            (q.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/gi) || []).forEach(s => {
-                const m = s.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/i);
-                if (m) aliasMap[m[1]] = m[2];
-            });
-            for (const filter of (this.config.filters || [])) {
-              const val = this.filters[filter.field] || 'All';
-              let tableRef = aliasMap[filter.source.table] || filter.source.table;
-              const filterExpr = (val && val !== 'All') ? `${tableRef}.${quoteIdent(filter.source.column)} = '${escapeSqlString(val)}'` : '1=1';
-              q = q.replaceAll(`--filter:${filter.field}--`, filterExpr);
-            }
-            let r = await duckDBManager.query(q);
-            let rows = toRows(r);
-            let labels = rows.map(row => String(row.label));
-            let data = rows.map(row => numberValue(row.value));
-            chartData.push({ chartDef, labels, data });
-          }
-          this._chartData = chartData;
-          let tableRows = [];
-          for (const tableDef of this.config.tables) {
-            let q = tableDef.query;
-            let aliasMap = {};
-            (q.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/gi) || []).forEach(s => {
-                const m = s.match(/\b(?:from|join) +([a-zA-Z_][a-zA-Z0-9_]*) +([a-zA-Z_][a-zA-Z0-9_]*)/i);
-                if (m) aliasMap[m[1]] = m[2];
-            });
-            for (const filter of (this.config.filters || [])) {
-              const val = this.filters[filter.field] || 'All';
-              let tableRef = aliasMap[filter.source.table] || filter.source.table;
-              const filterExpr = (val && val !== 'All') ? `${tableRef}.${quoteIdent(filter.source.column)} = '${escapeSqlString(val)}'` : '1=1';
-              q = q.replaceAll(`--filter:${filter.field}--`, filterExpr);
-            }
-            let r = await duckDBManager.query(q);
-            tableRows.push(toRows(r));
-          }
-          this._tableRows = tableRows;
+          await this._ensureDataReady();
+          if (!Object.keys(this._filterOptions).length) await this._loadFilterOptions();
+          await this._refreshDashboardData();
           this.loading = false;
         } catch (err) {
           console.error(err);
           this.loading = false;
           this.error = 'Failed to load data or render dashboard: ' + err;
         }
+      }
+      async _ensureDataReady() {
+        if (this._dataReady) return;
+        for (const s of this.config.dataSources) {
+          await duckDBManager.query(`CREATE OR REPLACE VIEW ${quoteIdent(s.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(s.url)}')`);
+        }
+        await this.askEngine.initialize();
+        this._dataReady = true;
+      }
+      async _loadFilterOptions() {
+        let filterOptions = {};
+        for (const filter of this.config.filters) {
+          let optq = `SELECT DISTINCT ${quoteIdent(filter.source.column)} AS val FROM ${quoteIdent(filter.source.table)} ORDER BY val`;
+          let optres = await duckDBManager.query(optq);
+          let opts = toRows(optres).map(x => x.val);
+          opts.unshift('All');
+          filterOptions[filter.field] = opts;
+          if (!this.filters[filter.field]) this.filters[filter.field] = 'All';
+        }
+        this._filterOptions = filterOptions;
+      }
+      _extractTableAliases(query) {
+        const aliases = {};
+        const keywords = new Set(['where', 'join', 'on', 'using', 'group', 'order', 'limit', 'left', 'right', 'inner', 'outer', 'full', 'cross']);
+        const re = /\b(?:from|join)\s+"?([a-zA-Z_][a-zA-Z0-9_]*)"?(?:\s+(?:as\s+)?"?([a-zA-Z_][a-zA-Z0-9_]*)"?)?/gi;
+        for (const match of query.matchAll(re)) {
+          const [, table, alias] = match;
+          if (alias && !keywords.has(alias.toLowerCase())) aliases[table] = alias;
+        }
+        return aliases;
+      }
+      _applyFilters(query) {
+        const aliasMap = this._extractTableAliases(query);
+        let q = query;
+        for (const filter of (this.config.filters || [])) {
+          const placeholder = `--filter:${filter.field}--`;
+          if (!q.includes(placeholder)) continue;
+          const val = this.filters[filter.field] || 'All';
+          const tableRef = quoteIdent(aliasMap[filter.source.table] || filter.source.table);
+          const filterExpr = (val && val !== 'All') ? `${tableRef}.${quoteIdent(filter.source.column)} = '${escapeSqlString(val)}'` : '1=1';
+          q = q.replaceAll(placeholder, filterExpr);
+        }
+        return q;
+      }
+      async _refreshDashboardData() {
+        let kpiResults = [];
+        for (const kpi of this.config.kpis) {
+          let r = await duckDBManager.query(this._applyFilters(kpi.query));
+          kpiResults.push(toRows(r)[0]?.value);
+        }
+        this._kpiResults = kpiResults;
+
+        let chartData = [];
+        for (const chartDef of this.config.charts) {
+          let r = await duckDBManager.query(this._applyFilters(chartDef.query));
+          let rows = toRows(r);
+          chartData.push({ chartDef, labels: rows.map(row => String(row.label)), data: rows.map(row => numberValue(row.value)) });
+        }
+        this._chartData = chartData;
+
+        let tableRows = [];
+        for (const tableDef of this.config.tables) {
+          let r = await duckDBManager.query(this._applyFilters(tableDef.query));
+          tableRows.push(toRows(r));
+        }
+        this._tableRows = tableRows;
       }
       _onFilterChange(e, field) {
         this.filters = { ...this.filters, [field]: e.target.value };
@@ -2316,24 +2453,55 @@
       _drawAskChart() {
         try { this._askChartInstance?.destroy?.(); } catch (e) {}
         this._askChartInstance = null;
-        if (this._activeTab !== 'askData' || !this._askResult || !['bar', 'line', 'area', 'pie', 'donut'].includes(this._askResult.chartType)) return;
+        const chartType = this._askResult?.chartType;
+        const renderable = ['bar', 'line', 'area', 'pie', 'donut', 'scatter', 'bubble', 'histogram'];
+        if (this._activeTab !== 'askData' || !this._askResult || !renderable.includes(chartType)) return;
         const canvas = this.querySelector('#ask-data-chart');
         if (!canvas) return;
         const rows = this._askResult.rows || [];
-        this._askChartInstance = new Chart(canvas.getContext('2d'), {
-          type: ['area', 'donut'].includes(this._askResult.chartType) ? (this._askResult.chartType === 'area' ? 'line' : 'doughnut') : this._askResult.chartType,
-          data: {
-            labels: rows.map(row => String(row.label)),
+        const colors = ['#406ac1', '#6aa7e8', '#8fd0a6', '#f2bf5e', '#e07a72', '#8d7ae8', '#6cc5c0', '#c0d065'];
+        let type = ['area', 'donut'].includes(chartType) ? (chartType === 'area' ? 'line' : 'doughnut') : chartType;
+        let data = {
+          labels: rows.map(row => String(row.label)),
+          datasets: [{
+            label: this._askResult.interpretation,
+            data: rows.map(row => numberValue(row.value)),
+            fill: chartType === 'area',
+            borderColor: '#406ac1',
+            backgroundColor: chartType === 'area' ? '#406ac133' : colors
+          }]
+        };
+        let options = { responsive: true, scales: chartType === 'bar' ? { y: { beginAtZero: true } } : {}, plugins: { legend: { display: ['pie', 'donut'].includes(chartType) } } };
+
+        if (chartType === 'scatter' || chartType === 'bubble') {
+          const numeric = this._askResult.shape?.numeric || [];
+          const [xKey, yKey, rKey] = numeric;
+          if (!xKey || !yKey) return;
+          type = chartType;
+          data = {
             datasets: [{
               label: this._askResult.interpretation,
-              data: rows.map(row => numberValue(row.value)),
-              fill: this._askResult.chartType === 'area',
-              borderColor: '#406ac1',
-              backgroundColor: this._askResult.chartType === 'area' ? '#406ac133' : ['#406ac1', '#6aa7e8', '#8fd0a6', '#f2bf5e', '#e07a72', '#8d7ae8', '#6cc5c0', '#c0d065']
+              data: rows.map(row => ({ x: numberValue(row[xKey]), y: numberValue(row[yKey]), r: Math.max(3, Math.sqrt(Math.abs(numberValue(row[rKey])) || 9)) })),
+              backgroundColor: '#406ac188',
+              borderColor: '#406ac1'
             }]
-          },
-          options: { responsive: true, scales: this._askResult.chartType === 'bar' ? { y: { beginAtZero: true } } : {}, plugins: { legend: { display: ['pie', 'donut'].includes(this._askResult.chartType) } } }
-        });
+          };
+          options = { responsive: true, scales: { x: { title: { display: true, text: xKey } }, y: { title: { display: true, text: yKey } } } };
+        } else if (chartType === 'histogram') {
+          const key = this._askResult.shape?.numeric?.[0] || 'value';
+          const values = rows.map(row => numberValue(row[key])).filter(Number.isFinite);
+          if (!values.length) return;
+          const min = Math.min(...values), max = Math.max(...values);
+          const binCount = Math.min(12, Math.max(3, Math.ceil(Math.sqrt(values.length))));
+          const step = (max - min || 1) / binCount;
+          const bins = Array.from({ length: binCount }, (_, i) => ({ start: min + i * step, count: 0 }));
+          for (const value of values) bins[Math.min(binCount - 1, Math.floor((value - min) / step))].count++;
+          type = 'bar';
+          data = { labels: bins.map(b => `${b.start.toFixed(0)}–${(b.start + step).toFixed(0)}`), datasets: [{ label: key, data: bins.map(b => b.count), backgroundColor: '#406ac1' }] };
+          options = { responsive: true, scales: { y: { beginAtZero: true } } };
+        }
+
+        this._askChartInstance = new Chart(canvas.getContext('2d'), { type, data, options });
       }
       async _runAsk() {
         this._askLoading = true;
@@ -2353,7 +2521,10 @@
         }
       }
       _chooseClarification(choice) {
-        this._askQuestion = `${this._askQuestion} ${choice.replacement}`;
+        const replacement = String(choice.replacement || '').trim();
+        if (replacement && !norm(this._askQuestion).includes(norm(replacement))) {
+          this._askQuestion = `${this._askQuestion.trim()} ${replacement}`.trim();
+        }
         this._runAsk();
       }
       _setExample(example) {
@@ -2466,7 +2637,7 @@
                   <pre>${result.sql}</pre>
                   <p><strong>Decision path:</strong> ${(result.chartDecision?.path || []).join(' → ')}</p>
                   <p><strong>Recommended chart:</strong> ${result.chartDecision?.recommended}; <strong>Rendered:</strong> ${result.chartDecision?.rendered}</p>
-                  <p><strong>Confidence:</strong> ${Math.round((result.confidence || 0) * 100)}%</p>
+                  ${result.confidence !== undefined ? html`<p><strong>Confidence:</strong> ${Math.round(result.confidence * 100)}%</p>` : nothing}
                 </details>
               </section>
             ` : nothing}
@@ -2501,7 +2672,7 @@
           const metric = result.intent.metric?.field || result.intent.metric;
           return html`<div class="ask-kpi-value">${formatValue(value, metric?.format)}</div>${this.renderAskTable(result)}`;
         }
-        if (['bar', 'line', 'area', 'pie', 'donut'].includes(result.chartType)) {
+        if (['bar', 'line', 'area', 'pie', 'donut', 'scatter', 'bubble', 'histogram'].includes(result.chartType)) {
           return html`
             <div class="ask-result-grid">
               <div><canvas id="ask-data-chart"></canvas></div>
