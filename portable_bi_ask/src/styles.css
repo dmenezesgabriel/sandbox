@@ -1,0 +1,306 @@
+body {
+      margin: 0;
+      font-family: 'Inter', Arial, sans-serif;
+      background: #f8fafc;
+      color: #212529;
+    }
+
+    header {
+      background: #23395d;
+      color: #fff;
+      padding: 1.7rem 2rem 1.25rem 2rem;
+      border-bottom: 3px solid #406ac1;
+      text-align: left;
+      box-shadow: 0 1px 6px #0001;
+    }
+
+    .subtitle {
+      font-weight: 500;
+      font-size: 1.1rem;
+      color: #c8d5ee;
+      margin-left: .5rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: .5rem;
+      padding: 1rem 2rem 0 2rem;
+      background: #eef3f9;
+      border-bottom: 1px solid #d7e2ef;
+    }
+
+    .tab-button {
+      border: 1px solid #c3d4ea;
+      border-bottom: none;
+      border-radius: .75em .75em 0 0;
+      padding: .75em 1.1em;
+      color: #29466f;
+      background: #e5eef9;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .tab-button.active {
+      background: #fff;
+      color: #23395d;
+      box-shadow: 0 -1px 5px #ccd7e640;
+    }
+
+    #filter-bar {
+      margin: 1.2rem 2rem 0 2rem;
+    }
+
+    #kpi-cards {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin: 2rem 2rem 1.2rem 2rem;
+    }
+
+    .kpi-card {
+      flex: 1;
+      min-width: 200px;
+      background: #fff;
+      border-radius: 1.1em;
+      box-shadow: 0 1px 5px #c8cdd63a;
+      padding: 1.2rem 1.6rem;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      font-size: 1.15rem;
+      border-left: 6px solid #406ac1;
+    }
+
+    .kpi-title {
+      color: #406ac1;
+      font-weight: 700;
+      font-size: 1.07em;
+      margin-bottom: .32em;
+    }
+
+    .kpi-value {
+      font-size: 2.2em;
+      font-weight: bold;
+      margin-bottom: .16em;
+    }
+
+    #viz-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      margin: 1.25rem 2rem 0 2rem;
+    }
+
+    .chart-card {
+      background: #fff;
+      padding: 1.1rem;
+      border-radius: .85em;
+      box-shadow: 0 2px 7px #d9e1ea61;
+      flex: 1;
+      min-width: 330px;
+    }
+
+    #table-section {
+      background: #f4f7fb;
+      margin: 2rem 2rem 2.5rem 2rem;
+      padding: 1.6rem 1.4rem 1.7rem 1.4rem;
+      border-radius: 0 0 1.2em 1.2em;
+      box-shadow: 0 2px 16px #b3b8c440;
+    }
+
+    #table-section h2 {
+      color: #364a6f;
+      margin-bottom: .7em;
+      margin-top: .2em;
+    }
+
+    #data-table-wrap, .ask-table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: #fff;
+      margin: 0;
+      border-radius: .7em;
+      box-shadow: 0 1px 4px #b2c5d93d;
+    }
+
+    th,
+    td {
+      padding: .65em 1.15em;
+      white-space: nowrap;
+      border-bottom: 1px solid #e6edf2;
+    }
+
+    th {
+      background: #e8f0fa;
+      font-weight: 700;
+      color: #295287;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .ask-page {
+      margin: 1.5rem 2rem 2.5rem 2rem;
+    }
+
+    .ask-card {
+      background: #fff;
+      border-radius: 1.05em;
+      box-shadow: 0 2px 14px #c8d2df52;
+      padding: 1.3rem;
+      margin-bottom: 1rem;
+    }
+
+    .ask-input-row {
+      display: flex;
+      gap: .65rem;
+      align-items: center;
+    }
+
+    .ask-input-row input {
+      flex: 1;
+      font-size: 1.05rem;
+      padding: .75em .9em;
+      border: 1.5px solid #b8cae4;
+      border-radius: .65em;
+    }
+
+    .primary-button, .choice-button {
+      border: none;
+      border-radius: .65em;
+      background: #406ac1;
+      color: #fff;
+      font-weight: 700;
+      padding: .8em 1.05em;
+      cursor: pointer;
+    }
+
+    .choice-button {
+      margin: .35rem .35rem 0 0;
+      background: #edf4ff;
+      color: #29466f;
+      border: 1px solid #bfd1ec;
+    }
+
+    .ask-examples {
+      margin-top: .85rem;
+      color: #61748e;
+      font-size: .95rem;
+    }
+
+    .ask-examples button {
+      border: none;
+      background: transparent;
+      color: #315fb8;
+      text-decoration: underline;
+      cursor: pointer;
+      padding: 0 .25em;
+      font: inherit;
+    }
+
+    .interpretation {
+      background: #f3f7fc;
+      border: 1px solid #d9e5f4;
+      border-radius: .75em;
+      padding: .85em 1em;
+      color: #2a405f;
+      margin-bottom: 1rem;
+    }
+
+    .warning {
+      background: #fff7e6;
+      border: 1px solid #f0ca75;
+      color: #735111;
+      border-radius: .75em;
+      padding: .85em 1em;
+      margin: .6rem 0;
+    }
+
+    .ask-result-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .ask-kpi-value {
+      font-size: 3rem;
+      color: #23395d;
+      font-weight: 800;
+      margin: .5rem 0;
+    }
+
+    details.sql-details {
+      margin-top: 1rem;
+    }
+
+    details.sql-details pre {
+      white-space: pre-wrap;
+      overflow-x: auto;
+      background: #172033;
+      color: #d8e6ff;
+      border-radius: .7em;
+      padding: 1em;
+      font-size: .9rem;
+    }
+
+    #loading-state {
+      background: #23395ddc;
+      color: #fff;
+      border-radius: .6em;
+      padding: 1.2em 1em;
+      right: 1.6em;
+      bottom: 1.6em;
+      position: fixed;
+      z-index: 110;
+      box-shadow: 0 4px 16px #23395de0;
+      text-align: center;
+      font-size: 1.22em;
+    }
+
+    #error-state {
+      background: #fff0f2;
+      border: 2px solid #e86c7a;
+      border-radius: .7em;
+      margin: 1.5rem 2.2rem 1.5rem 2.2rem;
+      padding: 1.4em;
+      font-size: 1.15em;
+      box-shadow: 0 .5px 4px #edccd2aa;
+    }
+
+    @media(max-width:900px) {
+      #viz-section, .ask-result-grid {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+      }
+    }
+
+    @media(max-width:600px) {
+
+      #kpi-cards,
+      #viz-section,
+      #table-section,
+      .ask-page,
+      #filter-bar,
+      .tabs {
+        margin-left: .6rem;
+        margin-right: .6rem;
+        padding-left: 0;
+        padding-right: 0;
+      }
+
+      .chart-card {
+        min-width: unset;
+      }
+
+      .ask-input-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }

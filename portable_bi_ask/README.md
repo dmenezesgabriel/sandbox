@@ -1,10 +1,32 @@
 # Portable BI
 
-## Description
+Portable BI is a Vite-powered browser BI application built with Lit, DuckDB-WASM, Chart.js, Fuse/MiniSearch, Chrono, and optional Transformers.js semantic field matching.
 
-This is a self contained portable BI application tha lives in a single `index.html` file and use `importmaps` to load it external dependencies.
+## Architecture
 
-The application relies on `duckdb-wasm` to gather datasets from urls like `SELECT * FROM read_csv('https://example.com/dataset.csv')` and on a centralized `json` object configuration so it can be configured to use on any dataset.
+The app was split from a self-contained `index.html` into a flat, modular structure:
+
+- `index.html` - HTML shell that loads the Vite entrypoint.
+- `src/main.js` - app entrypoint and global stylesheet import.
+- `src/styles.css` - shared application styles.
+- `src/config.js` - dashboard and Ask Data semantic configuration.
+- `src/db.js` - DuckDB-WASM adapter/manager.
+- `src/utils.js` - formatting, SQL escaping, date, and normalization helpers.
+- `src/resultAnalysis.js` - result shape analysis, chart decision, confidence, validation, and insights.
+- `src/askData.js` - Ask Data engine, parser, field/value resolution, SQL planning, cataloging, and semantic matching strategies.
+- `src/dataLoader.js` - dashboard data loading, filter application, KPI/chart/table queries.
+- `src/components/PortableBiDashboard.js` - Lit component responsible for UI rendering and interaction wiring.
+
+The modules keep responsibilities explicit without adding extra framework layers. Core services are exported so behavior can be tested or exercised independently from the UI.
+
+## Scripts
+
+```bash
+npm install
+npm run dev -- --port 8000
+npm run build
+npm run preview
+```
 
 ## Datasets
 
@@ -12,94 +34,24 @@ The application relies on `duckdb-wasm` to gather datasets from urls like `SELEC
 - https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/product.csv
 - https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/customer.csv
 
-## Ask Data semantic matching
+## Ask Data
 
-The natural-language parser stays deterministic for intent, dates, limits, filters and SQL planning. Optional client-side semantic field matching is only used as a fallback after exact terms and Fuse fuzzy matching fail.
+The natural-language parser remains deterministic for intent, dates, limits, filters, and SQL planning. Optional client-side semantic field matching is used as a fallback after exact terms and Fuse/MiniSearch matching fail.
 
-The Ask Data engine is split into small responsibilities:
+Key responsibilities:
 
-- `TermMatcher`: locale-aware vocabulary lookup and safe term patterns.
-- `DateRangeParser`: chain of dataset-relative, named-month, Chrono and explicit-year parsers.
-- `IntentCueDetector`: deterministic BI cues such as list, ranking and YoY.
-- `FieldResolver`: chain of exact, Fuse and semantic field match strategies.
-- `SemanticFieldMatcher`: optional Transformers.js field matching.
+- `TermMatcher` - locale-aware vocabulary lookup and safe term patterns.
+- `DateRangeParser` - dataset-relative, named-month, Chrono, and explicit-year parsers.
+- `IntentCueDetector` - deterministic BI cues such as list, ranking, share, change, and YoY.
+- `FieldResolver` - exact, text-search, Fuse, and semantic strategies.
+- `SqlPlanner` - SQL generation and join planning.
+- `AskDataEngine` - orchestration, diagnostics, confidence, insights, and observable timings.
 
-Configuration lives in `DASHBOARD_CONFIG.askData.semanticMatching` and uses Transformers.js v4 via `@huggingface/transformers` with a quantized feature-extraction model by default.
+Configuration lives in `DASHBOARD_CONFIG.askData`.
 
-## Docs
+## References
 
 - https://duckdb.org/docs/current/clients/wasm/instantiation
 - https://lit.dev/docs/components/overview/
 - https://lit.dev/docs/templates/overview/
 - https://huggingface.co/docs/transformers.js/pipelines
-
-## Implementation examples
-
-sample query:
-
-```sql
-SELECT * FROM read_csv('https://example.com')
-``
-
-
-example instantiation:
-```html
-  <script type="importmap">
-    {
-      "imports": {
-        "@duckdb/duckdb-wasm": "https://esm.sh/@duckdb/duckdb-wasm@1.30.0",
-      }
-    }
-  </script>
-  <script type="module">
-    import * as duckdb from '@duckdb/duckdb-wasm';
-
-    class DuckDBManager {
-      constructor() {
-        this.dbInstance = null;
-        this.dbConnection = null;
-      }
-
-      async initialize() {
-        if (this.dbInstance) return this.dbInstance;
-
-        const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-        const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
-        const worker_url = URL.createObjectURL(
-          new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
-        );
-        const worker = new Worker(worker_url);
-        const logger = new duckdb.ConsoleLogger();
-        const db = new duckdb.AsyncDuckDB(logger, worker);
-        await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-        URL.revokeObjectURL(worker_url);
-
-        this.dbInstance = db;
-        this.dbConnection = await db.connect();
-        return db;
-      }
-
-      async getConnection() {
-        await this.initialize();
-        return this.dbConnection;
-      }
-
-      async query(sql) {
-        const connection = await this.getConnection();
-        return connection.query(sql);
-      }
-    }
-
-    const duckDBManager = new DuckDBManager();
-  </script>
-  ```
-
-## References
-
-- https://idl.uw.edu/visualization-curriculum/
-- https://observablehq.com/@uwdata/data-visualization-curriculum
-- https://docs.malloydata.dev/documentation/
-- https://idl.uw.edu/mosaic/why-mosaic/
-- https://motherduck.com/blog/semantic-layer-duckdb-tutorial/
-- https://duckdb.org/2025/06/13/text-analytics
-- https://motherduck.com/blog/who-needs-a-semantic-layer-anyway/
