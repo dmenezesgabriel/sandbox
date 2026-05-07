@@ -1,11 +1,12 @@
-import { formatValue, norm } from './utils.js';
+import { formatValue, norm } from './utils';
+import type { AskChartType, AskIntent, CatalogField, ChartDecision, DataRow, Diagnostics, Relationship, ResultShape } from './types';
 
 export class ResultShapeAnalyzer {
-  analyze(rows, columns, intent) {
+  analyze(rows: DataRow[], columns: string[] | undefined, intent: AskIntent): ResultShape {
     const cols = columns || Object.keys(rows[0] || {});
-    const numeric = [];
-    const categoric = [];
-    const time = [];
+    const numeric: string[] = [];
+    const categoric: string[] = [];
+    const time: string[] = [];
     for (const col of cols) {
       const values = rows.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
       if (intent.dimensions?.some(d => d.role === 'time') && (col === 'label' || col === 'period')) time.push(col);
@@ -32,11 +33,13 @@ export class ResultShapeAnalyzer {
 }
 
 export class ChartDecisionTree {
-  constructor(capabilities = {}) {
+  private readonly capabilities: Partial<Record<AskChartType, boolean>>;
+
+  constructor(capabilities: Partial<Record<AskChartType, boolean>> = {}) {
     this.capabilities = { kpi: true, table: true, bar: true, line: true, area: true, pie: true, ...capabilities };
   }
 
-  decide(shape, intent) {
+  decide(shape: ResultShape, intent: AskIntent): ChartDecision {
     if (intent.analysisType === 'list_values') return this.decision(['CATEGORIC only', '1 variable'], 'table', ['bar'], 'Listing distinct categorical values is clearest as a table.');
     if (intent.analysisType === 'yoy') return this.decision(['TIME SERIES', '1 series', 'year-over-year calculation'], 'table', ['line'], 'YoY includes multiple derived numeric columns, so a table preserves exact values and change percentages.');
     if (intent.analysisType === 'change') return this.decision(['TIME SERIES', '2 periods', 'delta calculation'], 'table', ['bar'], 'Change analysis includes start, end, delta and percent change, so a table preserves exact values.');
@@ -56,7 +59,7 @@ export class ChartDecisionTree {
     return this.decision(['Fallback'], 'table', [], 'The result shape is best preserved as a table with the enabled renderers.');
   }
 
-  decision(path, recommended, alternatives, reason) {
+  private decision(path: string[], recommended: AskChartType, alternatives: string[], reason: string): ChartDecision {
     const rendered = this.capabilities[recommended] ? recommended : 'table';
     return {
       path,
@@ -69,8 +72,8 @@ export class ChartDecisionTree {
 }
 
 export class ResultValidator {
-  validate({ rows, intent, confidence, diagnostics }) {
-    const warnings = [];
+  validate({ rows, intent, confidence, diagnostics }: { rows: DataRow[]; intent: AskIntent; confidence: number; diagnostics: Diagnostics | null }): string[] {
+    const warnings: string[] = [];
     if (!rows?.length || rows.every(row => Object.values(row).every(value => value === null || value === undefined || value === ''))) warnings.push('No rows matched this question. Try removing filters or broadening the date range.');
     if (confidence < 0.8) warnings.push('Some matches were fuzzy or inferred; review SQL/details if the result looks unexpected.');
     if (intent.dimensions?.length && rows?.some(row => String(row.label ?? '').trim() === '' || String(row.label ?? '').includes(' /  / ') || String(row.label ?? '').endsWith(' / '))) {
@@ -87,8 +90,29 @@ export class ResultValidator {
   }
 }
 
+interface TermMatcherLike {
+  patternFromTerm(term: string, flags?: string): RegExp | null;
+}
+
+interface JoinPlanLike {
+  error?: string;
+  joins?: Relationship[];
+}
+
 export class ConfidenceScorer {
-  constructor({ config, termMatcher, displayLabel, localizedTerms, buildJoinPlan }) {
+  private readonly config: { dataSources?: { name: string }[] };
+  private readonly termMatcher: TermMatcherLike;
+  private readonly displayLabel: (field: Partial<CatalogField> | { label?: string }) => string;
+  private readonly localizedTerms: (field: Partial<CatalogField>) => string[];
+  private readonly buildJoinPlan: (baseTable: string, neededTables: string[]) => JoinPlanLike;
+
+  constructor({ config, termMatcher, displayLabel, localizedTerms, buildJoinPlan }: {
+    config: { dataSources?: { name: string }[] };
+    termMatcher: TermMatcherLike;
+    displayLabel: (field: Partial<CatalogField> | { label?: string }) => string;
+    localizedTerms: (field: Partial<CatalogField>) => string[];
+    buildJoinPlan: (baseTable: string, neededTables: string[]) => JoinPlanLike;
+  }) {
     this.config = config;
     this.termMatcher = termMatcher;
     this.displayLabel = displayLabel;
@@ -96,12 +120,12 @@ export class ConfidenceScorer {
     this.buildJoinPlan = buildJoinPlan;
   }
 
-  estimate(intent) {
+  estimate(intent: AskIntent): number {
     const q = norm(intent.question || '');
-    const scores = [];
-    const add = value => { if (Number.isFinite(value)) scores.push(Math.max(0, Math.min(1, value))); };
+    const scores: number[] = [];
+    const add = (value: number): void => { if (Number.isFinite(value)) scores.push(Math.max(0, Math.min(1, value))); };
     if (intent.analysisType !== 'list_values') {
-      if (intent.metric?.kind) add(0.95);
+      if (intent.metric && 'kind' in intent.metric) add(0.95);
       else add(this.fieldEvidenceScore(q, intent.metric, 0.76));
     }
     for (const dim of intent.dimensions || []) add(this.fieldEvidenceScore(q, dim, 0.82));
@@ -112,7 +136,7 @@ export class ConfidenceScorer {
     return Number(confidence.toFixed(2));
   }
 
-  fieldEvidenceScore(q, field, fallback = 0.75) {
+  fieldEvidenceScore(q: string, field: Partial<CatalogField> | null, fallback = 0.75): number {
     if (!field) return fallback;
     const activeTerms = [this.displayLabel(field), field.label, field.column, ...(field.synonyms || []), ...this.localizedTerms(field)].map(norm).filter(Boolean);
     const exact = activeTerms.some(term => this.termMatcher.patternFromTerm(term)?.test(q));
@@ -124,11 +148,13 @@ export class ConfidenceScorer {
     return field.default ? Math.max(fallback, 0.78) : fallback;
   }
 
-  joinConfidence(intent) {
+  joinConfidence(intent: AskIntent): number {
     const filters = intent.filters || [];
-    const fields = [intent.metric?.field || intent.metric, intent.timeField, ...(intent.dimensions || []), ...filters.map(f => f.field), intent.dateRange?.field].filter(f => f && f.table);
+    const fields = [metricField(intent.metric), intent.timeField, ...(intent.dimensions || []), ...filters.map(f => f.field), intent.dateRange?.field].filter((f): f is CatalogField => !!f && !!f.table);
     if (!fields.length) return 0.9;
-    const baseTable = intent.metric?.field?.table || intent.metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
+    const metric = metricField(intent.metric);
+    const baseTable = metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
+    if (!baseTable) return 0.4;
     const neededTables = [...new Set([baseTable, ...fields.map(f => f.table)])];
     const joinPlan = this.buildJoinPlan(baseTable, neededTables);
     if (joinPlan.error) return 0.4;
@@ -138,38 +164,38 @@ export class ConfidenceScorer {
 }
 
 export class InsightGenerator {
-  generate(rows, intent, shape) {
+  generate(rows: DataRow[], intent: AskIntent, _shape: ResultShape): string[] {
     if (!rows?.length) return ['No rows matched this question.'];
     if (intent.analysisType === 'list_values') return [`Found ${rows.filter(r => r.label !== null && r.label !== undefined && r.label !== '').length} distinct ${intent.dimensions.map(d => d.label).join(' / ')} values.`];
     if (intent.analysisType === 'yoy') return this.yoyInsights(rows);
     if (intent.analysisType === 'change') return this.changeInsights(rows, intent);
-    if (!intent.dimensions?.length && rows[0]?.value !== undefined) return [`Total ${intent.metric?.label || intent.metric?.column || 'value'} is ${formatValue(rows[0].value, intent.metric?.format)}.`];
+    if (!intent.dimensions?.length && rows[0]?.value !== undefined) return [`Total ${metricLabel(intent)} is ${formatValue(rows[0].value, metricField(intent.metric)?.format)}.`];
     if (rows[0]?.value !== undefined) return this.groupedMetricInsights(rows, intent);
     return [];
   }
 
-  changeInsights(rows, intent) {
+  changeInsights(rows: DataRow[], intent: AskIntent): string[] {
     const row = rows[0];
     if (!row) return [];
     const change = Number(row.change);
     const percent = Number(row.change_percent);
     if (!Number.isFinite(change)) return [];
     const direction = change >= 0 ? 'increased' : 'decreased';
-    return [`${this.labelForMetric(intent)} ${direction} by ${formatValue(Math.abs(change), intent.metric?.format)}${Number.isFinite(percent) ? ` (${formatValue(Math.abs(percent), 'percent')})` : ''} from ${row.period}.`];
+    return [`${this.labelForMetric(intent)} ${direction} by ${formatValue(Math.abs(change), metricField(intent.metric)?.format)}${Number.isFinite(percent) ? ` (${formatValue(Math.abs(percent), 'percent')})` : ''} from ${row.period}.`];
   }
 
-  labelForMetric(intent) {
-    return intent.metric?.label || intent.metric?.column || 'Value';
+  labelForMetric(intent: AskIntent): string {
+    return metricLabel(intent);
   }
 
-  groupedMetricInsights(rows, intent) {
-    const metricFormat = intent.metric?.format;
+  groupedMetricInsights(rows: DataRow[], intent: AskIntent): string[] {
+    const metricFormat = metricField(intent.metric)?.format;
     const valid = rows.filter(r => Number.isFinite(Number(r.value)));
     if (!valid.length) return [];
     const total = valid.reduce((sum, r) => sum + Number(r.value), 0);
     const top = [...valid].sort((a, b) => Number(b.value) - Number(a.value))[0];
     const bottom = [...valid].sort((a, b) => Number(a.value) - Number(b.value))[0];
-    const insights = [];
+    const insights: string[] = [];
     if (top) insights.push(`${top.label} is highest at ${formatValue(top.value, metricFormat)}${total ? ` (${formatValue(Number(top.value) / total, 'percent')} of total)` : ''}.`);
     if (bottom && bottom.label !== top?.label) insights.push(`${bottom.label} is lowest at ${formatValue(bottom.value, metricFormat)}.`);
     if (valid.length >= 3 && total) {
@@ -186,18 +212,31 @@ export class InsightGenerator {
     }
     if (valid.length >= 4) {
       const avg = total / valid.length;
-      const outliers = valid.filter(r => Number(r.value) > avg * 1.5).map(r => r.label).slice(0, 3);
+      const outliers = valid.filter(r => Number(r.value) > avg * 1.5).map(r => String(r.label)).slice(0, 3);
       if (outliers.length) insights.push(`Above-average standout ${intent.dimensions?.[0]?.role === 'time' ? 'periods' : 'groups'}: ${outliers.join(', ')}.`);
     }
     return insights;
   }
 
-  yoyInsights(rows) {
+  yoyInsights(rows: DataRow[]): string[] {
     const last = [...rows].reverse().find(r => r.change_percent !== null && r.change_percent !== undefined && r.change_percent !== '');
-    const insights = [];
+    const insights: string[] = [];
     if (last) insights.push(`Latest YoY change is ${formatValue(last.change_percent, 'percent')} (${formatValue(last.change, 'currency')}).`);
     const best = rows.filter(r => Number.isFinite(Number(r.change_percent))).sort((a, b) => Number(b.change_percent) - Number(a.change_percent))[0];
     if (best) insights.push(`Strongest YoY growth was ${String(best.period).slice(0, 4)} at ${formatValue(best.change_percent, 'percent')}.`);
     return insights;
   }
+}
+
+function metricField(metric: AskIntent['metric']): CatalogField | null {
+  if (!metric) return null;
+  if ('kind' in metric) return metric.kind === 'count_distinct' ? metric.field : null;
+  return metric;
+}
+
+function metricLabel(intent: AskIntent): string {
+  const metric = intent.metric;
+  if (!metric) return 'value';
+  if ('kind' in metric) return metric.label;
+  return metric.label || metric.column || 'value';
 }

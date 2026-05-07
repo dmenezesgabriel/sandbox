@@ -24,17 +24,18 @@ import {
   startOfMonth,
   startOfYear,
   toRows
-} from './utils.js';
+} from './utils';
 import {
   ChartDecisionTree,
   ConfidenceScorer,
   InsightGenerator,
   ResultShapeAnalyzer,
   ResultValidator
-} from './resultAnalysis.js';
+} from './result-analysis';
 
 export class SemanticFieldMatcher {
-  constructor(config = {}, helpers = {}) {
+  [key: string]: any;
+  constructor(config: any = {}, helpers: any = {}) {
     this.config = config;
     this.helpers = helpers;
     this.enabled = config.enabled !== false;
@@ -121,7 +122,7 @@ export class SemanticFieldMatcher {
   }
 
   async embedBatch(texts) {
-    const vectors = [];
+    const vectors: any[] = [];
     for (let i = 0; i < texts.length; i += this.batchSize) {
       const batch = texts.slice(i, i + this.batchSize);
       const output = await this.extractor(batch, { pooling: 'mean', normalize: true });
@@ -141,6 +142,7 @@ export class SemanticFieldMatcher {
 }
 
 export class TermMatcher {
+  [key: string]: any;
   constructor(vocabulary, localeFamily) {
     this.vocabulary = vocabulary || {};
     this.localeFamily = localeFamily || 'en';
@@ -182,6 +184,7 @@ export class TermMatcher {
 }
 
 export class MonthCatalog {
+  [key: string]: any;
   constructor(locale) {
     this.locale = locale || 'en-US';
     this.months = this.buildMonths();
@@ -192,7 +195,7 @@ export class MonthCatalog {
     const byTerm = new Map();
     for (let month = 0; month < 12; month++) {
       for (const locale of locales) {
-        for (const style of ['long', 'short']) {
+        for (const style of ['long', 'short'] as const) {
           const label = new Intl.DateTimeFormat(locale, { month: style }).format(new Date(2024, month, 15)).replace(/\.$/, '');
           for (const term of [label, norm(label)]) {
             if (term) byTerm.set(term.toLowerCase(), month + 1);
@@ -220,6 +223,7 @@ export class MonthCatalog {
 }
 
 export class DateQuestionText {
+  [key: string]: any;
   removeText(question, text) {
     const normalizedQuestion = norm(question);
     const normalizedText = norm(text);
@@ -236,6 +240,7 @@ export class DateQuestionText {
 }
 
 export class RelativePeriodDateParser {
+  [key: string]: any;
   constructor(termMatcher, textTools) {
     this.termMatcher = termMatcher;
     this.textTools = textTools;
@@ -277,6 +282,7 @@ export class RelativePeriodDateParser {
 }
 
 export class NamedMonthDateParser {
+  [key: string]: any;
   constructor(monthCatalog, textTools) {
     this.monthCatalog = monthCatalog;
     this.textTools = textTools;
@@ -298,6 +304,7 @@ export class NamedMonthDateParser {
 }
 
 export class ChronoDateParser {
+  [key: string]: any;
   constructor({ primaryParser, fallbackParser, termMatcher, monthCatalog, textTools }) {
     this.primaryParser = primaryParser;
     this.fallbackParser = fallbackParser;
@@ -364,6 +371,7 @@ export class ChronoDateParser {
 }
 
 export class ExplicitYearDateParser {
+  [key: string]: any;
   constructor(textTools) {
     this.textTools = textTools;
   }
@@ -380,6 +388,7 @@ export class ExplicitYearDateParser {
 }
 
 export class DateRangeParser {
+  [key: string]: any;
   constructor({ primaryParser, fallbackParser, termMatcher, locale }) {
     const textTools = new DateQuestionText();
     const monthCatalog = new MonthCatalog(locale);
@@ -402,6 +411,7 @@ export class DateRangeParser {
 }
 
 export class IntentCueDetector {
+  [key: string]: any;
   constructor(termMatcher) {
     this.termMatcher = termMatcher;
   }
@@ -449,10 +459,10 @@ export class IntentCueDetector {
     const question = this.termMatcher.alternation('subjectQuestion');
     const verb = this.termMatcher.alternation('ownershipVerb');
     const article = this.termMatcher.alternation('article');
-    const patterns = [
+    const patterns: RegExp[] = [
       question && verb ? new RegExp(`\\b(?:${question})\\s+(.+?)\\s+(?:${verb})\\s+(?:(?:${article})\\s+)?(?:${mostOrLeast})\\b`) : null,
       new RegExp(`\\b(?:${mostOrLeast})\\s+.+?\\s+(.+)$`)
-    ].filter(Boolean);
+    ].filter((pattern): pattern is RegExp => pattern !== null);
     for (const pattern of patterns) {
       const phrase = normalized.match(pattern)?.[1];
       if (phrase) return singularize(phrase);
@@ -473,6 +483,7 @@ export class IntentCueDetector {
 }
 
 export class FieldSearchIndex {
+  [key: string]: any;
   constructor({ catalog, displayLabel, localizedTerms }) {
     this.catalog = catalog;
     this.displayLabel = displayLabel;
@@ -517,6 +528,7 @@ export class FieldSearchIndex {
 }
 
 export class TextSearchFieldMatchStrategy {
+  [key: string]: any;
   constructor({ fieldSearchIndex }) {
     this.fieldSearchIndex = fieldSearchIndex;
   }
@@ -539,6 +551,7 @@ export class TextSearchFieldMatchStrategy {
 }
 
 export class ExactFieldMatchStrategy {
+  [key: string]: any;
   constructor({ catalog, displayLabel, localizedTerms, termMatcher }) {
     this.catalog = catalog;
     this.displayLabel = displayLabel;
@@ -557,7 +570,7 @@ export class ExactFieldMatchStrategy {
   }
 
   async findInText(text, role) {
-    const candidates = [];
+    const candidates: any[] = [];
     for (const field of this.catalog().filter(field => field.role === role)) {
       for (const term of this.fieldTerms(field)) {
         if (this.termMatcher.patternFromTerm(term)?.test(text)) {
@@ -593,6 +606,7 @@ export class ExactFieldMatchStrategy {
 }
 
 export class FuseFieldMatchStrategy {
+  [key: string]: any;
   constructor({ fieldFuse }) {
     this.fieldFuse = fieldFuse;
   }
@@ -608,6 +622,7 @@ export class FuseFieldMatchStrategy {
 }
 
 export class SemanticFieldMatchStrategy {
+  [key: string]: any;
   constructor({ semanticMatcher, catalog }) {
     this.semanticMatcher = semanticMatcher;
     this.catalog = catalog;
@@ -624,12 +639,13 @@ export class SemanticFieldMatchStrategy {
 }
 
 export class FieldResolver {
+  [key: string]: any;
   constructor(strategies, clarify) {
     this.strategies = strategies;
     this.clarify = clarify;
   }
 
-  async resolvePhrase(phrase, roles, clarification = null) {
+  async resolvePhrase(phrase, roles, clarification: any = null) {
     if (!norm(phrase)) return { field: null };
     for (const strategy of this.strategies) {
       const result = await strategy.matchPhrase?.(phrase, roles);
@@ -656,6 +672,7 @@ export class FieldResolver {
 }
 
 export class SqlPlanner {
+  [key: string]: any;
   constructor({ config, askConfig, relationships, getDefaultTimeField }) {
     this.config = config;
     this.askConfig = askConfig || {};
@@ -675,13 +692,13 @@ export class SqlPlanner {
     const fields = [intent.metric?.field || intent.metric, intent.timeField, ...intent.dimensions, ...intent.filters.map(f => f.field), intent.dateRange?.field].filter(f => f && f.table);
     const baseTable = intent.metric?.field?.table || intent.metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
     const neededTables = [...new Set([baseTable, ...fields.map(f => f.table)])];
-    const joinPlan = this.buildJoinPlan(baseTable, neededTables);
+    const joinPlan: any = this.buildJoinPlan(baseTable, neededTables);
     if (joinPlan.error) return joinPlan;
 
     const aliases = new Map(joinPlan.tables.map((table, i) => [table, safeAlias(table, i)]));
-    const selectParts = [];
-    const groupParts = [];
-    const labelParts = [];
+    const selectParts: string[] = [];
+    const groupParts: string[] = [];
+    const labelParts: string[] = [];
     for (const dim of intent.dimensions) {
       const alias = aliases.get(dim.table);
       let expr;
@@ -784,7 +801,7 @@ export class SqlPlanner {
 
   buildDiagnostics({ intent, baseTable, aliases, from, joinSqls, joinRels, whereParts }) {
     const joinedFrom = `${from}${joinSqls.length ? `\n${joinSqls.join('\n')}` : ''}`;
-    const diagnostics = {};
+    const diagnostics: any = {};
     if (joinSqls.length) {
       const baseAlias = aliases.get(baseTable);
       const baseWhereParts = whereParts.filter(part => part.includes(`${baseAlias}.`));
@@ -823,8 +840,8 @@ export class SqlPlanner {
   }
 
   buildJoinPlan(baseTable, neededTables) {
-    const tables = [baseTable];
-    const joins = [];
+    const tables: any[] = [baseTable];
+    const joins: any[] = [];
     for (const table of neededTables) {
       if (tables.includes(table)) continue;
       const path = this.findRelationshipPath(tables, table);
@@ -864,6 +881,7 @@ export class SqlPlanner {
 }
 
 export class ValueFilterResolver {
+  [key: string]: any;
   constructor({ valueItems, valueFuse, valuePhraseMaxWords, displayLabel, localizedTerms }) {
     this.valueItems = valueItems;
     this.valueFuse = valueFuse;
@@ -872,21 +890,22 @@ export class ValueFilterResolver {
     this.localizedTerms = localizedTerms;
   }
 
-  resolve(q, clarification = null) {
+  resolve(q, clarification: any = null) {
     const matches = this.findMatches(q);
-    const byValue = new Map();
+    const byValue = new Map<string, any[]>();
     for (const match of matches.sort((a, b) => b.normalizedValue.length - a.normalizedValue.length)) {
       if ([...byValue.keys()].some(v => v.includes(match.normalizedValue))) continue;
       if (!byValue.has(match.normalizedValue)) byValue.set(match.normalizedValue, []);
-      byValue.get(match.normalizedValue).push(match);
+      const bucket = byValue.get(match.normalizedValue);
+      if (bucket) bucket.push(match);
     }
     return this.toFilters(q, byValue, clarification);
   }
 
   findMatches(q) {
-    const matches = [];
-    const seen = new Set();
-    const addMatch = (item, match = {}) => {
+    const matches: any[] = [];
+    const seen = new Set<string>();
+    const addMatch = (item: any, match: any = {}) => {
       const key = `${item.field.id}::${item.normalizedValue}`;
       const enriched = { ...item, matchScore: match.score ?? 1, matchSource: match.source || 'exact' };
       if (!seen.has(key)) {
@@ -923,16 +942,16 @@ export class ValueFilterResolver {
     return matches;
   }
 
-  toFilters(q, byValue, clarification = null) {
-    const filters = [];
+  toFilters(q, byValue: Map<string, any[]>, clarification: any = null) {
+    const filters: any[] = [];
     for (const [, items] of byValue) {
-      const uniqueFields = [...new Map(items.map(i => [i.field.id, i])).values()];
+      const uniqueFields: any[] = [...new Map<string, any>(items.map((i: any) => [i.field.id, i])).values()];
       if (uniqueFields.length > 1) {
         const clarified = clarification?.slot === 'filterField'
           && clarification.valueNormalized === items[0].normalizedValue
           ? uniqueFields.find(i => i.field.id === clarification.fieldId)
           : null;
-        const cueHasFieldName = clarified || uniqueFields.find(i => [this.displayLabel(i.field), i.field.label, i.field.column, ...this.localizedTerms(i.field)].map(norm).some(term => term && q.includes(term)));
+        const cueHasFieldName = clarified || uniqueFields.find((i: any) => [this.displayLabel(i.field), i.field.label, i.field.column, ...this.localizedTerms(i.field)].map(norm).some(term => term && q.includes(term)));
         if (cueHasFieldName) {
           filters.push({ field: cueHasFieldName.field, operator: '=', value: cueHasFieldName.value, score: cueHasFieldName.matchScore || 0.9, source: clarified ? 'clarification' : cueHasFieldName.matchSource });
         } else {
@@ -963,6 +982,7 @@ export class ValueFilterResolver {
 }
 
 export class QuestionParser {
+  [key: string]: any;
   constructor({ askConfig, catalog, entities, termMatcher, intentCues, filterResolver, dateRangeParser, localizedTerms, resolveFieldPhrase, findBestFieldInText, getDefaultMetric, getDefaultTimeField }) {
     this.askConfig = askConfig || {};
     this.catalog = catalog;
@@ -978,7 +998,7 @@ export class QuestionParser {
     this.getDefaultTimeField = getDefaultTimeField;
   }
 
-  async parse(question, options = {}) {
+  async parse(question, options: any = {}) {
     const dateInfo = this.dateRangeParser.parse(question, this.getDefaultTimeField());
     const fullQ = norm(question);
     const q = norm(dateInfo.questionWithoutDate || question);
@@ -1057,7 +1077,7 @@ export class QuestionParser {
     };
   }
 
-  listIntent(question, q, dateInfo, listField, warnings, options = {}) {
+  listIntent(question, q, dateInfo, listField, warnings, options: any = {}) {
     const filters = this.filterResolver.resolve(q, options.clarification);
     if (filters.clarification) return this.withOriginalQuestion(filters, question);
     return {
@@ -1128,8 +1148,8 @@ export class QuestionParser {
     return result;
   }
 
-  async resolveDimensions(q, superlative, timeGrain, isCount, warnings, options = {}) {
-    const dimensions = [];
+  async resolveDimensions(q, superlative, timeGrain, isCount, warnings, options: any = {}) {
+    const dimensions: any[] = [];
     const topDimensionPhrase = superlative?.field ? null : this.extractTopDimensionPhrase(q);
     if (superlative?.field) dimensions.push(superlative.field);
     const byPhrases = this.extractByPhrases(q);
@@ -1160,7 +1180,7 @@ export class QuestionParser {
     return dimensions;
   }
 
-  async detectListField(q, options = {}) {
+  async detectListField(q, options: any = {}) {
     if (!this.intentCues.isListRequest(q)) return null;
     if (await this.findBestFieldInText(q, 'measure')) return null;
     const hintedField = this.intentCues.listFieldHint(q);
@@ -1172,7 +1192,7 @@ export class QuestionParser {
     return phrase ? (await this.resolveFieldPhrase(phrase, ['dimension'], options.clarification)).field : null;
   }
 
-  async detectSuperlative(q, options = {}) {
+  async detectSuperlative(q, options: any = {}) {
     const direction = this.intentCues.superlativeDirection(q);
     if (!direction) return null;
     const phrase = this.intentCues.extractSuperlativeSubject(q);
@@ -1222,6 +1242,7 @@ export class QuestionParser {
 }
 
 export class CatalogBuilder {
+  [key: string]: any;
   constructor({ config, askConfig, duckDBManager, fieldByKey, displayLabel, localizedTerms, timeSqlExpression }) {
     this.config = config;
     this.askConfig = askConfig || {};
@@ -1236,7 +1257,7 @@ export class CatalogBuilder {
     this.fieldByKey.clear();
     const overrides = new Map((this.askConfig.fields || []).map(f => [fieldKey(f.table, f.column), f]));
     const tableProfiles = new Map();
-    const fields = [];
+    const fields: any[] = [];
 
     for (const source of this.config.dataSources || []) {
       const table = source.name;
@@ -1274,7 +1295,7 @@ export class CatalogBuilder {
     const sampleValues = (role === 'dimension' && lowEnoughCardinality)
       ? [...new Set(samples.map(String))].sort().slice(0, this.askConfig.profiling?.maxDistinctValuesPerField || 100)
       : [];
-    const field = {
+    const field: any = {
       id: fieldKey(table, column),
       table,
       column,
@@ -1345,8 +1366,8 @@ export class CatalogBuilder {
       byColumn.get(key).push(f);
     }
 
-    const accepted = [];
-    const ambiguous = [];
+    const accepted: any[] = [];
+    const ambiguous: any[] = [];
     for (const matches of byColumn.values()) {
       for (let i = 0; i < matches.length; i++) {
         for (let j = i + 1; j < matches.length; j++) {
@@ -1423,6 +1444,7 @@ export class CatalogBuilder {
 }
 
 export class AskDataEngine {
+  [key: string]: any;
   constructor(config, duckDBManager) {
     this.config = config;
     this.askConfig = config.askData || {};
@@ -1597,9 +1619,9 @@ export class AskDataEngine {
         unsupportedMetric: ['lucro', 'margem', 'custo']
       }
     };
-    const configured = this.askConfig.vocabulary || {};
-    const merged = structuredClone(defaults);
-    for (const [lang, groups] of Object.entries(configured)) {
+    const configured: any = this.askConfig.vocabulary || {};
+    const merged: any = structuredClone(defaults);
+    for (const [lang, groups] of Object.entries(configured as Record<string, Record<string, string[]>>)) {
       merged[lang] ||= {};
       for (const [group, terms] of Object.entries(groups)) merged[lang][group] = [...new Set([...(merged[lang][group] || []), ...terms])];
     }
@@ -1711,11 +1733,11 @@ export class AskDataEngine {
     });
   }
 
-  async ask(question, options = {}) {
+  async ask(question, options: any = {}) {
     const totalStarted = performance.now();
     await this.initialize();
     const parseStarted = performance.now();
-    const parsed = await this.parseQuestion(question, options);
+    const parsed = await this.parseQuestion(question, options as any);
     const parseMs = Math.round(performance.now() - parseStarted);
     if (parsed.error) return { ...parsed, metrics: { catalogBuildMs: this.metrics.catalogBuildMs, parseMs, totalAskMs: Math.round(performance.now() - totalStarted) } };
     if (parsed.clarification) return { ...parsed, metrics: { catalogBuildMs: this.metrics.catalogBuildMs, parseMs, totalAskMs: Math.round(performance.now() - totalStarted) } };
@@ -1758,7 +1780,7 @@ export class AskDataEngine {
     };
   }
 
-  parseQuestion(question, options = {}) {
+  parseQuestion(question, options: any = {}) {
     return this.questionParser.parse(question, options);
   }
 
@@ -1863,7 +1885,7 @@ export class AskDataEngine {
   }
 
   describeEvidence(intent) {
-    const evidence = [];
+    const evidence: any[] = [];
     if (intent.metric?.kind === 'count_star') evidence.push({ kind: 'metric', field: 'Records', source: 'count_star' });
     else if (intent.metric?.kind === 'count_distinct') evidence.push({ kind: 'metric', field: this.displayLabel(intent.metric.field), table: intent.metric.field.table, column: intent.metric.field.column, source: 'count_distinct' });
     else if (intent.metric?.table) evidence.push({ kind: 'metric', field: this.displayLabel(intent.metric), table: intent.metric.table, column: intent.metric.column, source: intent.metric.default ? 'default_metric' : 'resolved_field' });

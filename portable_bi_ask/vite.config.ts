@@ -1,7 +1,7 @@
 import { fileURLToPath, URL } from 'node:url';
 import { defineConfig } from 'vite';
 
-const root = path => fileURLToPath(new URL(path, import.meta.url));
+const root = (path: string): string => fileURLToPath(new URL(path, import.meta.url));
 
 export default defineConfig({
   resolve: {

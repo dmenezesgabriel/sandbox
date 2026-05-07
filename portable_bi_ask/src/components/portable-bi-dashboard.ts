@@ -1,14 +1,33 @@
 import Chart from 'chart.js/auto';
-import { LitElement, html, nothing } from 'lit';
-import { AskDataEngine } from '../askData.js';
-import { DASHBOARD_CONFIG } from '../config.js';
-import { DashboardDataLoader } from '../dataLoader.js';
-import { duckDBManager } from '../db.js';
-import { formatValue, numberValue } from '../utils.js';
+import type { ChartConfiguration, ChartType } from 'chart.js';
+import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from 'lit';
+import { AskDataEngine } from '../ask-data';
+import { DASHBOARD_CONFIG } from '../config';
+import { DashboardDataLoader } from '../data-loader';
+import { duckDBManager } from '../db';
+import { formatValue, numberValue } from '../utils';
+import type { AskChartType, AskResult, AskSuccessResult, CellValue, Clarification, ClarificationChoice, DashboardConfig, DataRow, FilterOptions, Filters } from '../types';
+
+type ActiveTab = 'dashboard' | 'askData';
+type ChartInstances = Record<string, Chart>;
+type RenderableAskChartType = 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter' | 'bubble' | 'histogram';
+
+const RENDERABLE_CHARTS: RenderableAskChartType[] = ['bar', 'line', 'area', 'pie', 'donut', 'scatter', 'bubble', 'histogram'];
+
+function isRenderableAskChartType(value: AskChartType | undefined): value is RenderableAskChartType {
+  return value !== undefined && RENDERABLE_CHARTS.includes(value as RenderableAskChartType);
+}
+
+function isAskSuccess(result: AskResult): result is AskSuccessResult {
+  return 'rows' in result && 'sql' in result && 'chartType' in result;
+}
+
+function inputValue(event: Event): string {
+  return event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement ? event.target.value : '';
+}
 
 export class PortableBiDashboard extends LitElement {
-  createRenderRoot() { return this; }
-  static properties = {
+  static override properties = {
     config: { type: Object },
     filters: { type: Object },
     _filterOptions: { state: true },
@@ -24,6 +43,26 @@ export class PortableBiDashboard extends LitElement {
     loading: { state: true },
     error: { state: true }
   };
+
+  config: DashboardConfig;
+  filters: Filters;
+  private _filterOptions: FilterOptions;
+  private _kpiResults: CellValue[];
+  private _chartData: Awaited<ReturnType<DashboardDataLoader['loadCharts']>>;
+  private _tableRows: DataRow[][];
+  private _activeTab: ActiveTab;
+  private _askQuestion: string;
+  private _askResult: AskSuccessResult | null;
+  private _askLoading: boolean;
+  private _askError: string;
+  private _askClarification: Clarification | null;
+  loading: boolean;
+  error: string;
+  private readonly askEngine: AskDataEngine;
+  private readonly dashboardLoader: DashboardDataLoader;
+  private _chartInstances: ChartInstances = {};
+  private _askChartInstance: Chart | null = null;
+
   constructor() {
     super();
     this.config = DASHBOARD_CONFIG;
@@ -43,11 +82,17 @@ export class PortableBiDashboard extends LitElement {
     this.askEngine = new AskDataEngine(this.config, duckDBManager);
     this.dashboardLoader = new DashboardDataLoader({ config: this.config, duckDBManager, askEngine: this.askEngine });
   }
-  connectedCallback() {
-    super.connectedCallback();
-    this._initDashboard();
+
+  override createRenderRoot(): HTMLElement | DocumentFragment {
+    return this;
   }
-  async _initDashboard() {
+
+  override connectedCallback(): void {
+    super.connectedCallback();
+    void this._initDashboard();
+  }
+
+  private async _initDashboard(): Promise<void> {
     this.loading = true;
     this.error = '';
     try {
@@ -62,82 +107,91 @@ export class PortableBiDashboard extends LitElement {
       this._chartData = data.chartData;
       this._tableRows = data.tableRows;
       this.loading = false;
-    } catch (err) {
+    } catch (err: unknown) {
       console.error(err);
       this.loading = false;
-      this.error = 'Failed to load data or render dashboard: ' + err;
+      this.error = 'Failed to load data or render dashboard: ' + String(err);
     }
   }
-  _onFilterChange(e, field) {
-    this.filters = { ...this.filters, [field]: e.target.value };
-    this._initDashboard();
+
+  private _onFilterChange(event: Event, field: string): void {
+    this.filters = { ...this.filters, [field]: inputValue(event) };
+    void this._initDashboard();
   }
-  _chartInstances = {};
-  _askChartInstance = null;
-  firstUpdated() {
+
+  override firstUpdated(): void {
     this._drawCharts();
   }
-  updated(changed) {
+
+  override updated(changed: PropertyValues): void {
     if (changed.has('_chartData') || changed.has('_activeTab')) this._drawCharts();
     if (changed.has('_askResult') || changed.has('_activeTab')) this._drawAskChart();
   }
-  _drawCharts() {
+
+  private _drawCharts(): void {
     if (this._activeTab !== 'dashboard') return;
-    if (this._chartInstances) {
-      Object.values(this._chartInstances).forEach(inst => {
-        try { inst?.destroy?.(); } catch (e) {}
-      });
-    }
+    Object.values(this._chartInstances).forEach(inst => {
+      try { inst.destroy(); } catch (_err: unknown) {}
+    });
     this._chartInstances = {};
     this._chartData.forEach(({ chartDef, labels, data }) => {
-      const canvas = this.querySelector(`#${chartDef.id}`);
-      if (!canvas) return;
-      this._chartInstances[chartDef.id] = new Chart(canvas.getContext('2d'), {
+      const canvas = this.querySelector<HTMLCanvasElement>(`#${chartDef.id}`);
+      const context = canvas?.getContext('2d');
+      if (!context) return;
+      this._chartInstances[chartDef.id] = new Chart(context, {
         type: chartDef.type,
-        data: { labels: labels, datasets: [{ label: chartDef.title || chartDef.id, data }] },
+        data: { labels, datasets: [{ label: chartDef.title || chartDef.id, data }] },
         options: chartDef.options || {}
       });
     });
   }
-  _drawAskChart() {
-    try { this._askChartInstance?.destroy?.(); } catch (e) {}
+
+  private _drawAskChart(): void {
+    try { this._askChartInstance?.destroy(); } catch (_err: unknown) {}
     this._askChartInstance = null;
-    const chartType = this._askResult?.chartType;
-    const renderable = ['bar', 'line', 'area', 'pie', 'donut', 'scatter', 'bubble', 'histogram'];
-    if (this._activeTab !== 'askData' || !this._askResult || !renderable.includes(chartType)) return;
-    const canvas = this.querySelector('#ask-data-chart');
-    if (!canvas) return;
-    const rows = this._askResult.rows || [];
+    const result = this._askResult;
+    const chartType = result?.chartType;
+    if (this._activeTab !== 'askData' || !result || !isRenderableAskChartType(chartType)) return;
+    const canvas = this.querySelector<HTMLCanvasElement>('#ask-data-chart');
+    const context = canvas?.getContext('2d');
+    if (!context) return;
+    const rows = result.rows || [];
     const colors = ['#406ac1', '#6aa7e8', '#8fd0a6', '#f2bf5e', '#e07a72', '#8d7ae8', '#6cc5c0', '#c0d065'];
-    let type = ['area', 'donut'].includes(chartType) ? (chartType === 'area' ? 'line' : 'doughnut') : chartType;
-    let data = {
-      labels: rows.map(row => String(row.label)),
-      datasets: [{
-        label: this._askResult.interpretation,
-        data: rows.map(row => numberValue(row.value)),
-        fill: chartType === 'area',
-        borderColor: '#406ac1',
-        backgroundColor: chartType === 'area' ? '#406ac133' : colors
-      }]
+    let type: ChartType = chartType === 'area' ? 'line' : chartType === 'donut' ? 'doughnut' : chartType === 'histogram' ? 'bar' : chartType;
+    let config: ChartConfiguration = {
+      type,
+      data: {
+        labels: rows.map(row => String(row.label)),
+        datasets: [{
+          label: result.interpretation,
+          data: rows.map(row => numberValue(row.value)),
+          fill: chartType === 'area',
+          borderColor: '#406ac1',
+          backgroundColor: chartType === 'area' ? '#406ac133' : colors
+        }]
+      },
+      options: { responsive: true, scales: chartType === 'bar' ? { y: { beginAtZero: true } } : {}, plugins: { legend: { display: ['pie', 'donut'].includes(chartType) } } }
     };
-    let options = { responsive: true, scales: chartType === 'bar' ? { y: { beginAtZero: true } } : {}, plugins: { legend: { display: ['pie', 'donut'].includes(chartType) } } };
 
     if (chartType === 'scatter' || chartType === 'bubble') {
-      const numeric = this._askResult.shape?.numeric || [];
+      const numeric = result.shape?.numeric || [];
       const [xKey, yKey, rKey] = numeric;
       if (!xKey || !yKey) return;
       type = chartType;
-      data = {
-        datasets: [{
-          label: this._askResult.interpretation,
-          data: rows.map(row => ({ x: numberValue(row[xKey]), y: numberValue(row[yKey]), r: Math.max(3, Math.sqrt(Math.abs(numberValue(row[rKey])) || 9)) })),
-          backgroundColor: '#406ac188',
-          borderColor: '#406ac1'
-        }]
+      config = {
+        type,
+        data: {
+          datasets: [{
+            label: result.interpretation,
+            data: rows.map(row => ({ x: numberValue(row[xKey]), y: numberValue(row[yKey]), r: Math.max(3, Math.sqrt(Math.abs(numberValue(row[rKey])) || 9)) })),
+            backgroundColor: '#406ac188',
+            borderColor: '#406ac1'
+          }]
+        },
+        options: { responsive: true, scales: { x: { title: { display: true, text: xKey } }, y: { title: { display: true, text: yKey } } } }
       };
-      options = { responsive: true, scales: { x: { title: { display: true, text: xKey } }, y: { title: { display: true, text: yKey } } } };
     } else if (chartType === 'histogram') {
-      const key = this._askResult.shape?.numeric?.[0] || 'value';
+      const key = result.shape?.numeric?.[0] || 'value';
       const values = rows.map(row => numberValue(row[key])).filter(Number.isFinite);
       if (!values.length) return;
       const min = Math.min(...values), max = Math.max(...values);
@@ -145,45 +199,52 @@ export class PortableBiDashboard extends LitElement {
       const step = (max - min || 1) / binCount;
       const bins = Array.from({ length: binCount }, (_, i) => ({ start: min + i * step, count: 0 }));
       for (const value of values) bins[Math.min(binCount - 1, Math.floor((value - min) / step))].count++;
-      type = 'bar';
-      data = { labels: bins.map(b => `${b.start.toFixed(0)}–${(b.start + step).toFixed(0)}`), datasets: [{ label: key, data: bins.map(b => b.count), backgroundColor: '#406ac1' }] };
-      options = { responsive: true, scales: { y: { beginAtZero: true } } };
+      config = {
+        type: 'bar',
+        data: { labels: bins.map(b => `${b.start.toFixed(0)}–${(b.start + step).toFixed(0)}`), datasets: [{ label: key, data: bins.map(b => b.count), backgroundColor: '#406ac1' }] },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+      };
     }
 
-    this._askChartInstance = new Chart(canvas.getContext('2d'), { type, data, options });
+    this._askChartInstance = new Chart(context, config);
   }
-  async _runAsk(appliedClarification = null) {
+
+  private async _runAsk(appliedClarification: Clarification['pending'] | null = null): Promise<void> {
     this._askLoading = true;
     this._askError = '';
     this._askClarification = null;
     this._askResult = null;
     try {
       const result = await this.askEngine.ask(this._askQuestion, appliedClarification ? { clarification: appliedClarification } : {});
-      if (result.clarification) this._askClarification = result.clarification;
-      else if (result.error) this._askError = result.error;
-      else this._askResult = result;
-    } catch (err) {
+      if ('clarification' in result) this._askClarification = result.clarification;
+      else if ('error' in result) this._askError = result.error;
+      else if (isAskSuccess(result)) this._askResult = result;
+    } catch (err: unknown) {
       console.error(err);
       this._askError = String(err);
     } finally {
       this._askLoading = false;
     }
   }
-  _chooseClarification(choice) {
+
+  private _chooseClarification(choice: ClarificationChoice): void {
     const pending = this._askClarification?.pending;
     if (!pending) return;
     this._askQuestion = pending.originalQuestion || this._askQuestion;
-    this._runAsk({ ...pending, fieldId: choice.fieldId, value: choice.value, valueNormalized: choice.valueNormalized });
+    void this._runAsk({ ...pending, fieldId: choice.fieldId, value: choice.value, valueNormalized: choice.valueNormalized });
   }
-  _setExample(example) {
+
+  private _setExample(example: string): void {
     this._askQuestion = example;
     this._askError = '';
     this._askClarification = null;
   }
-  async _copyText(text) {
+
+  private async _copyText(text: CellValue): Promise<void> {
     await navigator.clipboard?.writeText(String(text || ''));
   }
-  _downloadText(filename, text, type = 'text/plain') {
+
+  private _downloadText(filename: string, text: string, type = 'text/plain'): void {
     const blob = new Blob([text], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -192,18 +253,22 @@ export class PortableBiDashboard extends LitElement {
     a.click();
     URL.revokeObjectURL(url);
   }
-  _resultToCsv(result) {
+
+  private _resultToCsv(result: AskSuccessResult): string {
     const columns = result.columns || [];
-    const esc = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const esc = (value: CellValue): string => `"${String(value ?? '').replaceAll('"', '""')}"`;
     return [columns.map(esc).join(','), ...(result.rows || []).map(row => columns.map(col => esc(row[col])).join(','))].join('\n');
   }
-  _exportAskCsv(result) {
+
+  private _exportAskCsv(result: AskSuccessResult): void {
     this._downloadText('ask-result.csv', this._resultToCsv(result), 'text/csv');
   }
-  _exportAskJson(result) {
+
+  private _exportAskJson(result: AskSuccessResult): void {
     this._downloadText('ask-result.json', JSON.stringify({ interpretation: result.interpretation, sql: result.sql, columns: result.columns, rows: result.rows }, null, 2), 'application/json');
   }
-  render() {
+
+  override render(): TemplateResult {
     const c = this.config;
     return html`
       <header>
@@ -224,14 +289,15 @@ export class PortableBiDashboard extends LitElement {
       ` : nothing}
     `;
   }
-  renderDashboard(c) {
+
+  private renderDashboard(c: DashboardConfig): TemplateResult {
     return html`
       <form id="filter-bar">
         ${c.filters.map(f => html`
           <label>${f.label}:
             <select name="${f.field}"
                     .value=${this.filters[f.field] || 'All'}
-                    @change=${e => this._onFilterChange(e, f.field)}
+                    @change=${(e: Event) => this._onFilterChange(e, f.field)}
                     style="margin-right:.8em;font-size:1em;padding:0.12em .9em;border-radius:.5em;border:1.5px solid #b0c4e7;background:#fff;">
               ${this._filterOptions[f.field]?.map(o => html`<option value=${o}>${o}</option>`) || nothing}
             </select>
@@ -271,15 +337,16 @@ export class PortableBiDashboard extends LitElement {
       `)}
     `;
   }
-  renderAskData(c) {
+
+  private renderAskData(c: DashboardConfig): TemplateResult {
     const result = this._askResult;
     return html`
       <main class="ask-page">
         <section class="ask-card">
           <h2>Ask Data</h2>
           <div class="ask-input-row">
-            <input aria-label="Ask your data" .value=${this._askQuestion} @input=${e => this._askQuestion = e.target.value} @keydown=${e => { if (e.key === 'Enter') this._runAsk(); }} placeholder="sales by region">
-            <button class="primary-button" @click=${this._runAsk} ?disabled=${this._askLoading}>Ask</button>
+            <input aria-label="Ask your data" .value=${this._askQuestion} @input=${(e: Event) => { this._askQuestion = inputValue(e); }} @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') void this._runAsk(); }} placeholder="sales by region">
+            <button class="primary-button" @click=${() => void this._runAsk()} ?disabled=${this._askLoading}>Ask</button>
           </div>
           <div class="ask-examples">
             Try:
@@ -322,17 +389,19 @@ export class PortableBiDashboard extends LitElement {
       </main>
     `;
   }
-  renderAskExports(result) {
+
+  private renderAskExports(result: AskSuccessResult): TemplateResult {
     return html`
       <div class="interpretation" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
         <strong>Export:</strong>
-        <button class="choice-button" @click=${() => this._copyText(result.sql)}>Copy SQL</button>
+        <button class="choice-button" @click=${() => void this._copyText(result.sql)}>Copy SQL</button>
         <button class="choice-button" @click=${() => this._exportAskCsv(result)}>Download CSV</button>
         <button class="choice-button" @click=${() => this._exportAskJson(result)}>Download JSON</button>
       </div>
     `;
   }
-  renderAskDecision(result) {
+
+  private renderAskDecision(result: AskSuccessResult): TemplateResult | typeof nothing {
     const decision = result.chartDecision;
     if (!decision) return nothing;
     return html`
@@ -342,7 +411,8 @@ export class PortableBiDashboard extends LitElement {
       </div>
     `;
   }
-  renderAskInsights(result) {
+
+  private renderAskInsights(result: AskSuccessResult): TemplateResult | typeof nothing {
     const insights = result.insights || [];
     if (!insights.length) return nothing;
     return html`
@@ -354,13 +424,14 @@ export class PortableBiDashboard extends LitElement {
       </div>
     `;
   }
-  renderAskResult(result) {
+
+  private renderAskResult(result: AskSuccessResult): TemplateResult {
     if (result.chartType === 'kpi') {
       const value = result.rows[0]?.value;
-      const metric = result.intent.metric?.field || result.intent.metric;
+      const metric = 'kind' in result.intent.metric! ? ('field' in result.intent.metric! ? result.intent.metric.field : undefined) : result.intent.metric;
       return html`<div class="ask-kpi-value">${formatValue(value, metric?.format)}</div>${this.renderAskTable(result)}`;
     }
-    if (['bar', 'line', 'area', 'pie', 'donut', 'scatter', 'bubble', 'histogram'].includes(result.chartType)) {
+    if (isRenderableAskChartType(result.chartType)) {
       return html`
         <div class="ask-result-grid">
           <div><canvas id="ask-data-chart"></canvas></div>
@@ -370,15 +441,18 @@ export class PortableBiDashboard extends LitElement {
     }
     return this.renderAskTable(result);
   }
-  formatAskCell(col, value, metric) {
+
+  private formatAskCell(col: string, value: CellValue, metric?: { format?: string }): string {
     if (value === null || value === undefined || value === '') return '';
     if (String(col).includes('percent') || col === 'share') return formatValue(value, 'percent');
     if (['value', 'previous_value', 'start_value', 'end_value', 'change'].includes(col)) return formatValue(value, metric?.format);
     return String(value);
   }
-  renderAskTable(result) {
+
+  private renderAskTable(result: AskSuccessResult): TemplateResult {
     const columns = result.columns || [];
-    const metric = result.intent.metric?.field || result.intent.metric;
+    const intentMetric = result.intent.metric;
+    const metric = intentMetric && 'table' in intentMetric ? intentMetric : intentMetric && 'kind' in intentMetric && intentMetric.kind === 'count_distinct' ? intentMetric.field : undefined;
     return html`
       <div class="ask-table-wrap">
         <table>

@@ -1,4 +1,6 @@
-export const DASHBOARD_CONFIG = {
+import type { DashboardConfig } from './types';
+
+export const DASHBOARD_CONFIG: DashboardConfig = {
   title: "Portable BI Dashboard",
   subtitle: "Your Data, Any Data, Instantly Explained",
   dataSources: [
@@ -160,7 +162,7 @@ export const DASHBOARD_CONFIG = {
     {
       title: "Total Sales",
       query: "SELECT SUM(Sales) AS value FROM sales JOIN customer USING(\"Customer ID\") WHERE --filter:Region--",
-      format: v => "$" + Math.round(Number(v || 0)).toLocaleString()
+      format: (v) => "$" + Math.round(Number(v || 0)).toLocaleString()
     },
     {
       title: "Total Customers",
