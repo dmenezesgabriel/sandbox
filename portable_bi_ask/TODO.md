@@ -1,0 +1,32 @@
+ Remaining gaps / next implementations missing:                                                                                                                                                        
+                                                                                                                                                                                                       
+ 1. UI-level export smoke tests                                                                                                                                                                        
+     - Export buttons exist: Copy SQL, Download CSV, Download JSON.                                                                                                                                    
+     - Missing Playwright test that clicks them and verifies clipboard/download content.                                                                                                               
+ 2. Real UI clarification smoke test                                                                                                                                                                   
+     - Current clarification test is a unit-style synthetic test in the runner.                                                                                                                        
+     - Missing an end-to-end UI test where the user sees choices and clicks one.                                                                                                                       
+ 3. Fanout warning positive test                                                                                                                                                                       
+     - Fanout diagnostics exist and normal joins are checked.                                                                                                                                          
+     - Missing a synthetic/fixture case that intentionally creates duplicate inflation and asserts the warning fires.                                                                                  
+ 4. Null/blank grouped label positive test                                                                                                                                                             
+     - Caveat logic exists.                                                                                                                                                                            
+     - Missing fixture/test data with null/blank dimension values to prove warning behavior.                                                                                                           
+ 5. Date parse drop positive test                                                                                                                                                                      
+     - Date parse diagnostics exist.                                                                                                                                                                   
+     - Current dataset does not strongly exercise malformed date drops.                                                                                                                                
+     - Need fixture/test with bad date strings.                                                                                                                                                        
+ 6. More DuckDB SQL ground truth coverage                                                                                                                                                              
+     - Current runner has 9 / 9 DuckDB cross-checks passing.                                                                                                                                           
+     - Several tests still have groundTruth: null; we can add duckdbSql for:                                                                                                                           
+           - share of technology                                                                                                                                                                       
+           - last-year change                                                                                                                                                                          
+           - two dimensions                                                                                                                                                                            
+           - top products                                                                                                                                                                              
+           - Portuguese/date/empty examples.                                                                                                                                                           
+ 7. Performance thresholds                                                                                                                                                                             
+     - Metrics are recorded, but not enforced.                                                                                                                                                         
+     - Next: define max/p95 limits, e.g. Ask p95 < 1000ms after warmup, SQL < 250ms, etc.                                                                                                              
+ 8. Report before/after comparison                                                                                                                                                                     
+     - We save smoke-last-result.json.                                                                                                                                                                 
+     - Missing automatic comparison against a previous baseline artifact, e.g. smoke-baseline.json.                  

@@ -692,6 +692,8 @@
       decide(shape, intent) {
         if (intent.analysisType === 'list_values') return this.decision(['CATEGORIC only', '1 variable'], 'table', ['bar'], 'Listing distinct categorical values is clearest as a table.');
         if (intent.analysisType === 'yoy') return this.decision(['TIME SERIES', '1 series', 'year-over-year calculation'], 'table', ['line'], 'YoY includes multiple derived numeric columns, so a table preserves exact values and change percentages.');
+        if (intent.analysisType === 'change') return this.decision(['TIME SERIES', '2 periods', 'delta calculation'], 'table', ['bar'], 'Change analysis includes start, end, delta and percent change, so a table preserves exact values.');
+        if (intent.analysisType === 'share') return this.decision(['PART-TO-WHOLE', 'percent of total'], 'bar', ['pie', 'table'], 'Percent-of-total results compare contribution by group; bar is reliable and keeps exact share values in the table.');
         if (!intent.dimensions?.length && shape.numericCount === 1) return this.decision(['NUMERIC only', '1 variable', 'single aggregate'], 'kpi', ['bar'], 'A single aggregate value is best shown as a KPI.');
         if (intent.dimensions?.[0]?.role === 'time') {
           const path = ['TIME SERIES', shape.seriesCount > 1 ? 'several series' : '1 series'];
@@ -719,14 +721,98 @@
       }
     }
 
+    class ResultValidator {
+      validate({ rows, intent, confidence, diagnostics }) {
+        const warnings = [];
+        if (!rows?.length || rows.every(row => Object.values(row).every(value => value === null || value === undefined || value === ''))) warnings.push('No rows matched this question. Try removing filters or broadening the date range.');
+        if (confidence < 0.8) warnings.push('Some matches were fuzzy or inferred; review SQL/details if the result looks unexpected.');
+        if (intent.dimensions?.length && rows?.some(row => String(row.label ?? '').trim() === '' || String(row.label ?? '').includes(' /  / ') || String(row.label ?? '').endsWith(' / '))) {
+          warnings.push('Some grouped dimension labels are null or blank. Review source data before drawing conclusions.');
+        }
+        const fanout = diagnostics?.joinFanout;
+        if (fanout?.warning) warnings.push(fanout.warning);
+        if (diagnostics?.filterSelectivity?.warning) warnings.push(diagnostics.filterSelectivity.warning);
+        if (diagnostics?.dateParse?.warning) warnings.push(diagnostics.dateParse.warning);
+        if (intent.dimensions?.length && intent.analysisType !== 'trend' && rows?.length >= (Number(intent.limit) || Infinity)) {
+          warnings.push(`Showing the top ${intent.limit} rows. There may be more matching groups.`);
+        }
+        return warnings;
+      }
+    }
+
+    class ConfidenceScorer {
+      constructor({ config, termMatcher, displayLabel, localizedTerms, buildJoinPlan }) {
+        this.config = config;
+        this.termMatcher = termMatcher;
+        this.displayLabel = displayLabel;
+        this.localizedTerms = localizedTerms;
+        this.buildJoinPlan = buildJoinPlan;
+      }
+
+      estimate(intent) {
+        const q = norm(intent.question || '');
+        const scores = [];
+        const add = value => { if (Number.isFinite(value)) scores.push(Math.max(0, Math.min(1, value))); };
+        if (intent.analysisType !== 'list_values') {
+          if (intent.metric?.kind) add(0.95);
+          else add(this.fieldEvidenceScore(q, intent.metric, 0.76));
+        }
+        for (const dim of intent.dimensions || []) add(this.fieldEvidenceScore(q, dim, 0.82));
+        for (const filter of intent.filters || []) add(filter.score || 0.85);
+        if (intent.dateRange) add(0.9);
+        add(this.joinConfidence(intent));
+        const confidence = scores.length ? Math.min(...scores) : 0.7;
+        return Number(confidence.toFixed(2));
+      }
+
+      fieldEvidenceScore(q, field, fallback = 0.75) {
+        if (!field) return fallback;
+        const activeTerms = [this.displayLabel(field), field.label, field.column, ...(field.synonyms || []), ...this.localizedTerms(field)].map(norm).filter(Boolean);
+        const exact = activeTerms.some(term => this.termMatcher.patternFromTerm(term)?.test(q));
+        if (exact) return 0.97;
+        const questionTokens = new Set(q.split(/\s+/));
+        const evidenceTokens = new Set(activeTerms.flatMap(term => term.split(/\s+/)));
+        const tokenOverlap = [...questionTokens].some(token => evidenceTokens.has(token));
+        if (tokenOverlap) return 0.88;
+        return field.default ? Math.max(fallback, 0.78) : fallback;
+      }
+
+      joinConfidence(intent) {
+        const filters = intent.filters || [];
+        const fields = [intent.metric?.field || intent.metric, intent.timeField, ...(intent.dimensions || []), ...filters.map(f => f.field), intent.dateRange?.field].filter(f => f && f.table);
+        if (!fields.length) return 0.9;
+        const baseTable = intent.metric?.field?.table || intent.metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
+        const neededTables = [...new Set([baseTable, ...fields.map(f => f.table)])];
+        const joinPlan = this.buildJoinPlan(baseTable, neededTables);
+        if (joinPlan.error) return 0.4;
+        if (!joinPlan.joins?.length) return 0.95;
+        return Math.min(...joinPlan.joins.map(rel => rel.confidence ?? 0.85));
+      }
+    }
+
     class InsightGenerator {
       generate(rows, intent, shape) {
         if (!rows?.length) return ['No rows matched this question.'];
         if (intent.analysisType === 'list_values') return [`Found ${rows.filter(r => r.label !== null && r.label !== undefined && r.label !== '').length} distinct ${intent.dimensions.map(d => d.label).join(' / ')} values.`];
         if (intent.analysisType === 'yoy') return this.yoyInsights(rows);
+        if (intent.analysisType === 'change') return this.changeInsights(rows, intent);
         if (!intent.dimensions?.length && rows[0]?.value !== undefined) return [`Total ${intent.metric?.label || intent.metric?.column || 'value'} is ${formatValue(rows[0].value, intent.metric?.format)}.`];
         if (rows[0]?.value !== undefined) return this.groupedMetricInsights(rows, intent);
         return [];
+      }
+
+      changeInsights(rows, intent) {
+        const row = rows[0];
+        if (!row) return [];
+        const change = Number(row.change);
+        const percent = Number(row.change_percent);
+        if (!Number.isFinite(change)) return [];
+        const direction = change >= 0 ? 'increased' : 'decreased';
+        return [`${this.labelForMetric(intent)} ${direction} by ${formatValue(Math.abs(change), intent.metric?.format)}${Number.isFinite(percent) ? ` (${formatValue(Math.abs(percent), 'percent')})` : ''} from ${row.period}.`];
+      }
+
+      labelForMetric(intent) {
+        return intent.metric?.label || intent.metric?.column || 'Value';
       }
 
       groupedMetricInsights(rows, intent) {
@@ -1375,12 +1461,18 @@
         this.clarify = clarify;
       }
 
-      async resolvePhrase(phrase, roles) {
+      async resolvePhrase(phrase, roles, clarification = null) {
         if (!norm(phrase)) return { field: null };
         for (const strategy of this.strategies) {
           const result = await strategy.matchPhrase?.(phrase, roles);
           if (!result) continue;
-          if (result.ambiguous) return this.clarify(`Which field did you mean by "${phrase}"?`, result.fields);
+          if (result.ambiguous) {
+            const clarified = clarification?.slot === 'field' && norm(clarification.phrase) === norm(phrase)
+              ? result.fields.find(field => field.id === clarification.fieldId)
+              : null;
+            if (clarified) return { field: clarified };
+            return this.clarify({ slot: 'field', phrase, roles }, `Which field did you mean by "${phrase}"?`, result.fields);
+          }
           if (result.field) return { field: result.field };
         }
         return { field: null };
@@ -1392,6 +1484,773 @@
           if (field) return field;
         }
         return null;
+      }
+    }
+
+    class SqlPlanner {
+      constructor({ config, askConfig, relationships, getDefaultTimeField }) {
+        this.config = config;
+        this.askConfig = askConfig || {};
+        this.relationships = relationships;
+        this.getDefaultTimeField = getDefaultTimeField;
+      }
+
+      timeSqlExpression(field, alias) {
+        const isNativeDate = /date|timestamp|time/i.test(field.type || '');
+        if (isNativeDate) return `${alias}.${quoteIdent(field.column)}`;
+        return field.parseFormat
+          ? `STRPTIME(CAST(${alias}.${quoteIdent(field.column)} AS VARCHAR), '${field.parseFormat}')`
+          : `TRY_CAST(${alias}.${quoteIdent(field.column)} AS DATE)`;
+      }
+
+      plan(intent) {
+        const fields = [intent.metric?.field || intent.metric, intent.timeField, ...intent.dimensions, ...intent.filters.map(f => f.field), intent.dateRange?.field].filter(f => f && f.table);
+        const baseTable = intent.metric?.field?.table || intent.metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
+        const neededTables = [...new Set([baseTable, ...fields.map(f => f.table)])];
+        const joinPlan = this.buildJoinPlan(baseTable, neededTables);
+        if (joinPlan.error) return joinPlan;
+
+        const aliases = new Map(joinPlan.tables.map((table, i) => [table, safeAlias(table, i)]));
+        const selectParts = [];
+        const groupParts = [];
+        const labelParts = [];
+        for (const dim of intent.dimensions) {
+          const alias = aliases.get(dim.table);
+          let expr;
+          if (dim.role === 'time') {
+            expr = `DATE_TRUNC('${intent.timeGrain || 'month'}', ${this.timeSqlExpression(dim, alias)})`;
+          } else {
+            expr = `${alias}.${quoteIdent(dim.column)}`;
+          }
+          const dimAlias = `d${selectParts.length + 1}`;
+          selectParts.push(`${expr} AS ${quoteIdent(dimAlias)}`);
+          groupParts.push(expr);
+          labelParts.push(`CAST(${quoteIdent(dimAlias)} AS VARCHAR)`);
+        }
+
+        let metricExpr;
+        let metricFormat;
+        if (intent.analysisType === 'list_values') {
+          metricExpr = null;
+        } else if (intent.metric?.kind === 'count_star') {
+          metricExpr = 'COUNT(*)';
+        } else if (intent.metric?.kind === 'count_distinct') {
+          const f = intent.metric.field;
+          metricExpr = `COUNT(DISTINCT ${aliases.get(f.table)}.${quoteIdent(f.column)})`;
+        } else {
+          const m = intent.metric;
+          metricFormat = m.format;
+          metricExpr = `${m.aggregation || 'SUM'}(${aliases.get(m.table)}.${quoteIdent(m.column)})`;
+        }
+
+        const whereParts = intent.filters.map(filter => {
+          const expr = `${aliases.get(filter.field.table)}.${quoteIdent(filter.field.column)}`;
+          if (filter.operator === 'IN') return `${expr} IN (${(filter.values || []).map(value => `'${escapeSqlString(value)}'`).join(', ')})`;
+          return `${expr} = '${escapeSqlString(filter.value)}'`;
+        });
+        if (intent.dateRange?.field) {
+          const field = intent.dateRange.field;
+          const dateExpr = this.timeSqlExpression(field, aliases.get(field.table));
+          if (intent.dateRange.kind === 'monthOfYear') {
+            whereParts.push(`EXTRACT(month FROM ${dateExpr}) = ${Number(intent.dateRange.month)}`);
+          } else {
+            whereParts.push(`${dateExpr} >= DATE '${intent.dateRange.start}'`);
+            whereParts.push(`${dateExpr} < DATE '${intent.dateRange.end}'`);
+          }
+        }
+        const from = `${quoteIdent(baseTable)} ${aliases.get(baseTable)}`;
+        const joins = joinPlan.joins.map(rel => {
+          const leftAlias = aliases.get(rel.left.table);
+          const rightAlias = aliases.get(rel.right.table);
+          const joinTable = rel.right.table;
+          return `JOIN ${quoteIdent(joinTable)} ${rightAlias} ON ${leftAlias}.${quoteIdent(rel.left.column)} = ${rightAlias}.${quoteIdent(rel.right.column)}`;
+        });
+
+        let sql;
+        const diagnostics = this.buildDiagnostics({ intent, baseTable, aliases, from, joinSqls: joins, joinRels: joinPlan.joins, whereParts });
+
+        if (intent.analysisType === 'list_values') {
+          const dim = intent.dimensions[0];
+          const expr = `${aliases.get(dim.table)}.${quoteIdent(dim.column)}`;
+          const listWhereParts = [...whereParts, `${expr} IS NOT NULL`, `CAST(${expr} AS VARCHAR) <> ''`];
+          sql = `SELECT DISTINCT ${expr} AS label\nFROM ${from}\n${joins.join('\n')}\nWHERE ${listWhereParts.join(' AND ')}\nORDER BY label ASC\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
+          return { sql, columns: ['label'], diagnostics };
+        }
+        if (intent.analysisType === 'yoy') {
+          const timeField = intent.timeField || intent.dimensions.find(d => d.role === 'time') || this.getDefaultTimeField();
+          if (!timeField) return { error: 'I could not find a date/time field for year-over-year analysis.' };
+          const periodExpr = `DATE_TRUNC('year', ${this.timeSqlExpression(timeField, aliases.get(timeField.table))})`;
+          sql = `WITH yearly AS (\n  SELECT ${periodExpr} AS period, ${metricExpr} AS value\n  FROM ${from}\n  ${joins.join('\n  ')}${whereParts.length ? `\n  WHERE ${whereParts.join(' AND ')}` : ''}\n  GROUP BY 1\n), yoy AS (\n  SELECT period, value, LAG(value) OVER (ORDER BY period) AS previous_value\n  FROM yearly\n)\nSELECT CAST(period AS VARCHAR) AS period, value, previous_value, value - previous_value AS change, CASE WHEN previous_value IS NULL OR previous_value = 0 THEN NULL ELSE (value - previous_value) / previous_value END AS change_percent\nFROM yoy\nORDER BY period ASC`;
+          return { sql, columns: ['period', 'value', 'previous_value', 'change', 'change_percent'], diagnostics };
+        }
+        if (intent.analysisType === 'change') {
+          const timeField = intent.timeField || this.getDefaultTimeField();
+          if (!timeField) return { error: 'I could not find a date/time field for change analysis.' };
+          const dateExpr = this.timeSqlExpression(timeField, aliases.get(timeField.table));
+          const startYear = Number(intent.change.startYear);
+          const endYear = Number(intent.change.endYear);
+          const changeWhere = [...whereParts, `EXTRACT(year FROM ${dateExpr}) IN (${startYear}, ${endYear})`];
+          sql = `WITH yearly AS (\n  SELECT EXTRACT(year FROM ${dateExpr}) AS year, ${metricExpr} AS value\n  FROM ${from}\n  ${joins.join('\n  ')}${changeWhere.length ? `\n  WHERE ${changeWhere.join(' AND ')}` : ''}\n  GROUP BY 1\n), picked AS (\n  SELECT SUM(CASE WHEN year = ${startYear} THEN value END) AS start_value, SUM(CASE WHEN year = ${endYear} THEN value END) AS end_value\n  FROM yearly\n)\nSELECT '${startYear} to ${endYear}' AS period, start_value, end_value, end_value - start_value AS change, CASE WHEN start_value IS NULL OR start_value = 0 THEN NULL ELSE (end_value - start_value) / start_value END AS change_percent\nFROM picked`;
+          return { sql, columns: ['period', 'start_value', 'end_value', 'change', 'change_percent'], diagnostics, metricFormat };
+        }
+        if (intent.analysisType === 'share') {
+          if (!intent.dimensions.length) return { error: 'I need a dimension to calculate share of total.' };
+          const innerSelect = [...selectParts, `${metricExpr} AS value`].join(',\n  ');
+          const inner = `SELECT\n  ${innerSelect}\nFROM ${from}\n${joins.join('\n')}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}\nGROUP BY ${groupParts.map((_, i) => i + 1).join(', ')}`;
+          const labelExpr = intent.dimensions.length === 1 ? `CAST(d1 AS VARCHAR)` : intent.dimensions.map((_, i) => `CAST(d${i + 1} AS VARCHAR)`).join(` || ' / ' || `);
+          const shareValues = (intent.shareValues || []).map(value => `'${escapeSqlString(value)}'`).join(', ');
+          sql = `WITH grouped AS (\n${inner}\n), shares AS (\n  SELECT ${labelExpr} AS label, value, CASE WHEN SUM(value) OVER () = 0 THEN NULL ELSE value / SUM(value) OVER () END AS share\n  FROM grouped\n)\nSELECT label, value, share\nFROM shares${shareValues ? `\nWHERE label IN (${shareValues})` : ''}\nORDER BY value ${intent.sort?.direction || 'DESC'}\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
+          return { sql, columns: ['label', 'value', 'share'], metricFormat, diagnostics };
+        }
+        if (intent.dimensions.length) {
+          const innerSelect = [...selectParts, `${metricExpr} AS value`].join(',\n  ');
+          const inner = `SELECT\n  ${innerSelect}\nFROM ${from}\n${joins.join('\n')}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}\nGROUP BY ${groupParts.map((_, i) => i + 1).join(', ')}`;
+          const labelExpr = intent.dimensions.length === 1 ? `CAST(d1 AS VARCHAR)` : intent.dimensions.map((_, i) => `CAST(d${i + 1} AS VARCHAR)`).join(` || ' / ' || `);
+          const orderBy = intent.dimensions[0]?.role === 'time' ? 'label ASC' : `value ${intent.sort?.direction || 'DESC'}`;
+          sql = `SELECT ${labelExpr} AS label, value\nFROM (\n${inner}\n) q\nORDER BY ${orderBy}\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
+        } else {
+          sql = `SELECT ${metricExpr} AS value\nFROM ${from}\n${joins.join('\n')}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}`;
+        }
+        return { sql, columns: intent.dimensions.length ? ['label', 'value'] : ['value'], metricFormat, diagnostics };
+      }
+
+      buildDiagnostics({ intent, baseTable, aliases, from, joinSqls, joinRels, whereParts }) {
+        const joinedFrom = `${from}${joinSqls.length ? `\n${joinSqls.join('\n')}` : ''}`;
+        const diagnostics = {};
+        if (joinSqls.length) {
+          const baseAlias = aliases.get(baseTable);
+          const baseWhereParts = whereParts.filter(part => part.includes(`${baseAlias}.`));
+          const baseSql = `SELECT COUNT(*) AS row_count FROM ${from}${baseWhereParts.length ? `\nWHERE ${baseWhereParts.join(' AND ')}` : ''}`;
+          const joinedSql = `SELECT COUNT(*) AS row_count FROM ${joinedFrom}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}`;
+          diagnostics.joinFanout = {
+            baseTable,
+            joinedTables: [...new Set(joinRels.map(rel => rel.right.table))],
+            baseCountSql: baseSql,
+            joinedCountSql: joinedSql,
+            threshold: this.askConfig.validation?.joinFanoutRatio || 1.5,
+            minExtraRows: this.askConfig.validation?.joinFanoutMinExtraRows || 100
+          };
+        }
+        if (whereParts.length) {
+          diagnostics.filterSelectivity = {
+            unfilteredCountSql: `SELECT COUNT(*) AS row_count FROM ${joinedFrom}`,
+            filteredCountSql: `SELECT COUNT(*) AS row_count FROM ${joinedFrom}\nWHERE ${whereParts.join(' AND ')}`,
+            threshold: this.askConfig.validation?.filterSelectivityRatio || 0.1
+          };
+        }
+        const timeField = intent.timeField || intent.dimensions?.find(field => field.role === 'time') || intent.dateRange?.field;
+        if (timeField) {
+          const alias = aliases.get(timeField.table);
+          const rawExpr = `${alias}.${quoteIdent(timeField.column)}`;
+          const isNativeDate = /date|timestamp|time/i.test(timeField.type || '');
+          const tryExpr = !isNativeDate && timeField.parseFormat
+            ? `TRY_STRPTIME(CAST(${rawExpr} AS VARCHAR), '${timeField.parseFormat}')`
+            : `TRY_CAST(${rawExpr} AS DATE)`;
+          diagnostics.dateParse = {
+            field: timeField.label || timeField.column,
+            sql: `SELECT COUNT(*) AS checked_rows, SUM(CASE WHEN ${rawExpr} IS NOT NULL AND ${tryExpr} IS NULL THEN 1 ELSE 0 END) AS dropped_rows FROM ${joinedFrom}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}`
+          };
+        }
+        return Object.keys(diagnostics).length ? diagnostics : null;
+      }
+
+      buildJoinPlan(baseTable, neededTables) {
+        const tables = [baseTable];
+        const joins = [];
+        for (const table of neededTables) {
+          if (tables.includes(table)) continue;
+          const path = this.findRelationshipPath(tables, table);
+          if (!path) return { error: `I do not know how to join ${baseTable} to ${table}. Add a relationship or confirm an inferred join.` };
+          for (const rel of path) {
+            const leftKnown = tables.includes(rel.left.table);
+            const rightKnown = tables.includes(rel.right.table);
+            if (leftKnown && !rightKnown) {
+              joins.push(rel);
+              tables.push(rel.right.table);
+            } else if (rightKnown && !leftKnown) {
+              joins.push({ left: rel.right, right: rel.left, confidence: rel.confidence, inferred: rel.inferred });
+              tables.push(rel.left.table);
+            }
+          }
+        }
+        return { tables, joins };
+      }
+
+      findRelationshipPath(startTables, targetTable) {
+        const queue = startTables.map(table => ({ table, path: [] }));
+        const visited = new Set(startTables);
+        while (queue.length) {
+          const current = queue.shift();
+          if (current.table === targetTable) return current.path;
+          for (const rel of this.relationships()) {
+            const next = rel.left.table === current.table ? rel.right.table : (rel.right.table === current.table ? rel.left.table : null);
+            if (!next || visited.has(next)) continue;
+            visited.add(next);
+            queue.push({ table: next, path: [...current.path, rel] });
+          }
+        }
+        return null;
+      }
+
+
+    }
+
+    class ValueFilterResolver {
+      constructor({ valueItems, valueFuse, valuePhraseMaxWords, displayLabel, localizedTerms }) {
+        this.valueItems = valueItems;
+        this.valueFuse = valueFuse;
+        this.valuePhraseMaxWords = valuePhraseMaxWords;
+        this.displayLabel = displayLabel;
+        this.localizedTerms = localizedTerms;
+      }
+
+      resolve(q, clarification = null) {
+        const matches = this.findMatches(q);
+        const byValue = new Map();
+        for (const match of matches.sort((a, b) => b.normalizedValue.length - a.normalizedValue.length)) {
+          if ([...byValue.keys()].some(v => v.includes(match.normalizedValue))) continue;
+          if (!byValue.has(match.normalizedValue)) byValue.set(match.normalizedValue, []);
+          byValue.get(match.normalizedValue).push(match);
+        }
+        return this.toFilters(q, byValue, clarification);
+      }
+
+      findMatches(q) {
+        const matches = [];
+        const seen = new Set();
+        const addMatch = (item, match = {}) => {
+          const key = `${item.field.id}::${item.normalizedValue}`;
+          const enriched = { ...item, matchScore: match.score ?? 1, matchSource: match.source || 'exact' };
+          if (!seen.has(key)) {
+            seen.add(key);
+            matches.push(enriched);
+          } else {
+            const existing = matches.find(m => `${m.field.id}::${m.normalizedValue}` === key);
+            if (existing && enriched.matchScore > (existing.matchScore || 0)) Object.assign(existing, enriched);
+          }
+        };
+        for (const item of this.valueItems()) {
+          const v = item.normalizedValue;
+          if (!v || v.length < 2) continue;
+          const pattern = `\\b${escapeRegExp(v).replace(/\s+/g, '\\s+')}\\b`;
+          if (new RegExp(pattern).test(q)) addMatch(item, { score: 1, source: 'exact_value' });
+        }
+        const fuse = this.valueFuse();
+        if (fuse) {
+          const words = q.split(/\s+/).filter(Boolean);
+          const maxWindow = Math.min(this.valuePhraseMaxWords() || 1, 8, words.length);
+          for (let size = 1; size <= maxWindow; size++) {
+            for (let start = 0; start + size <= words.length; start++) {
+              const phrase = words.slice(start, start + size).join(' ');
+              if (phrase.length < 4) continue;
+              for (const result of fuse.search(phrase, { limit: 3 })) {
+                const itemWordCount = result.item.normalizedValue.split(/\s+/).length;
+                if (itemWordCount !== size) continue;
+                const fuzzyLimit = itemWordCount > 1 ? 0.025 : 0.001;
+                if ((result.score ?? 1) <= fuzzyLimit) addMatch(result.item, { score: Math.max(0.75, 1 - (result.score || 0) * 10), source: 'fuzzy_value' });
+              }
+            }
+          }
+        }
+        return matches;
+      }
+
+      toFilters(q, byValue, clarification = null) {
+        const filters = [];
+        for (const [, items] of byValue) {
+          const uniqueFields = [...new Map(items.map(i => [i.field.id, i])).values()];
+          if (uniqueFields.length > 1) {
+            const clarified = clarification?.slot === 'filterField'
+              && clarification.valueNormalized === items[0].normalizedValue
+              ? uniqueFields.find(i => i.field.id === clarification.fieldId)
+              : null;
+            const cueHasFieldName = clarified || uniqueFields.find(i => [this.displayLabel(i.field), i.field.label, i.field.column, ...this.localizedTerms(i.field)].map(norm).some(term => term && q.includes(term)));
+            if (cueHasFieldName) {
+              filters.push({ field: cueHasFieldName.field, operator: '=', value: cueHasFieldName.value, score: cueHasFieldName.matchScore || 0.9, source: clarified ? 'clarification' : cueHasFieldName.matchSource });
+            } else {
+              const candidates = uniqueFields.slice(0, 5).map(i => ({
+                label: `${i.field.label} = ${i.value}`,
+                fieldId: i.field.id,
+                fieldLabel: i.field.label,
+                table: i.field.table,
+                column: i.field.column,
+                value: i.value,
+                valueNormalized: i.normalizedValue
+              }));
+              return {
+                clarification: {
+                  message: `Which field should "${items[0].value}" filter?`,
+                  pending: { slot: 'filterField', originalQuestion: null, value: items[0].value, valueNormalized: items[0].normalizedValue, candidates },
+                  choices: candidates
+                }
+              };
+            }
+          } else {
+            const item = uniqueFields[0];
+            filters.push({ field: item.field, operator: '=', value: item.value, score: item.matchScore || 0.9, source: item.matchSource });
+          }
+        }
+        return { filters };
+      }
+    }
+
+    class QuestionParser {
+      constructor({ askConfig, catalog, entities, termMatcher, intentCues, filterResolver, dateRangeParser, localizedTerms, resolveFieldPhrase, findBestFieldInText, getDefaultMetric, getDefaultTimeField }) {
+        this.askConfig = askConfig || {};
+        this.catalog = catalog;
+        this.entities = entities;
+        this.termMatcher = termMatcher;
+        this.intentCues = intentCues;
+        this.filterResolver = filterResolver;
+        this.dateRangeParser = dateRangeParser;
+        this.localizedTerms = localizedTerms;
+        this.resolveFieldPhrase = resolveFieldPhrase;
+        this.findBestFieldInText = findBestFieldInText;
+        this.getDefaultMetric = getDefaultMetric;
+        this.getDefaultTimeField = getDefaultTimeField;
+      }
+
+      async parse(question, options = {}) {
+        const dateInfo = this.dateRangeParser.parse(question, this.getDefaultTimeField());
+        const fullQ = norm(question);
+        const q = norm(dateInfo.questionWithoutDate || question);
+        const warnings = [];
+        if (!q) return { error: 'Ask a question first.' };
+
+        const unsupportedMetric = this.detectUnsupportedMetric(q);
+        if (unsupportedMetric) return this.unsupportedMetricError(question, unsupportedMetric);
+
+        const listField = await this.detectListField(q, options);
+        if (listField) return this.listIntent(question, q, dateInfo, listField, warnings, options);
+
+        const topOrBottom = [this.termAlternation('top'), this.termAlternation('bottom')].filter(Boolean).join('|');
+        const topMatch = topOrBottom ? q.match(new RegExp(`\\b(${topOrBottom})\\s+(\\d+)\\b`)) : null;
+        const superlative = await this.detectSuperlative(q, options);
+        const limit = superlative ? 1 : (topMatch ? Math.min(Number(topMatch[2]), this.askConfig.maxRows || 25) : (this.askConfig.maxRows || 25));
+        const sortDirection = superlative?.direction || (topMatch && this.terms('bottom').includes(norm(topMatch[1])) ? 'ASC' : 'DESC');
+        const isRanking = !!topMatch || !!superlative;
+        const isYoY = this.intentCues.isYearOverYear(q);
+        const timeGrain = isYoY ? 'year' : this.intentCues.timeGrain(q);
+        const isCount = this.hasTerm(q, 'count');
+        const metric = await this.resolveMetric(q, isCount, superlative);
+        const change = this.detectChange(fullQ);
+        if (change) {
+          const filters = this.filterResolver.resolve(q, options.clarification);
+          if (filters.clarification) return this.withOriginalQuestion(filters, question);
+          return {
+            intent: {
+              question,
+              analysisType: 'change',
+              metric,
+              timeField: this.getDefaultTimeField(),
+              dimensions: [],
+              filters: filters.filters,
+              dateRange: null,
+              change,
+              sort: { by: 'period', direction: 'ASC' },
+              limit: 1
+            },
+            warnings
+          };
+        }
+        const dimensions = await this.resolveDimensions(q, superlative, timeGrain, isCount, warnings, options);
+        if (dimensions.clarification) return this.withOriginalQuestion(dimensions, question);
+        const filters = this.filterResolver.resolve(q, options.clarification);
+        if (filters.clarification) return this.withOriginalQuestion(filters, question);
+        const share = this.buildShare(fullQ, filters.filters, dimensions);
+        const comparison = share ? null : this.buildComparison(q, filters.filters, dimensions);
+        const finalDimensions = share?.dimensions || comparison?.dimensions || dimensions;
+        const finalFilters = share?.filters || comparison?.filters || filters.filters;
+
+        return {
+          intent: {
+            question,
+            analysisType: share ? 'share' : (comparison ? 'comparison' : (isYoY ? 'yoy' : (finalDimensions.some(d => d.role === 'time') ? 'trend' : (isRanking || finalDimensions.length ? 'ranking' : 'kpi')))),
+            metric,
+            timeField: isYoY ? this.getDefaultTimeField() : null,
+            dimensions: finalDimensions.slice(0, this.askConfig.maxDimensions || 2),
+            filters: finalFilters,
+            dateRange: dateInfo.dateRange,
+            shareValues: share?.values,
+            sort: { by: 'value', direction: sortDirection },
+            limit: comparison ? Math.max(limit, comparison.values.length) : limit,
+            timeGrain: timeGrain || (finalDimensions.some(d => d.role === 'time') ? 'month' : undefined)
+          },
+          warnings
+        };
+      }
+
+      unsupportedMetricError(question, unsupportedMetric) {
+        const measures = this.catalog().filter(f => f.role === 'measure');
+        const available = measures.map(f => f.label).join(', ') || 'none';
+        return {
+          error: `I could not find a "${unsupportedMetric}" metric in this dataset. Available measures: ${available}.`,
+          suggestions: measures.slice(0, 4).map(f => question.replace(new RegExp(unsupportedMetric, 'ig'), f.label.toLowerCase()))
+        };
+      }
+
+      listIntent(question, q, dateInfo, listField, warnings, options = {}) {
+        const filters = this.filterResolver.resolve(q, options.clarification);
+        if (filters.clarification) return this.withOriginalQuestion(filters, question);
+        return {
+          intent: {
+            question,
+            analysisType: 'list_values',
+            metric: null,
+            dimensions: [listField],
+            filters: filters.filters,
+            dateRange: dateInfo.dateRange,
+            sort: { by: 'label', direction: 'ASC' },
+            limit: this.askConfig.maxRows || 25
+          },
+          warnings
+        };
+      }
+
+      async resolveMetric(q, isCount, superlative) {
+        if (!isCount) return superlative?.metric || await this.findBestFieldInText(q, 'measure') || this.getDefaultMetric();
+        const countEntity = this.entities().find(entity => entity.terms.some(term => this.termMatcher.patternFromTerm(term)?.test(q)));
+        return countEntity ? { kind: 'count_distinct', entity: countEntity, field: countEntity.field, label: countEntity.label } : { kind: 'count_star', label: 'Records' };
+      }
+
+      detectChange(q) {
+        if (!this.hasTerm(q, 'change')) return null;
+        const explicitYears = [...q.matchAll(/\b(19\d{2}|20\d{2})\b/g)].map(match => Number(match[1]));
+        if (explicitYears.length >= 2) return { startYear: explicitYears[0], endYear: explicitYears[1] };
+        if (this.hasTerm(q, 'latestYear')) {
+          const maxDate = this.getDefaultTimeField()?.dateProfile?.maxDate;
+          const maxYear = maxDate ? new Date(`${maxDate}T00:00:00Z`).getUTCFullYear() : null;
+          if (maxYear) return { startYear: maxYear - 1, endYear: maxYear };
+        }
+        return null;
+      }
+
+      buildShare(q, filters, dimensions) {
+        if (!this.hasTerm(q, 'share')) return null;
+        if (dimensions.length) return { dimensions, filters, values: null };
+        const contributionFilter = (filters || []).find(filter => !filter.operator || filter.operator === '=');
+        if (!contributionFilter) return null;
+        return {
+          dimensions: [contributionFilter.field],
+          filters: filters.filter(filter => filter !== contributionFilter),
+          values: [contributionFilter.value]
+        };
+      }
+
+      buildComparison(q, filters, dimensions) {
+        if (!this.hasTerm(q, 'comparison')) return null;
+        const groups = new Map();
+        for (const filter of filters || []) {
+          if (filter.operator && filter.operator !== '=') continue;
+          const key = filter.field.id;
+          if (!groups.has(key)) groups.set(key, { field: filter.field, filters: [] });
+          groups.get(key).filters.push(filter);
+        }
+        const group = [...groups.values()].find(item => item.filters.length >= 2);
+        if (!group) return null;
+        const values = [...new Set(group.filters.map(filter => filter.value))];
+        const comparisonFilter = { field: group.field, operator: 'IN', values, score: Math.min(...group.filters.map(filter => filter.score || 0.9)), source: 'comparison_values' };
+        const remainingFilters = filters.filter(filter => filter.field.id !== group.field.id);
+        const comparisonDimension = dimensions.some(dimension => dimension.id === group.field.id) ? [] : [group.field];
+        return { values, dimensions: [...comparisonDimension, ...dimensions], filters: [...remainingFilters, comparisonFilter] };
+      }
+
+      withOriginalQuestion(result, question) {
+        if (result.clarification?.pending) result.clarification.pending.originalQuestion = question;
+        return result;
+      }
+
+      async resolveDimensions(q, superlative, timeGrain, isCount, warnings, options = {}) {
+        const dimensions = [];
+        const topDimensionPhrase = superlative?.field ? null : this.extractTopDimensionPhrase(q);
+        if (superlative?.field) dimensions.push(superlative.field);
+        const byPhrases = this.extractByPhrases(q);
+        if (topDimensionPhrase) {
+          const field = await this.resolveFieldPhrase(topDimensionPhrase, ['dimension', 'time'], options.clarification);
+          if (field.clarification) return field;
+          if (field.field) dimensions.push(field.field);
+        }
+        for (const phrase of byPhrases) {
+          if (dimensions.length >= (this.askConfig.maxDimensions || 2)) break;
+          if (['month', 'year', 'day', 'date', 'time'].includes(phrase) || /over time/.test(q)) continue;
+          const field = await this.resolveFieldPhrase(phrase, ['dimension', 'time'], options.clarification);
+          if (field.clarification) return field;
+          if (field.field && !dimensions.some(d => d.id === field.field.id)) dimensions.push(field.field);
+        }
+        if ((timeGrain || this.hasTerm(q, 'overTime')) && !dimensions.some(d => d.role === 'time')) {
+          const timeField = this.getDefaultTimeField();
+          if (timeField) dimensions.unshift(timeField);
+          else warnings.push('I could not find a date/time field for a trend.');
+        }
+        if (!dimensions.length && isCount) {
+          const byAfterCount = byPhrases[0];
+          if (byAfterCount) {
+            const field = await this.resolveFieldPhrase(byAfterCount, ['dimension', 'time'], options.clarification);
+            if (field.field) dimensions.push(field.field);
+          }
+        }
+        return dimensions;
+      }
+
+      async detectListField(q, options = {}) {
+        if (!this.intentCues.isListRequest(q)) return null;
+        if (await this.findBestFieldInText(q, 'measure')) return null;
+        const hintedField = this.intentCues.listFieldHint(q);
+        if (hintedField) return (await this.resolveFieldPhrase(hintedField, ['dimension'], options.clarification)).field;
+        const entity = this.entities().find(e => e.terms.some(term => this.termMatcher.patternFromTerm(term)?.test(q)));
+        if (this.hasTerm(q, 'listKind') && entity?.preferredDimensionFields?.length) return entity.preferredDimensionFields[0];
+        if (entity) return entity.preferredDimensionFields?.find(f => /name|nome/i.test(f.column)) || entity.preferredDimensionFields?.[0];
+        const phrase = this.intentCues.extractListPhrase(q);
+        return phrase ? (await this.resolveFieldPhrase(phrase, ['dimension'], options.clarification)).field : null;
+      }
+
+      async detectSuperlative(q, options = {}) {
+        const direction = this.intentCues.superlativeDirection(q);
+        if (!direction) return null;
+        const phrase = this.intentCues.extractSuperlativeSubject(q);
+        if (!phrase) return null;
+        const field = (await this.resolveFieldPhrase(phrase, ['dimension'], options.clarification)).field;
+        if (!field) return null;
+        const metric = await this.findBestFieldInText(q, 'measure') || this.getDefaultMetric();
+        return { field, metric, direction };
+      }
+
+      detectUnsupportedMetric(q) {
+        const knownMetricTerms = new Set(this.catalog().filter(f => f.role === 'measure').flatMap(f => [f.label, f.column, ...(f.synonyms || []), ...this.localizedTerms(f)].map(norm)));
+        const term = this.termMatcher.first(q, 'unsupportedMetric');
+        return term && !knownMetricTerms.has(term) ? term : null;
+      }
+
+      extractTopDimensionPhrase(q) {
+        const topOrBottom = [this.termAlternation('top'), this.termAlternation('bottom')].filter(Boolean).join('|');
+        const by = this.termAlternation('by');
+        if (!topOrBottom || !by) return null;
+        const m = q.match(new RegExp(`\\b(?:${topOrBottom})\\s+\\d+\\s+(.+?)\\s+(?:${by})\\s+`));
+        return m ? singularize(m[1].replace(new RegExp(`\\b(?:${by}|${this.termAlternation('filters')})\\b.*$`), '').trim()) : null;
+      }
+
+      extractByPhrases(q) {
+        const by = this.termAlternation('by');
+        if (!by) return [];
+        const byRe = new RegExp(`\\b(?:${by})\\b\\s*`, 'i');
+        const firstBy = q.search(byRe);
+        if (firstBy < 0) return [];
+        const filters = this.termAlternation('filters');
+        let rest = q.slice(firstBy).replace(byRe, '')
+          .replace(filters ? new RegExp(`\\b(?:${filters})\\b.*$`, 'i') : /$a/, '')
+          .replace(/\bsorted.*$/i, '')
+          .trim();
+        if (!rest) return [];
+        const and = this.termAlternation('and');
+        const separators = [`\\s+(?:${by})\\s+`, '\\s*,\\s*'];
+        if (and) separators.push(`\\s+(?:${and})\\s+`);
+        const splitRe = new RegExp(separators.join('|'), 'i');
+        return rest.split(splitRe).map(p => singularize(p.trim())).filter(Boolean);
+      }
+
+      terms(group) { return this.termMatcher.terms(group); }
+      termAlternation(group) { return this.termMatcher.alternation(group); }
+      hasTerm(q, group) { return this.termMatcher.has(q, group); }
+    }
+
+    class CatalogBuilder {
+      constructor({ config, askConfig, duckDBManager, fieldByKey, displayLabel, localizedTerms, timeSqlExpression }) {
+        this.config = config;
+        this.askConfig = askConfig || {};
+        this.duckDBManager = duckDBManager;
+        this.fieldByKey = fieldByKey;
+        this.displayLabel = displayLabel;
+        this.localizedTerms = localizedTerms;
+        this.timeSqlExpression = timeSqlExpression;
+      }
+
+      async build() {
+        this.fieldByKey.clear();
+        const overrides = new Map((this.askConfig.fields || []).map(f => [fieldKey(f.table, f.column), f]));
+        const tableProfiles = new Map();
+        const fields = [];
+
+        for (const source of this.config.dataSources || []) {
+          const table = source.name;
+          const countRows = toRows(await this.duckDBManager.query(`SELECT COUNT(*) AS row_count FROM ${quoteIdent(table)}`));
+          const rowCount = numberValue(countRows[0]?.row_count ?? countRows[0]?.rowCount ?? countRows[0]?.count_star ?? 0);
+          tableProfiles.set(table, { rowCount });
+
+          const schemaRows = toRows(await this.duckDBManager.query(`DESCRIBE SELECT * FROM ${quoteIdent(table)}`));
+          for (const col of schemaRows) {
+            const field = await this.buildField({ table, rowCount, col, overrides });
+            if (!field) continue;
+            fields.push(field);
+            this.fieldByKey.set(field.id, field);
+          }
+        }
+
+        const { relationships, ambiguousRelationships } = this.inferRelationships(fields, tableProfiles);
+        const entities = this.buildEntities(fields);
+        return { catalog: fields, relationships, ambiguousRelationships, entities };
+      }
+
+      async buildField({ table, rowCount, col, overrides }) {
+        const column = col.column_name || col.columnName || col.name;
+        const type = col.column_type || col.columnType || col.type || '';
+        if (!column) return null;
+        const override = overrides.get(fieldKey(table, column)) || {};
+        const sampleRows = toRows(await this.duckDBManager.query(`SELECT ${quoteIdent(column)} AS v FROM ${quoteIdent(table)} WHERE ${quoteIdent(column)} IS NOT NULL LIMIT ${this.askConfig.profiling?.maxSampleRows || 1000}`));
+        const samples = sampleRows.map(r => r.v).filter(v => v !== null && v !== undefined);
+        const distinctRows = toRows(await this.duckDBManager.query(`SELECT COUNT(DISTINCT ${quoteIdent(column)}) AS distinct_count FROM ${quoteIdent(table)}`));
+        const cardinality = numberValue(distinctRows[0]?.distinct_count ?? 0);
+        const nameLooksDate = isDateName(column);
+        const parseFormat = override.parseFormat || (nameLooksDate ? detectDateFormat(samples) : null);
+        const role = this.inferRole({ override, parseFormat, nameLooksDate, column, type });
+        const lowEnoughCardinality = cardinality <= (this.askConfig.profiling?.maxDistinctValuesPerField || 100);
+        const sampleValues = (role === 'dimension' && lowEnoughCardinality)
+          ? [...new Set(samples.map(String))].sort().slice(0, this.askConfig.profiling?.maxDistinctValuesPerField || 100)
+          : [];
+        const field = {
+          id: fieldKey(table, column),
+          table,
+          column,
+          type,
+          role,
+          label: override.label || column,
+          labels: override.labels || {},
+          aggregation: override.aggregation || (role === 'measure' ? 'SUM' : undefined),
+          synonyms: override.synonyms || [],
+          localizedSynonyms: override.localizedSynonyms || {},
+          description: override.description || '',
+          format: override.format,
+          default: !!override.default,
+          priority: override.priority || 0,
+          parseFormat,
+          sampleValues,
+          samples: samples.slice(0, 100),
+          dateProfile: null,
+          cardinality,
+          rowCount
+        };
+        if (field.role === 'time') field.dateProfile = await this.profileTimeField(field);
+        return field;
+      }
+
+      inferRole({ override, parseFormat, nameLooksDate, column, type }) {
+        if (override.role) return override.role;
+        if (parseFormat || nameLooksDate) return 'time';
+        if (isIdLike(column)) return 'key';
+        if (isNumericType(type)) return 'measure';
+        return 'dimension';
+      }
+
+      async profileTimeField(field) {
+        try {
+          const expr = this.timeSqlExpression(field, quoteIdent(field.table));
+          const sql = `SELECT MIN(CAST(${expr} AS DATE)) AS min_date, MAX(CAST(${expr} AS DATE)) AS max_date FROM ${quoteIdent(field.table)} WHERE ${expr} IS NOT NULL`;
+          const row = toRows(await this.duckDBManager.query(sql))[0] || {};
+          const minDate = asIsoDate(row.min_date);
+          const maxDate = asIsoDate(row.max_date);
+          if (!minDate || !maxDate) return null;
+          const max = new Date(`${maxDate}T00:00:00Z`);
+          const latestMonthStart = startOfMonth(max);
+          const latestYearStart = startOfYear(max);
+          return {
+            minDate,
+            maxDate,
+            latestMonthStart: isoDate(latestMonthStart),
+            latestMonthEnd: isoDate(addMonths(latestMonthStart, 1)),
+            latestYearStart: isoDate(latestYearStart),
+            latestYearEnd: isoDate(new Date(Date.UTC(latestYearStart.getUTCFullYear() + 1, 0, 1)))
+          };
+        } catch (err) {
+          console.warn('[AskData] Failed to profile time field', field.id, err);
+          return null;
+        }
+      }
+
+      inferRelationships(fields, tableProfiles) {
+        const explicit = this.config.relationships || this.askConfig.relationships || [];
+        if (explicit.length) return { relationships: explicit.map(r => ({ ...r, confidence: 1, inferred: false })), ambiguousRelationships: [] };
+        if (this.askConfig.inferRelationships === false) return { relationships: [], ambiguousRelationships: [] };
+
+        const byColumn = new Map();
+        for (const f of fields.filter(f => f.role === 'key' || isIdLike(f.column))) {
+          const key = compact(f.column);
+          if (!byColumn.has(key)) byColumn.set(key, []);
+          byColumn.get(key).push(f);
+        }
+
+        const accepted = [];
+        const ambiguous = [];
+        for (const matches of byColumn.values()) {
+          for (let i = 0; i < matches.length; i++) {
+            for (let j = i + 1; j < matches.length; j++) {
+              const rel = this.scoreRelationship(matches[i], matches[j]);
+              if (!rel) continue;
+              if (rel.confidence >= (this.askConfig.relationshipInference?.autoAcceptThreshold || 0.85)) accepted.push(rel);
+              else if (rel.confidence >= (this.askConfig.relationshipInference?.ambiguousThreshold || 0.6)) ambiguous.push(rel);
+            }
+          }
+        }
+        return { relationships: accepted, ambiguousRelationships: ambiguous };
+      }
+
+      scoreRelationship(a, b) {
+        if (a.table === b.table) return null;
+        const overlap = this.sampleOverlap(a.samples, b.samples);
+        const aUnique = a.cardinality / Math.max(1, a.rowCount);
+        const bUnique = b.cardinality / Math.max(1, b.rowCount);
+        const oneSideLookup = (aUnique > 0.75 && bUnique < 0.95) || (bUnique > 0.75 && aUnique < 0.95);
+        let score = 0.45;
+        if (/id$/i.test(norm(a.column).replaceAll(' ', ''))) score += 0.25;
+        if (overlap > 0.2) score += 0.2;
+        if (oneSideLookup) score += 0.1;
+        return {
+          left: { table: a.table, column: a.column },
+          right: { table: b.table, column: b.column },
+          confidence: Number(score.toFixed(2)),
+          inferred: true,
+          overlap: Number(overlap.toFixed(2))
+        };
+      }
+
+      sampleOverlap(aValues, bValues) {
+        const a = new Set(aValues.map(String));
+        const b = new Set(bValues.map(String));
+        if (!a.size || !b.size) return 0;
+        let overlap = 0;
+        for (const v of a) if (b.has(v)) overlap++;
+        return overlap / Math.min(a.size, b.size);
+      }
+
+      buildEntities(fields) {
+        const configured = this.askConfig.entities || [];
+        const entities = configured.map(e => ({
+          ...e,
+          field: this.fieldByKey.get(fieldKey(e.table, e.key)),
+          terms: [e.label, this.displayLabel(e), e.singular, ...(e.synonyms || []), ...this.localizedTerms(e)].filter(Boolean).map(norm)
+        })).filter(e => e.field);
+
+        for (const field of fields.filter(f => f.role === 'key' && / id$/i.test(f.column))) {
+          const base = field.column.replace(/\s*ID$/i, '');
+          if (!entities.some(e => e.table === field.table && e.key === field.column)) {
+            entities.push({
+              label: `${base}s`,
+              singular: base,
+              table: field.table,
+              key: field.column,
+              field,
+              terms: [norm(base), norm(`${base}s`)]
+            });
+          }
+        }
+        for (const entity of entities) {
+          const configured = (entity.preferredDimensions || [])
+            .map(column => this.fieldByKey.get(fieldKey(entity.table, column)))
+            .filter(Boolean);
+          const inferred = fields
+            .filter(f => f.table === entity.table && f.role === 'dimension')
+            .sort((a, b) => (a.cardinality - b.cardinality) || ((b.priority || 0) - (a.priority || 0)));
+          entity.preferredDimensionFields = configured.length ? configured : inferred;
+        }
+        return entities;
       }
     }
 
@@ -1424,6 +2283,29 @@
         this.intentCues = new IntentCueDetector(this.termMatcher);
         this.shapeAnalyzer = new ResultShapeAnalyzer();
         this.chartDecisionTree = new ChartDecisionTree(this.askConfig.chartCapabilities || {});
+        this.resultValidator = new ResultValidator();
+        this.sqlPlanner = new SqlPlanner({
+          config: this.config,
+          askConfig: this.askConfig,
+          relationships: () => this.relationships,
+          getDefaultTimeField: () => this.getDefaultTimeField()
+        });
+        this.catalogBuilder = new CatalogBuilder({
+          config: this.config,
+          askConfig: this.askConfig,
+          duckDBManager: this.duckDBManager,
+          fieldByKey: this.fieldByKey,
+          displayLabel: item => this.displayLabel(item),
+          localizedTerms: item => this.localizedTerms(item),
+          timeSqlExpression: (field, alias) => this.sqlPlanner.timeSqlExpression(field, alias)
+        });
+        this.confidenceScorer = new ConfidenceScorer({
+          config: this.config,
+          termMatcher: this.termMatcher,
+          displayLabel: field => this.displayLabel(field),
+          localizedTerms: field => this.localizedTerms(field),
+          buildJoinPlan: (baseTable, neededTables) => this.sqlPlanner.buildJoinPlan(baseTable, neededTables)
+        });
         this.insightGenerator = new InsightGenerator();
         this.semanticMatcher = new SemanticFieldMatcher(this.askConfig.semanticMatching || {}, {
           displayLabel: item => this.displayLabel(item),
@@ -1439,7 +2321,29 @@
           new TextSearchFieldMatchStrategy({ fieldSearchIndex: () => this.fieldSearchIndex }),
           new FuseFieldMatchStrategy({ fieldFuse: () => this.fieldFuse }),
           new SemanticFieldMatchStrategy({ semanticMatcher: this.semanticMatcher, catalog: () => this.catalog })
-        ], (message, fields) => this.fieldClarification(message, fields));
+        ], (pending, message, fields) => this.fieldClarification(pending, message, fields));
+        this.filterResolver = new ValueFilterResolver({
+          valueItems: () => this.valueItems,
+          valueFuse: () => this.valueFuse,
+          valuePhraseMaxWords: () => this.valuePhraseMaxWords,
+          displayLabel: field => this.displayLabel(field),
+          localizedTerms: field => this.localizedTerms(field)
+        });
+        this.metrics = { catalogBuildMs: null };
+        this.questionParser = new QuestionParser({
+          askConfig: this.askConfig,
+          catalog: () => this.catalog,
+          entities: () => this.entities,
+          termMatcher: this.termMatcher,
+          intentCues: this.intentCues,
+          filterResolver: this.filterResolver,
+          dateRangeParser: this.dateRangeParser,
+          localizedTerms: field => this.localizedTerms(field),
+          resolveFieldPhrase: (phrase, roles, clarification) => this.fieldResolver.resolvePhrase(phrase, roles, clarification),
+          findBestFieldInText: (q, role) => this.fieldResolver.findInText(q, role),
+          getDefaultMetric: () => this.getDefaultMetric(),
+          getDefaultTimeField: () => this.getDefaultTimeField()
+        });
         this.initialized = false;
       }
 
@@ -1483,6 +2387,9 @@
             monthGrain: ['month', 'monthly'],
             yearGrain: ['year', 'yearly', 'annual'],
             yearOverYear: ['year over year', 'yoy', 'year on year'],
+            comparison: ['compare', 'versus', 'vs'],
+            change: ['change', 'changed', 'delta', 'growth'],
+            share: ['share', 'percent', 'percentage', 'proportion'],
             unsupportedMetric: ['profit', 'margin', 'earnings', 'cost']
           },
           pt: {
@@ -1516,6 +2423,9 @@
             monthGrain: ['mes', 'mês', 'mensal'],
             yearGrain: ['ano', 'anual'],
             yearOverYear: ['ano a ano', 'ano contra ano'],
+            comparison: ['comparar', 'compare', 'versus', 'vs', 'contra'],
+            change: ['mudanca', 'mudança', 'variacao', 'variação', 'crescimento'],
+            share: ['participacao', 'participação', 'percentual', 'porcentagem'],
             unsupportedMetric: ['lucro', 'margem', 'custo']
           }
         };
@@ -1560,8 +2470,10 @@
       async initialize() {
         if (this.initialized) return;
         console.info('[AskData] Building data catalog');
+        const catalogStarted = performance.now();
         await this.buildCatalog();
         this.buildFuseIndexes();
+        this.metrics.catalogBuildMs = Math.round(performance.now() - catalogStarted);
         this.initialized = true;
         console.info('[AskData] Ready', {
           fields: this.catalog.length,
@@ -1571,183 +2483,11 @@
       }
 
       async buildCatalog() {
-        const overrides = new Map((this.askConfig.fields || []).map(f => [fieldKey(f.table, f.column), f]));
-        const tableProfiles = new Map();
-        const fields = [];
-
-        for (const source of this.config.dataSources || []) {
-          const table = source.name;
-          const countRows = toRows(await this.duckDBManager.query(`SELECT COUNT(*) AS row_count FROM ${quoteIdent(table)}`));
-          const rowCount = numberValue(countRows[0]?.row_count ?? countRows[0]?.rowCount ?? countRows[0]?.count_star ?? 0);
-          tableProfiles.set(table, { rowCount });
-
-          const schemaRows = toRows(await this.duckDBManager.query(`DESCRIBE SELECT * FROM ${quoteIdent(table)}`));
-          for (const col of schemaRows) {
-            const column = col.column_name || col.columnName || col.name;
-            const type = col.column_type || col.columnType || col.type || '';
-            if (!column) continue;
-            const override = overrides.get(fieldKey(table, column)) || {};
-            const sampleRows = toRows(await this.duckDBManager.query(`SELECT ${quoteIdent(column)} AS v FROM ${quoteIdent(table)} WHERE ${quoteIdent(column)} IS NOT NULL LIMIT ${this.askConfig.profiling?.maxSampleRows || 1000}`));
-            const samples = sampleRows.map(r => r.v).filter(v => v !== null && v !== undefined);
-            const distinctRows = toRows(await this.duckDBManager.query(`SELECT COUNT(DISTINCT ${quoteIdent(column)}) AS distinct_count FROM ${quoteIdent(table)}`));
-            const cardinality = numberValue(distinctRows[0]?.distinct_count ?? 0);
-            const nameLooksDate = isDateName(column);
-            const parseFormat = override.parseFormat || (nameLooksDate ? detectDateFormat(samples) : null);
-            let role = override.role;
-            if (!role) {
-              if (parseFormat || nameLooksDate) role = 'time';
-              else if (isIdLike(column)) role = 'key';
-              else if (isNumericType(type)) role = 'measure';
-              else role = 'dimension';
-            }
-            const lowEnoughCardinality = cardinality <= (this.askConfig.profiling?.maxDistinctValuesPerField || 100);
-            const sampleValues = (role === 'dimension' && lowEnoughCardinality)
-              ? [...new Set(samples.map(String))].sort().slice(0, this.askConfig.profiling?.maxDistinctValuesPerField || 100)
-              : [];
-            const field = {
-              id: fieldKey(table, column),
-              table,
-              column,
-              type,
-              role,
-              label: override.label || column,
-              labels: override.labels || {},
-              aggregation: override.aggregation || (role === 'measure' ? 'SUM' : undefined),
-              synonyms: override.synonyms || [],
-              localizedSynonyms: override.localizedSynonyms || {},
-              description: override.description || '',
-              format: override.format,
-              default: !!override.default,
-              priority: override.priority || 0,
-              parseFormat,
-              sampleValues,
-              samples: samples.slice(0, 100),
-              dateProfile: null,
-              cardinality,
-              rowCount
-            };
-            if (field.role === 'time') field.dateProfile = await this.profileTimeField(field);
-            fields.push(field);
-            this.fieldByKey.set(field.id, field);
-          }
-        }
-
-        this.catalog = fields;
-        this.inferRelationships(fields, tableProfiles);
-        this.buildEntities(fields);
-      }
-
-      async profileTimeField(field) {
-        try {
-          const expr = this.timeSqlExpression(field, quoteIdent(field.table));
-          const sql = `SELECT MIN(CAST(${expr} AS DATE)) AS min_date, MAX(CAST(${expr} AS DATE)) AS max_date FROM ${quoteIdent(field.table)} WHERE ${expr} IS NOT NULL`;
-          const row = toRows(await this.duckDBManager.query(sql))[0] || {};
-          const minDate = asIsoDate(row.min_date);
-          const maxDate = asIsoDate(row.max_date);
-          if (!minDate || !maxDate) return null;
-          const max = new Date(`${maxDate}T00:00:00Z`);
-          const latestMonthStart = startOfMonth(max);
-          const latestYearStart = startOfYear(max);
-          return {
-            minDate,
-            maxDate,
-            latestMonthStart: isoDate(latestMonthStart),
-            latestMonthEnd: isoDate(addMonths(latestMonthStart, 1)),
-            latestYearStart: isoDate(latestYearStart),
-            latestYearEnd: isoDate(new Date(Date.UTC(latestYearStart.getUTCFullYear() + 1, 0, 1)))
-          };
-        } catch (err) {
-          console.warn('[AskData] Failed to profile time field', field.id, err);
-          return null;
-        }
-      }
-
-      inferRelationships(fields, tableProfiles) {
-        const explicit = this.config.relationships || this.askConfig.relationships || [];
-        if (explicit.length) {
-          this.relationships = explicit.map(r => ({ ...r, confidence: 1, inferred: false }));
-          return;
-        }
-        if (this.askConfig.inferRelationships === false) return;
-
-        const byColumn = new Map();
-        for (const f of fields.filter(f => f.role === 'key' || isIdLike(f.column))) {
-          const key = compact(f.column);
-          if (!byColumn.has(key)) byColumn.set(key, []);
-          byColumn.get(key).push(f);
-        }
-
-        const accepted = [];
-        const ambiguous = [];
-        for (const matches of byColumn.values()) {
-          for (let i = 0; i < matches.length; i++) {
-            for (let j = i + 1; j < matches.length; j++) {
-              const a = matches[i], b = matches[j];
-              if (a.table === b.table) continue;
-              const overlap = this.sampleOverlap(a.samples, b.samples);
-              const aUnique = a.cardinality / Math.max(1, a.rowCount);
-              const bUnique = b.cardinality / Math.max(1, b.rowCount);
-              const oneSideLookup = (aUnique > 0.75 && bUnique < 0.95) || (bUnique > 0.75 && aUnique < 0.95);
-              let score = 0.45;
-              if (/id$/i.test(norm(a.column).replaceAll(' ', ''))) score += 0.25;
-              if (overlap > 0.2) score += 0.2;
-              if (oneSideLookup) score += 0.1;
-              const rel = {
-                left: { table: a.table, column: a.column },
-                right: { table: b.table, column: b.column },
-                confidence: Number(score.toFixed(2)),
-                inferred: true,
-                overlap: Number(overlap.toFixed(2))
-              };
-              if (score >= (this.askConfig.relationshipInference?.autoAcceptThreshold || 0.85)) accepted.push(rel);
-              else if (score >= (this.askConfig.relationshipInference?.ambiguousThreshold || 0.6)) ambiguous.push(rel);
-            }
-          }
-        }
-        this.relationships = accepted;
-        this.ambiguousRelationships = ambiguous;
-      }
-
-      sampleOverlap(aValues, bValues) {
-        const a = new Set(aValues.map(String));
-        const b = new Set(bValues.map(String));
-        if (!a.size || !b.size) return 0;
-        let overlap = 0;
-        for (const v of a) if (b.has(v)) overlap++;
-        return overlap / Math.min(a.size, b.size);
-      }
-
-      buildEntities(fields) {
-        const configured = this.askConfig.entities || [];
-        const entities = configured.map(e => ({
-          ...e,
-          field: this.fieldByKey.get(fieldKey(e.table, e.key)),
-          terms: [e.label, this.displayLabel(e), e.singular, ...(e.synonyms || []), ...this.localizedTerms(e)].filter(Boolean).map(norm)
-        })).filter(e => e.field);
-
-        for (const field of fields.filter(f => f.role === 'key' && / id$/i.test(f.column))) {
-          const base = field.column.replace(/\s*ID$/i, '');
-          if (!entities.some(e => e.table === field.table && e.key === field.column)) {
-            entities.push({
-              label: `${base}s`,
-              singular: base,
-              table: field.table,
-              key: field.column,
-              field,
-              terms: [norm(base), norm(`${base}s`)]
-            });
-          }
-        }
-        for (const entity of entities) {
-          const configured = (entity.preferredDimensions || [])
-            .map(column => this.fieldByKey.get(fieldKey(entity.table, column)))
-            .filter(Boolean);
-          const inferred = fields
-            .filter(f => f.table === entity.table && f.role === 'dimension')
-            .sort((a, b) => (a.cardinality - b.cardinality) || ((b.priority || 0) - (a.priority || 0)));
-          entity.preferredDimensionFields = configured.length ? configured : inferred;
-        }
-        this.entities = entities;
+        const built = await this.catalogBuilder.build();
+        this.catalog = built.catalog;
+        this.relationships = built.relationships;
+        this.ambiguousRelationships = built.ambiguousRelationships;
+        this.entities = built.entities;
       }
 
       buildFuseIndexes() {
@@ -1803,21 +2543,29 @@
         });
       }
 
-      async ask(question) {
+      async ask(question, options = {}) {
+        const totalStarted = performance.now();
         await this.initialize();
-        const parsed = await this.parseQuestion(question);
-        if (parsed.error) return parsed;
-        if (parsed.clarification) return parsed;
+        const parseStarted = performance.now();
+        const parsed = await this.parseQuestion(question, options);
+        const parseMs = Math.round(performance.now() - parseStarted);
+        if (parsed.error) return { ...parsed, metrics: { catalogBuildMs: this.metrics.catalogBuildMs, parseMs, totalAskMs: Math.round(performance.now() - totalStarted) } };
+        if (parsed.clarification) return { ...parsed, metrics: { catalogBuildMs: this.metrics.catalogBuildMs, parseMs, totalAskMs: Math.round(performance.now() - totalStarted) } };
         const planned = this.planSql(parsed.intent);
-        if (planned.error) return planned;
+        if (planned.error) return { ...planned, metrics: { catalogBuildMs: this.metrics.catalogBuildMs, parseMs, totalAskMs: Math.round(performance.now() - totalStarted) } };
         console.info('[AskData] SQL', planned.sql);
+        const sqlStarted = performance.now();
         const result = await this.duckDBManager.query(planned.sql);
+        const sqlExecutionMs = Math.round(performance.now() - sqlStarted);
         const rows = toRows(result).map(row => Object.fromEntries(Object.entries(row).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v])));
         const columns = rows.length ? Object.keys(rows[0]) : planned.columns;
+        const diagnostics = await this.evaluateDiagnostics(planned);
         const shape = this.shapeAnalyzer.analyze(rows, columns, parsed.intent);
         const chartDecision = this.chartDecisionTree.decide(shape, parsed.intent);
         const insights = this.insightGenerator.generate(rows, parsed.intent, shape);
-        const confidence = this.estimateIntentConfidence(parsed.intent);
+        const confidence = this.confidenceScorer.estimate(parsed.intent);
+        const validationWarnings = this.resultValidator.validate({ rows, intent: parsed.intent, confidence, diagnostics });
+        const evidence = this.describeEvidence(parsed.intent);
         return {
           question,
           interpretation: this.describeIntent(parsed.intent),
@@ -1826,266 +2574,86 @@
           rows,
           columns,
           shape,
+          diagnostics,
           chartDecision,
           insights,
+          evidence,
           chartType: chartDecision.rendered,
-          warnings: parsed.warnings || [],
-          confidence
+          warnings: [...(parsed.warnings || []), ...validationWarnings],
+          confidence,
+          metrics: {
+            catalogBuildMs: this.metrics.catalogBuildMs,
+            parseMs,
+            sqlExecutionMs,
+            totalAskMs: Math.round(performance.now() - totalStarted)
+          }
         };
       }
 
-      parseDateRange(question) {
-        return this.dateRangeParser.parse(question, this.getDefaultTimeField());
+      parseQuestion(question, options = {}) {
+        return this.questionParser.parse(question, options);
       }
 
-      async detectListField(q) {
-        if (!this.intentCues.isListRequest(q)) return null;
-        if (await this.findBestFieldInText(q, 'measure')) return null;
-
-        const hintedField = this.intentCues.listFieldHint(q);
-        if (hintedField) return (await this.resolveFieldPhrase(hintedField, ['dimension'])).field;
-
-        const entity = this.entities.find(e => e.terms.some(term => this.termMatcher.patternFromTerm(term)?.test(q)));
-        if (this.hasTerm(q, 'listKind') && entity?.preferredDimensionFields?.length) return entity.preferredDimensionFields[0];
-        if (entity) return entity.preferredDimensionFields?.find(f => /name|nome/i.test(f.column)) || entity.preferredDimensionFields?.[0];
-
-        const phrase = this.intentCues.extractListPhrase(q);
-        return phrase ? (await this.resolveFieldPhrase(phrase, ['dimension'])).field : null;
-      }
-
-      async detectSuperlative(q) {
-        const direction = this.intentCues.superlativeDirection(q);
-        if (!direction) return null;
-        const phrase = this.intentCues.extractSuperlativeSubject(q);
-        if (!phrase) return null;
-        const field = (await this.resolveFieldPhrase(phrase, ['dimension'])).field;
-        if (!field) return null;
-        const metric = await this.findBestFieldInText(q, 'measure') || this.getDefaultMetric();
-        return { field, metric, direction };
-      }
-
-      isYearOverYear(q) {
-        return this.intentCues.isYearOverYear(q);
-      }
-
-      async parseQuestion(question) {
-        const dateInfo = this.parseDateRange(question);
-        const q = norm(dateInfo.questionWithoutDate || question);
-        const warnings = [];
-        if (!q) return { error: 'Ask a question first.' };
-        const unsupportedMetric = this.detectUnsupportedMetric(q);
-        if (unsupportedMetric) {
-          const available = this.catalog.filter(f => f.role === 'measure').map(f => f.label).join(', ') || 'none';
-          return {
-            error: `I could not find a "${unsupportedMetric}" metric in this dataset. Available measures: ${available}.`,
-            suggestions: this.catalog.filter(f => f.role === 'measure').slice(0, 4).map(f => question.replace(new RegExp(unsupportedMetric, 'ig'), f.label.toLowerCase()))
-          };
-        }
-
-        const listField = await this.detectListField(q);
-        if (listField) {
-          const filters = this.detectFilters(q, [listField]);
-          if (filters.clarification) return filters;
-          return {
-            intent: {
-              question,
-              analysisType: 'list_values',
-              metric: null,
-              dimensions: [listField],
-              filters: filters.filters,
-              dateRange: dateInfo.dateRange,
-              sort: { by: 'label', direction: 'ASC' },
-              limit: this.askConfig.maxRows || 25
-            },
-            warnings
-          };
-        }
-
-        const topOrBottom = [this.termAlternation('top'), this.termAlternation('bottom')].filter(Boolean).join('|');
-        const topMatch = topOrBottom ? q.match(new RegExp(`\\b(${topOrBottom})\\s+(\\d+)\\b`)) : null;
-        const superlative = await this.detectSuperlative(q);
-        const limit = superlative ? 1 : (topMatch ? Math.min(Number(topMatch[2]), this.askConfig.maxRows || 25) : (this.askConfig.maxRows || 25));
-        const sortDirection = superlative?.direction || (topMatch && this.terms('bottom').includes(norm(topMatch[1])) ? 'ASC' : 'DESC');
-        const isRanking = !!topMatch || !!superlative;
-        const isYoY = this.isYearOverYear(q);
-        const timeGrain = isYoY ? 'year' : this.detectTimeGrain(q);
-        const isCount = this.hasTerm(q, 'count');
-
-        let metric = null;
-        let countEntity = null;
-        if (isCount) {
-          countEntity = this.entities.find(entity => entity.terms.some(term => this.termMatcher.patternFromTerm(term)?.test(q)));
-          metric = countEntity ? { kind: 'count_distinct', entity: countEntity, field: countEntity.field, label: countEntity.label } : { kind: 'count_star', label: 'Records' };
-        } else {
-          metric = superlative?.metric || await this.findBestFieldInText(q, 'measure') || this.getDefaultMetric();
-        }
-
-        const dimensions = [];
-        const topDimensionPhrase = superlative?.field ? null : this.extractTopDimensionPhrase(q);
-        if (superlative?.field) dimensions.push(superlative.field);
-        const byPhrases = this.extractByPhrases(q);
-        if (topDimensionPhrase) {
-          const field = await this.resolveFieldPhrase(topDimensionPhrase, ['dimension', 'time']);
-          if (field.clarification) return field;
-          if (field.field) dimensions.push(field.field);
-        }
-        for (const phrase of byPhrases) {
-          if (dimensions.length >= (this.askConfig.maxDimensions || 2)) break;
-          if (['month', 'year', 'day', 'date', 'time'].includes(phrase) || /over time/.test(q)) continue;
-          const field = await this.resolveFieldPhrase(phrase, ['dimension', 'time']);
-          if (field.clarification) return field;
-          if (field.field && !dimensions.some(d => d.id === field.field.id)) dimensions.push(field.field);
-        }
-        if ((timeGrain || this.hasTerm(q, 'overTime')) && !dimensions.some(d => d.role === 'time')) {
-          const timeField = this.getDefaultTimeField();
-          if (timeField) dimensions.unshift(timeField);
-          else warnings.push('I could not find a date/time field for a trend.');
-        }
-        if (!dimensions.length && isCount) {
-          const byAfterCount = byPhrases[0];
-          if (byAfterCount) {
-            const field = await this.resolveFieldPhrase(byAfterCount, ['dimension', 'time']);
-            if (field.field) dimensions.push(field.field);
+      async evaluateDiagnostics(planned) {
+        const diagnostics = structuredClone(planned.diagnostics || {});
+        const fanout = diagnostics.joinFanout;
+        if (fanout?.baseCountSql && fanout?.joinedCountSql) {
+          try {
+            const baseRow = toRows(await this.duckDBManager.query(fanout.baseCountSql))[0] || {};
+            const joinedRow = toRows(await this.duckDBManager.query(fanout.joinedCountSql))[0] || {};
+            const baseCount = numberValue(baseRow.row_count ?? baseRow.rowCount ?? 0);
+            const joinedCount = numberValue(joinedRow.row_count ?? joinedRow.rowCount ?? 0);
+            const ratio = baseCount > 0 ? joinedCount / baseCount : (joinedCount > 0 ? Infinity : 1);
+            Object.assign(fanout, { baseCount, joinedCount, ratio: Number.isFinite(ratio) ? Number(ratio.toFixed(3)) : ratio });
+            if (joinedCount - baseCount >= fanout.minExtraRows && ratio >= fanout.threshold) {
+              fanout.warning = `Joined row count is ${ratio.toFixed(1)}x the base ${fanout.baseTable} row count (${baseCount.toLocaleString()} → ${joinedCount.toLocaleString()}). This join may duplicate rows and inflate metrics.`;
+            }
+          } catch (err) {
+            fanout.error = String(err);
           }
         }
-
-        const filters = this.detectFilters(q, dimensions);
-        if (filters.clarification) return filters;
-
-        return {
-          intent: {
-            question,
-            analysisType: isYoY ? 'yoy' : (dimensions.some(d => d.role === 'time') ? 'trend' : (isRanking || dimensions.length ? 'ranking' : 'kpi')),
-            metric,
-            timeField: isYoY ? this.getDefaultTimeField() : null,
-            dimensions: dimensions.slice(0, this.askConfig.maxDimensions || 2),
-            filters: filters.filters,
-            dateRange: dateInfo.dateRange,
-            sort: { by: 'value', direction: sortDirection },
-            limit,
-            timeGrain: timeGrain || (dimensions.some(d => d.role === 'time') ? 'month' : undefined)
-          },
-          warnings
-        };
+        const selectivity = diagnostics.filterSelectivity;
+        if (selectivity?.unfilteredCountSql && selectivity?.filteredCountSql) {
+          try {
+            const unfiltered = numberValue((toRows(await this.duckDBManager.query(selectivity.unfilteredCountSql))[0] || {}).row_count);
+            const filtered = numberValue((toRows(await this.duckDBManager.query(selectivity.filteredCountSql))[0] || {}).row_count);
+            const ratio = unfiltered > 0 ? filtered / unfiltered : 1;
+            Object.assign(selectivity, { unfilteredCount: unfiltered, filteredCount: filtered, ratio: Number(ratio.toFixed(3)) });
+            if (unfiltered && ratio < selectivity.threshold) selectivity.warning = `Filters keep only ${(ratio * 100).toFixed(1)}% of rows (${filtered.toLocaleString()} of ${unfiltered.toLocaleString()}). Results may be sparse.`;
+          } catch (err) {
+            selectivity.error = String(err);
+          }
+        }
+        const dateParse = diagnostics.dateParse;
+        if (dateParse?.sql) {
+          try {
+            const row = toRows(await this.duckDBManager.query(dateParse.sql))[0] || {};
+            const checkedRows = numberValue(row.checked_rows ?? row.checkedRows ?? 0);
+            const droppedRows = numberValue(row.dropped_rows ?? row.droppedRows ?? 0);
+            Object.assign(dateParse, { checkedRows, droppedRows });
+            if (droppedRows > 0) dateParse.warning = `Date parsing dropped ${droppedRows.toLocaleString()} ${dateParse.field} rows.`;
+          } catch (err) {
+            dateParse.error = String(err);
+          }
+        }
+        return diagnostics;
       }
 
-      detectUnsupportedMetric(q) {
-        const knownMetricTerms = new Set(this.catalog.filter(f => f.role === 'measure').flatMap(f => [f.label, f.column, ...(f.synonyms || []), ...this.localizedTerms(f)].map(norm)));
-        const term = this.termMatcher.first(q, 'unsupportedMetric');
-        return term && !knownMetricTerms.has(term) ? term : null;
-      }
-
-      detectTimeGrain(q) {
-        return this.intentCues.timeGrain(q);
-      }
-
-      extractTopDimensionPhrase(q) {
-        const topOrBottom = [this.termAlternation('top'), this.termAlternation('bottom')].filter(Boolean).join('|');
-        const by = this.termAlternation('by');
-        if (!topOrBottom || !by) return null;
-        const m = q.match(new RegExp(`\\b(?:${topOrBottom})\\s+\\d+\\s+(.+?)\\s+(?:${by})\\s+`));
-        return m ? singularize(m[1].replace(new RegExp(`\\b(?:${by}|${this.termAlternation('filters')})\\b.*$`), '').trim()) : null;
-      }
-
-      extractByPhrases(q) {
-        const by = this.termAlternation('by');
-        if (!by) return [];
-        const byRe = new RegExp(`\\b(?:${by})\\b\\s*`, 'i');
-        const firstBy = q.search(byRe);
-        if (firstBy < 0) return [];
-        const filters = this.termAlternation('filters');
-        let rest = q.slice(firstBy).replace(byRe, '')
-          .replace(filters ? new RegExp(`\\b(?:${filters})\\b.*$`, 'i') : /$a/, '')
-          .replace(/\bsorted.*$/i, '')
-          .trim();
-        if (!rest) return [];
-        const and = this.termAlternation('and');
-        const separators = [`\\s+(?:${by})\\s+`, '\\s*,\\s*'];
-        if (and) separators.push(`\\s+(?:${and})\\s+`);
-        const splitRe = new RegExp(separators.join('|'), 'i');
-        return rest.split(splitRe).map(p => singularize(p.trim())).filter(Boolean);
-      }
-
-      async findBestFieldInText(q, role) {
-        return this.fieldResolver.findInText(q, role);
-      }
-
-      async resolveFieldPhrase(phrase, roles) {
-        return this.fieldResolver.resolvePhrase(phrase, roles);
-      }
-
-      fieldClarification(message, fields) {
+      fieldClarification(pending, message, fields) {
+        const candidates = fields.map(field => ({
+          label: `${this.displayLabel(field)} (${field.table}.${field.column})`,
+          fieldId: field.id,
+          fieldLabel: this.displayLabel(field),
+          table: field.table,
+          column: field.column
+        }));
         return {
           clarification: {
             message,
-            choices: fields.map(field => ({ label: `${this.displayLabel(field)} (${field.table}.${field.column})`, replacement: this.displayLabel(field) }))
+            pending: { ...pending, originalQuestion: null, candidates },
+            choices: candidates
           }
         };
-      }
-
-      detectFilters(q, dimensions) {
-        const matches = [];
-        const seen = new Set();
-        const addMatch = (item, match = {}) => {
-          const key = `${item.field.id}::${item.normalizedValue}`;
-          const enriched = { ...item, matchScore: match.score ?? 1, matchSource: match.source || 'exact' };
-          if (!seen.has(key)) {
-            seen.add(key);
-            matches.push(enriched);
-          } else {
-            const existing = matches.find(m => `${m.field.id}::${m.normalizedValue}` === key);
-            if (existing && enriched.matchScore > (existing.matchScore || 0)) Object.assign(existing, enriched);
-          }
-        };
-        for (const item of this.valueItems) {
-          const v = item.normalizedValue;
-          if (!v || v.length < 2) continue;
-          const pattern = `\\b${escapeRegExp(v).replace(/\s+/g, '\\s+')}\\b`;
-          if (new RegExp(pattern).test(q)) addMatch(item, { score: 1, source: 'exact_value' });
-        }
-        if (this.valueFuse) {
-          const words = q.split(/\s+/).filter(Boolean);
-          const maxWindow = Math.min(this.valuePhraseMaxWords || 1, 8, words.length);
-          for (let size = 1; size <= maxWindow; size++) {
-            for (let start = 0; start + size <= words.length; start++) {
-              const phrase = words.slice(start, start + size).join(' ');
-              if (phrase.length < 3) continue;
-              for (const result of this.valueFuse.search(phrase, { limit: 3 })) {
-                const itemWordCount = result.item.normalizedValue.split(/\s+/).length;
-                if (itemWordCount !== size) continue;
-                const fuzzyLimit = itemWordCount > 1 ? 0.025 : 0.001;
-                if ((result.score ?? 1) <= fuzzyLimit) addMatch(result.item, { score: Math.max(0.75, 1 - (result.score || 0) * 10), source: 'fuzzy_value' });
-              }
-            }
-          }
-        }
-        const byValue = new Map();
-        for (const match of matches.sort((a, b) => b.normalizedValue.length - a.normalizedValue.length)) {
-          if ([...byValue.keys()].some(v => v.includes(match.normalizedValue))) continue;
-          if (!byValue.has(match.normalizedValue)) byValue.set(match.normalizedValue, []);
-          byValue.get(match.normalizedValue).push(match);
-        }
-        const filters = [];
-        for (const [value, items] of byValue) {
-          const uniqueFields = [...new Map(items.map(i => [i.field.id, i])).values()];
-          if (uniqueFields.length > 1) {
-            const cueHasFieldName = uniqueFields.find(i => [this.displayLabel(i.field), i.field.label, i.field.column, ...this.localizedTerms(i.field)].map(norm).some(term => term && q.includes(term)));
-            if (cueHasFieldName) {
-              filters.push({ field: cueHasFieldName.field, operator: '=', value: cueHasFieldName.value, score: cueHasFieldName.matchScore || 0.9, source: cueHasFieldName.matchSource });
-            } else {
-              return {
-                clarification: {
-                  message: `Which field should "${items[0].value}" filter?`,
-                  choices: uniqueFields.slice(0, 5).map(i => ({ label: `${i.field.label} = ${i.value}`, replacement: `${i.field.label} ${i.value}` }))
-                }
-              };
-            }
-          } else {
-            const item = uniqueFields[0];
-            filters.push({ field: item.field, operator: '=', value: item.value, score: item.matchScore || 0.9, source: item.matchSource });
-          }
-        }
-        return { filters };
       }
 
       getDefaultMetric() {
@@ -2111,190 +2679,152 @@
       }
 
       timeSqlExpression(field, alias) {
-        const isNativeDate = /date|timestamp|time/i.test(field.type || '');
-        if (isNativeDate) return `${alias}.${quoteIdent(field.column)}`;
-        return field.parseFormat
-          ? `STRPTIME(CAST(${alias}.${quoteIdent(field.column)} AS VARCHAR), '${field.parseFormat}')`
-          : `TRY_CAST(${alias}.${quoteIdent(field.column)} AS DATE)`;
+        return this.sqlPlanner.timeSqlExpression(field, alias);
       }
 
       planSql(intent) {
-        const fields = [intent.metric?.field || intent.metric, intent.timeField, ...intent.dimensions, ...intent.filters.map(f => f.field), intent.dateRange?.field].filter(f => f && f.table);
-        const baseTable = intent.metric?.field?.table || intent.metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
-        const neededTables = [...new Set([baseTable, ...fields.map(f => f.table)])];
-        const joinPlan = this.buildJoinPlan(baseTable, neededTables);
-        if (joinPlan.error) return joinPlan;
-
-        const aliases = new Map(joinPlan.tables.map((table, i) => [table, safeAlias(table, i)]));
-        const selectParts = [];
-        const groupParts = [];
-        const labelParts = [];
-        for (const dim of intent.dimensions) {
-          const alias = aliases.get(dim.table);
-          let expr;
-          if (dim.role === 'time') {
-            expr = `DATE_TRUNC('${intent.timeGrain || 'month'}', ${this.timeSqlExpression(dim, alias)})`;
-          } else {
-            expr = `${alias}.${quoteIdent(dim.column)}`;
-          }
-          const dimAlias = `d${selectParts.length + 1}`;
-          selectParts.push(`${expr} AS ${quoteIdent(dimAlias)}`);
-          groupParts.push(expr);
-          labelParts.push(`CAST(${quoteIdent(dimAlias)} AS VARCHAR)`);
-        }
-
-        let metricExpr;
-        let metricFormat;
-        if (intent.analysisType === 'list_values') {
-          metricExpr = null;
-        } else if (intent.metric?.kind === 'count_star') {
-          metricExpr = 'COUNT(*)';
-        } else if (intent.metric?.kind === 'count_distinct') {
-          const f = intent.metric.field;
-          metricExpr = `COUNT(DISTINCT ${aliases.get(f.table)}.${quoteIdent(f.column)})`;
-        } else {
-          const m = intent.metric;
-          metricFormat = m.format;
-          metricExpr = `${m.aggregation || 'SUM'}(${aliases.get(m.table)}.${quoteIdent(m.column)})`;
-        }
-
-        const whereParts = intent.filters.map(filter => `${aliases.get(filter.field.table)}.${quoteIdent(filter.field.column)} = '${escapeSqlString(filter.value)}'`);
-        if (intent.dateRange?.field) {
-          const field = intent.dateRange.field;
-          const dateExpr = this.timeSqlExpression(field, aliases.get(field.table));
-          if (intent.dateRange.kind === 'monthOfYear') {
-            whereParts.push(`EXTRACT(month FROM ${dateExpr}) = ${Number(intent.dateRange.month)}`);
-          } else {
-            whereParts.push(`${dateExpr} >= DATE '${intent.dateRange.start}'`);
-            whereParts.push(`${dateExpr} < DATE '${intent.dateRange.end}'`);
-          }
-        }
-        const from = `${quoteIdent(baseTable)} ${aliases.get(baseTable)}`;
-        const joins = joinPlan.joins.map(rel => {
-          const leftAlias = aliases.get(rel.left.table);
-          const rightAlias = aliases.get(rel.right.table);
-          const joinTable = rel.right.table;
-          return `JOIN ${quoteIdent(joinTable)} ${rightAlias} ON ${leftAlias}.${quoteIdent(rel.left.column)} = ${rightAlias}.${quoteIdent(rel.right.column)}`;
-        });
-
-        let sql;
-        if (intent.analysisType === 'list_values') {
-          const dim = intent.dimensions[0];
-          const expr = `${aliases.get(dim.table)}.${quoteIdent(dim.column)}`;
-          const listWhereParts = [...whereParts, `${expr} IS NOT NULL`, `CAST(${expr} AS VARCHAR) <> ''`];
-          sql = `SELECT DISTINCT ${expr} AS label\nFROM ${from}\n${joins.join('\n')}\nWHERE ${listWhereParts.join(' AND ')}\nORDER BY label ASC\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
-          return { sql, columns: ['label'] };
-        }
-        if (intent.analysisType === 'yoy') {
-          const timeField = intent.timeField || intent.dimensions.find(d => d.role === 'time') || this.getDefaultTimeField();
-          if (!timeField) return { error: 'I could not find a date/time field for year-over-year analysis.' };
-          const periodExpr = `DATE_TRUNC('year', ${this.timeSqlExpression(timeField, aliases.get(timeField.table))})`;
-          sql = `WITH yearly AS (\n  SELECT ${periodExpr} AS period, ${metricExpr} AS value\n  FROM ${from}\n  ${joins.join('\n  ')}${whereParts.length ? `\n  WHERE ${whereParts.join(' AND ')}` : ''}\n  GROUP BY 1\n), yoy AS (\n  SELECT period, value, LAG(value) OVER (ORDER BY period) AS previous_value\n  FROM yearly\n)\nSELECT CAST(period AS VARCHAR) AS period, value, previous_value, value - previous_value AS change, CASE WHEN previous_value IS NULL OR previous_value = 0 THEN NULL ELSE (value - previous_value) / previous_value END AS change_percent\nFROM yoy\nORDER BY period ASC`;
-          return { sql, columns: ['period', 'value', 'previous_value', 'change', 'change_percent'] };
-        }
-        if (intent.dimensions.length) {
-          const innerSelect = [...selectParts, `${metricExpr} AS value`].join(',\n  ');
-          const inner = `SELECT\n  ${innerSelect}\nFROM ${from}\n${joins.join('\n')}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}\nGROUP BY ${groupParts.map((_, i) => i + 1).join(', ')}`;
-          const labelExpr = intent.dimensions.length === 1 ? `CAST(d1 AS VARCHAR)` : intent.dimensions.map((_, i) => `CAST(d${i + 1} AS VARCHAR)`).join(` || ' / ' || `);
-          const orderBy = intent.dimensions[0]?.role === 'time' ? 'label ASC' : `value ${intent.sort?.direction || 'DESC'}`;
-          sql = `SELECT ${labelExpr} AS label, value\nFROM (\n${inner}\n) q\nORDER BY ${orderBy}\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
-        } else {
-          sql = `SELECT ${metricExpr} AS value\nFROM ${from}\n${joins.join('\n')}${whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : ''}`;
-        }
-        return { sql, columns: intent.dimensions.length ? ['label', 'value'] : ['value'], metricFormat };
+        return this.sqlPlanner.plan(intent);
       }
 
       buildJoinPlan(baseTable, neededTables) {
-        const tables = [baseTable];
-        const joins = [];
-        for (const table of neededTables) {
-          if (tables.includes(table)) continue;
-          const path = this.findRelationshipPath(tables, table);
-          if (!path) return { error: `I do not know how to join ${baseTable} to ${table}. Add a relationship or confirm an inferred join.` };
-          for (const rel of path) {
-            const leftKnown = tables.includes(rel.left.table);
-            const rightKnown = tables.includes(rel.right.table);
-            if (leftKnown && !rightKnown) {
-              joins.push(rel);
-              tables.push(rel.right.table);
-            } else if (rightKnown && !leftKnown) {
-              joins.push({ left: rel.right, right: rel.left, confidence: rel.confidence, inferred: rel.inferred });
-              tables.push(rel.left.table);
-            }
-          }
-        }
-        return { tables, joins };
+        return this.sqlPlanner.buildJoinPlan(baseTable, neededTables);
       }
 
       findRelationshipPath(startTables, targetTable) {
-        const queue = startTables.map(table => ({ table, path: [] }));
-        const visited = new Set(startTables);
-        while (queue.length) {
-          const current = queue.shift();
-          if (current.table === targetTable) return current.path;
-          for (const rel of this.relationships) {
-            const next = rel.left.table === current.table ? rel.right.table : (rel.right.table === current.table ? rel.left.table : null);
-            if (!next || visited.has(next)) continue;
-            visited.add(next);
-            queue.push({ table: next, path: [...current.path, rel] });
-          }
+        return this.sqlPlanner.findRelationshipPath(startTables, targetTable);
+      }
+
+      describeEvidence(intent) {
+        const evidence = [];
+        if (intent.metric?.kind === 'count_star') evidence.push({ kind: 'metric', field: 'Records', source: 'count_star' });
+        else if (intent.metric?.kind === 'count_distinct') evidence.push({ kind: 'metric', field: this.displayLabel(intent.metric.field), table: intent.metric.field.table, column: intent.metric.field.column, source: 'count_distinct' });
+        else if (intent.metric?.table) evidence.push({ kind: 'metric', field: this.displayLabel(intent.metric), table: intent.metric.table, column: intent.metric.column, source: intent.metric.default ? 'default_metric' : 'resolved_field' });
+        for (const dimension of intent.dimensions || []) {
+          evidence.push({ kind: 'dimension', field: this.displayLabel(dimension), table: dimension.table, column: dimension.column, source: 'resolved_field' });
         }
-        return null;
-      }
-
-      estimateIntentConfidence(intent) {
-        const q = norm(intent.question || '');
-        const scores = [];
-        const add = value => { if (Number.isFinite(value)) scores.push(Math.max(0, Math.min(1, value))); };
-        if (intent.analysisType !== 'list_values') {
-          if (intent.metric?.kind) add(0.95);
-          else add(this.fieldEvidenceScore(q, intent.metric, 0.76));
+        for (const filter of intent.filters || []) {
+          evidence.push({ kind: 'filter', field: this.displayLabel(filter.field), table: filter.field.table, column: filter.field.column, value: filter.operator === 'IN' ? (filter.values || []).join(', ') : filter.value, source: filter.source || 'resolved_value' });
         }
-        for (const dim of intent.dimensions || []) add(this.fieldEvidenceScore(q, dim, 0.82));
-        for (const filter of intent.filters || []) add(filter.score || 0.85);
-        if (intent.dateRange) add(0.9);
-        add(this.joinConfidence(intent));
-        const confidence = scores.length ? Math.min(...scores) : 0.7;
-        return Number(confidence.toFixed(2));
-      }
-
-      fieldEvidenceScore(q, field, fallback = 0.75) {
-        if (!field) return fallback;
-        const activeTerms = [this.displayLabel(field), field.label, field.column, ...(field.synonyms || []), ...this.localizedTerms(field)].map(norm).filter(Boolean);
-        const exact = activeTerms.some(term => this.termMatcher.patternFromTerm(term)?.test(q));
-        if (exact) return 0.97;
-        const questionTokens = new Set(q.split(/\s+/));
-        const evidenceTokens = new Set(activeTerms.flatMap(term => term.split(/\s+/)));
-        const tokenOverlap = [...questionTokens].some(token => evidenceTokens.has(token));
-        if (tokenOverlap) return 0.88;
-        return field.default ? Math.max(fallback, 0.78) : fallback;
-      }
-
-      joinConfidence(intent) {
-        const fields = [intent.metric?.field || intent.metric, intent.timeField, ...intent.dimensions, ...intent.filters.map(f => f.field), intent.dateRange?.field].filter(f => f && f.table);
-        if (!fields.length) return 0.9;
-        const baseTable = intent.metric?.field?.table || intent.metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
-        const neededTables = [...new Set([baseTable, ...fields.map(f => f.table)])];
-        const joinPlan = this.buildJoinPlan(baseTable, neededTables);
-        if (joinPlan.error) return 0.4;
-        if (!joinPlan.joins?.length) return 0.95;
-        return Math.min(...joinPlan.joins.map(rel => rel.confidence ?? 0.85));
+        if (intent.dateRange?.field) {
+          evidence.push({ kind: 'date', field: this.displayLabel(intent.dateRange.field), table: intent.dateRange.field.table, column: intent.dateRange.field.column, source: intent.dateRange.kind || 'date_range' });
+        }
+        return evidence;
       }
 
       describeIntent(intent) {
         if (intent.analysisType === 'list_values') return `List ${this.displayLabel(intent.dimensions[0])}`;
         if (intent.analysisType === 'yoy') return `Year-over-year ${this.displayLabel(intent.metric || {})}`;
+        if (intent.analysisType === 'change') return `${this.displayLabel(intent.metric || {})} change from ${intent.change?.startYear} to ${intent.change?.endYear}`;
+        if (intent.analysisType === 'share') return `Share of ${intent.metric?.aggregation || 'SUM'}(${this.displayLabel(intent.metric || {})}) by ${intent.dimensions.map(d => this.displayLabel(d)).join(' and ')}`;
+        if (intent.analysisType === 'comparison') {
+          const metric = intent.metric?.kind ? this.displayLabel(intent.metric.field || { label: intent.metric.label }) : this.displayLabel(intent.metric || {});
+          const dim = intent.dimensions[0] ? this.displayLabel(intent.dimensions[0]) : 'groups';
+          return `Compare ${metric} by ${dim}`;
+        }
         const metric = intent.metric?.kind === 'count_star'
           ? 'Count records'
           : intent.metric?.kind === 'count_distinct'
             ? `Count distinct ${this.displayLabel(intent.metric.entity || { label: intent.metric.label })}`
             : `${intent.metric?.aggregation || 'SUM'}(${this.displayLabel(intent.metric || {})})`;
         const dims = intent.dimensions.length ? ` by ${intent.dimensions.map(d => this.displayLabel(d)).join(' and ')}` : '';
-        const filters = intent.filters.length ? ` where ${intent.filters.map(f => `${this.displayLabel(f.field)} = ${f.value}`).join(' and ')}` : '';
+        const filters = intent.filters.length ? ` where ${intent.filters.map(f => f.operator === 'IN' ? `${this.displayLabel(f.field)} in ${(f.values || []).join(', ')}` : `${this.displayLabel(f.field)} = ${f.value}`).join(' and ')}` : '';
         const dates = intent.dateRange ? (intent.dateRange.kind === 'monthOfYear' ? ` in month ${intent.dateRange.month}` : ` from ${intent.dateRange.start} to ${intent.dateRange.end}`) : '';
         const grain = intent.dimensions.some(d => d.role === 'time') ? ` (${intent.timeGrain || 'month'})` : '';
         const limit = intent.dimensions.length ? `, sorted ${intent.sort?.direction === 'ASC' ? 'ascending' : 'descending'}, limit ${intent.limit}` : '';
         return `${metric}${dims}${grain}${filters}${dates}${limit}`;
+      }
+    }
+
+    class DashboardDataLoader {
+      constructor({ config, duckDBManager, askEngine }) {
+        this.config = config;
+        this.duckDBManager = duckDBManager;
+        this.askEngine = askEngine;
+        this.dataReady = false;
+      }
+
+      async ensureDataReady() {
+        if (this.dataReady) return;
+        for (const source of this.config.dataSources) {
+          await this.duckDBManager.query(`CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(source.url)}')`);
+        }
+        await this.askEngine.initialize();
+        this.dataReady = true;
+      }
+
+      async loadFilterOptions(filters) {
+        const filterOptions = {};
+        const nextFilters = { ...filters };
+        for (const filter of this.config.filters) {
+          const sql = `SELECT DISTINCT ${quoteIdent(filter.source.column)} AS val FROM ${quoteIdent(filter.source.table)} ORDER BY val`;
+          const result = await this.duckDBManager.query(sql);
+          const options = toRows(result).map(row => row.val);
+          options.unshift('All');
+          filterOptions[filter.field] = options;
+          if (!nextFilters[filter.field]) nextFilters[filter.field] = 'All';
+        }
+        return { filterOptions, filters: nextFilters };
+      }
+
+      async refresh(filters) {
+        return {
+          kpiResults: await this.loadKpis(filters),
+          chartData: await this.loadCharts(filters),
+          tableRows: await this.loadTables(filters)
+        };
+      }
+
+      async loadKpis(filters) {
+        const results = [];
+        for (const kpi of this.config.kpis) {
+          const result = await this.duckDBManager.query(this.applyFilters(kpi.query, filters));
+          results.push(toRows(result)[0]?.value);
+        }
+        return results;
+      }
+
+      async loadCharts(filters) {
+        const chartData = [];
+        for (const chartDef of this.config.charts) {
+          const result = await this.duckDBManager.query(this.applyFilters(chartDef.query, filters));
+          const rows = toRows(result);
+          chartData.push({ chartDef, labels: rows.map(row => String(row.label)), data: rows.map(row => numberValue(row.value)) });
+        }
+        return chartData;
+      }
+
+      async loadTables(filters) {
+        const tableRows = [];
+        for (const tableDef of this.config.tables) {
+          const result = await this.duckDBManager.query(this.applyFilters(tableDef.query, filters));
+          tableRows.push(toRows(result));
+        }
+        return tableRows;
+      }
+
+      extractTableAliases(query) {
+        const aliases = {};
+        const keywords = new Set(['where', 'join', 'on', 'using', 'group', 'order', 'limit', 'left', 'right', 'inner', 'outer', 'full', 'cross']);
+        const re = /\b(?:from|join)\s+"?([a-zA-Z_][a-zA-Z0-9_]*)"?(?:\s+(?:as\s+)?"?([a-zA-Z_][a-zA-Z0-9_]*)"?)?/gi;
+        for (const match of query.matchAll(re)) {
+          const [, table, alias] = match;
+          if (alias && !keywords.has(alias.toLowerCase())) aliases[table] = alias;
+        }
+        return aliases;
+      }
+
+      applyFilters(query, filters) {
+        const aliasMap = this.extractTableAliases(query);
+        let sql = query;
+        for (const filter of (this.config.filters || [])) {
+          const placeholder = `--filter:${filter.field}--`;
+          if (!sql.includes(placeholder)) continue;
+          const value = filters[filter.field] || 'All';
+          const tableRef = quoteIdent(aliasMap[filter.source.table] || filter.source.table);
+          const filterExpr = (value && value !== 'All') ? `${tableRef}.${quoteIdent(filter.source.column)} = '${escapeSqlString(value)}'` : '1=1';
+          sql = sql.replaceAll(placeholder, filterExpr);
+        }
+        return sql;
       }
     }
 
@@ -2332,8 +2862,8 @@
         this._askClarification = null;
         this.loading = false;
         this.error = '';
-        this._dataReady = false;
         this.askEngine = new AskDataEngine(this.config, duckDBManager);
+        this.dashboardLoader = new DashboardDataLoader({ config: this.config, duckDBManager, askEngine: this.askEngine });
       }
       connectedCallback() {
         super.connectedCallback();
@@ -2343,81 +2873,22 @@
         this.loading = true;
         this.error = '';
         try {
-          await this._ensureDataReady();
-          if (!Object.keys(this._filterOptions).length) await this._loadFilterOptions();
-          await this._refreshDashboardData();
+          await this.dashboardLoader.ensureDataReady();
+          if (!Object.keys(this._filterOptions).length) {
+            const loaded = await this.dashboardLoader.loadFilterOptions(this.filters);
+            this._filterOptions = loaded.filterOptions;
+            this.filters = loaded.filters;
+          }
+          const data = await this.dashboardLoader.refresh(this.filters);
+          this._kpiResults = data.kpiResults;
+          this._chartData = data.chartData;
+          this._tableRows = data.tableRows;
           this.loading = false;
         } catch (err) {
           console.error(err);
           this.loading = false;
           this.error = 'Failed to load data or render dashboard: ' + err;
         }
-      }
-      async _ensureDataReady() {
-        if (this._dataReady) return;
-        for (const s of this.config.dataSources) {
-          await duckDBManager.query(`CREATE OR REPLACE VIEW ${quoteIdent(s.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(s.url)}')`);
-        }
-        await this.askEngine.initialize();
-        this._dataReady = true;
-      }
-      async _loadFilterOptions() {
-        let filterOptions = {};
-        for (const filter of this.config.filters) {
-          let optq = `SELECT DISTINCT ${quoteIdent(filter.source.column)} AS val FROM ${quoteIdent(filter.source.table)} ORDER BY val`;
-          let optres = await duckDBManager.query(optq);
-          let opts = toRows(optres).map(x => x.val);
-          opts.unshift('All');
-          filterOptions[filter.field] = opts;
-          if (!this.filters[filter.field]) this.filters[filter.field] = 'All';
-        }
-        this._filterOptions = filterOptions;
-      }
-      _extractTableAliases(query) {
-        const aliases = {};
-        const keywords = new Set(['where', 'join', 'on', 'using', 'group', 'order', 'limit', 'left', 'right', 'inner', 'outer', 'full', 'cross']);
-        const re = /\b(?:from|join)\s+"?([a-zA-Z_][a-zA-Z0-9_]*)"?(?:\s+(?:as\s+)?"?([a-zA-Z_][a-zA-Z0-9_]*)"?)?/gi;
-        for (const match of query.matchAll(re)) {
-          const [, table, alias] = match;
-          if (alias && !keywords.has(alias.toLowerCase())) aliases[table] = alias;
-        }
-        return aliases;
-      }
-      _applyFilters(query) {
-        const aliasMap = this._extractTableAliases(query);
-        let q = query;
-        for (const filter of (this.config.filters || [])) {
-          const placeholder = `--filter:${filter.field}--`;
-          if (!q.includes(placeholder)) continue;
-          const val = this.filters[filter.field] || 'All';
-          const tableRef = quoteIdent(aliasMap[filter.source.table] || filter.source.table);
-          const filterExpr = (val && val !== 'All') ? `${tableRef}.${quoteIdent(filter.source.column)} = '${escapeSqlString(val)}'` : '1=1';
-          q = q.replaceAll(placeholder, filterExpr);
-        }
-        return q;
-      }
-      async _refreshDashboardData() {
-        let kpiResults = [];
-        for (const kpi of this.config.kpis) {
-          let r = await duckDBManager.query(this._applyFilters(kpi.query));
-          kpiResults.push(toRows(r)[0]?.value);
-        }
-        this._kpiResults = kpiResults;
-
-        let chartData = [];
-        for (const chartDef of this.config.charts) {
-          let r = await duckDBManager.query(this._applyFilters(chartDef.query));
-          let rows = toRows(r);
-          chartData.push({ chartDef, labels: rows.map(row => String(row.label)), data: rows.map(row => numberValue(row.value)) });
-        }
-        this._chartData = chartData;
-
-        let tableRows = [];
-        for (const tableDef of this.config.tables) {
-          let r = await duckDBManager.query(this._applyFilters(tableDef.query));
-          tableRows.push(toRows(r));
-        }
-        this._tableRows = tableRows;
       }
       _onFilterChange(e, field) {
         this.filters = { ...this.filters, [field]: e.target.value };
@@ -2503,13 +2974,13 @@
 
         this._askChartInstance = new Chart(canvas.getContext('2d'), { type, data, options });
       }
-      async _runAsk() {
+      async _runAsk(appliedClarification = null) {
         this._askLoading = true;
         this._askError = '';
         this._askClarification = null;
         this._askResult = null;
         try {
-          const result = await this.askEngine.ask(this._askQuestion);
+          const result = await this.askEngine.ask(this._askQuestion, appliedClarification ? { clarification: appliedClarification } : {});
           if (result.clarification) this._askClarification = result.clarification;
           else if (result.error) this._askError = result.error;
           else this._askResult = result;
@@ -2521,16 +2992,38 @@
         }
       }
       _chooseClarification(choice) {
-        const replacement = String(choice.replacement || '').trim();
-        if (replacement && !norm(this._askQuestion).includes(norm(replacement))) {
-          this._askQuestion = `${this._askQuestion.trim()} ${replacement}`.trim();
-        }
-        this._runAsk();
+        const pending = this._askClarification?.pending;
+        if (!pending) return;
+        this._askQuestion = pending.originalQuestion || this._askQuestion;
+        this._runAsk({ ...pending, fieldId: choice.fieldId, value: choice.value, valueNormalized: choice.valueNormalized });
       }
       _setExample(example) {
         this._askQuestion = example;
         this._askError = '';
         this._askClarification = null;
+      }
+      async _copyText(text) {
+        await navigator.clipboard?.writeText(String(text || ''));
+      }
+      _downloadText(filename, text, type = 'text/plain') {
+        const blob = new Blob([text], { type });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      _resultToCsv(result) {
+        const columns = result.columns || [];
+        const esc = value => `"${String(value ?? '').replaceAll('"', '""')}"`;
+        return [columns.map(esc).join(','), ...(result.rows || []).map(row => columns.map(col => esc(row[col])).join(','))].join('\n');
+      }
+      _exportAskCsv(result) {
+        this._downloadText('ask-result.csv', this._resultToCsv(result), 'text/csv');
+      }
+      _exportAskJson(result) {
+        this._downloadText('ask-result.json', JSON.stringify({ interpretation: result.interpretation, sql: result.sql, columns: result.columns, rows: result.rows }, null, 2), 'application/json');
       }
       render() {
         const c = this.config;
@@ -2631,6 +3124,7 @@
                 ${(result.warnings || []).map(w => html`<div class="warning">${w}</div>`)}
                 ${this.renderAskDecision(result)}
                 ${this.renderAskInsights(result)}
+                ${this.renderAskExports(result)}
                 ${this.renderAskResult(result)}
                 <details class="sql-details">
                   <summary>Show SQL and details</summary>
@@ -2638,10 +3132,26 @@
                   <p><strong>Decision path:</strong> ${(result.chartDecision?.path || []).join(' → ')}</p>
                   <p><strong>Recommended chart:</strong> ${result.chartDecision?.recommended}; <strong>Rendered:</strong> ${result.chartDecision?.rendered}</p>
                   ${result.confidence !== undefined ? html`<p><strong>Confidence:</strong> ${Math.round(result.confidence * 100)}%</p>` : nothing}
+                  ${result.metrics ? html`<p><strong>Latency:</strong> catalog ${result.metrics.catalogBuildMs ?? 'n/a'}ms; parse ${result.metrics.parseMs ?? 'n/a'}ms; SQL ${result.metrics.sqlExecutionMs ?? 'n/a'}ms; total ${result.metrics.totalAskMs ?? 'n/a'}ms.</p>` : nothing}
+                  ${result.diagnostics?.joinFanout ? html`<p><strong>Join fanout check:</strong> ${result.diagnostics.joinFanout.baseCount?.toLocaleString?.() || result.diagnostics.joinFanout.baseCount} base rows → ${result.diagnostics.joinFanout.joinedCount?.toLocaleString?.() || result.diagnostics.joinFanout.joinedCount} joined rows (${result.diagnostics.joinFanout.ratio}x).</p>` : nothing}
+                  ${result.evidence?.length ? html`
+                    <p><strong>Evidence:</strong></p>
+                    <ul>${result.evidence.map(item => html`<li>${item.kind}: ${item.field}${item.value !== undefined ? ` = ${item.value}` : ''} (${item.source})</li>`)}</ul>
+                  ` : nothing}
                 </details>
               </section>
             ` : nothing}
           </main>
+        `;
+      }
+      renderAskExports(result) {
+        return html`
+          <div class="interpretation" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
+            <strong>Export:</strong>
+            <button class="choice-button" @click=${() => this._copyText(result.sql)}>Copy SQL</button>
+            <button class="choice-button" @click=${() => this._exportAskCsv(result)}>Download CSV</button>
+            <button class="choice-button" @click=${() => this._exportAskJson(result)}>Download JSON</button>
+          </div>
         `;
       }
       renderAskDecision(result) {
@@ -2684,8 +3194,8 @@
       }
       formatAskCell(col, value, metric) {
         if (value === null || value === undefined || value === '') return '';
-        if (String(col).includes('percent')) return formatValue(value, 'percent');
-        if (['value', 'previous_value', 'change'].includes(col)) return formatValue(value, metric?.format);
+        if (String(col).includes('percent') || col === 'share') return formatValue(value, 'percent');
+        if (['value', 'previous_value', 'start_value', 'end_value', 'change'].includes(col)) return formatValue(value, metric?.format);
         return String(value);
       }
       renderAskTable(result) {
