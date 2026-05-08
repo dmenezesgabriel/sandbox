@@ -38,7 +38,7 @@ export class DashboardDataLoader {
     const filterOptions: FilterOptions = {};
     const nextFilters: Filters = { ...filters };
     for (const filter of this.config.filters) {
-      const sql = `SELECT DISTINCT ${quoteIdent(filter.source.column)} AS val FROM ${quoteIdent(filter.source.table)} ORDER BY val`;
+      const sql = `SELECT DISTINCT ${quoteIdent(filter.source.column)} AS val FROM ${quoteIdent(filter.source.table)} WHERE ${quoteIdent(filter.source.column)} IS NOT NULL ORDER BY val`;
       const result = await this.duckDBManager.query(sql);
       const options = toRows(result).map((row) => String(row.val));
       options.unshift('All');
@@ -105,7 +105,7 @@ export class DashboardDataLoader {
       'full',
       'cross',
     ]);
-    const re = /\b(?:from|join)\s+"?([a-zA-Z_]\w*)"?(?:\s+(?:as\s+)?"?([a-zA-Z_]\w*)"?)?/gi;
+    const re = /\b(?:from|join)\s+([a-z_]\w*)(?:\s+(?:as\s+)?([a-z_]\w*))?/gi;
     for (const match of query.matchAll(re)) {
       const [, table, alias] = match;
       if (table && alias && !keywords.has(alias.toLowerCase())) aliases[table] = alias;

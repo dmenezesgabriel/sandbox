@@ -1,2 +1,2 @@
 import './styles.css';
-import './components/portable-bi-dashboard';
+import './components/dashboard';

@@ -71,6 +71,7 @@ export interface TableConfig {
   title: string;
   query: string;
   columns: string[];
+  columnFormats?: Record<string, (v: CellValue) => string>;
 }
 
 export interface DateProfile {

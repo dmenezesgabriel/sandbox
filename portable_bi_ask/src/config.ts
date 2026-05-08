@@ -255,6 +255,7 @@ export const DASHBOARD_CONFIG: DashboardConfig = {
     WHERE --filter:Region-- AND --filter:Category--
     GROUP BY c.Region, p.Category ORDER BY Sales DESC LIMIT 20`,
       columns: ['Region', 'Category', 'Sales'],
+      columnFormats: { Sales: (v) => '$' + Math.round(Number(v || 0)).toLocaleString() },
     },
   ],
 };
