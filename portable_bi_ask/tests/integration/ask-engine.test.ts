@@ -60,7 +60,7 @@ describe('AskDataEngine – ask()', () => {
     expect('rows' in result).toBe(true);
     if (!('rows' in result)) return;
     expect(result.chartType).toBe('table');
-    const labels = result.rows.map(r => r.label);
+    const labels = result.rows.map((r) => r.label);
     expect(labels).toContain('Technology');
     expect(labels).toContain('Furniture');
     expect(labels).toContain('Office Supplies');

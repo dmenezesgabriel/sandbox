@@ -10,7 +10,7 @@ export class DuckDBManager {
     const jsDelivrBundles = duckdb.getJsDelivrBundles();
     const bundle = await duckdb.selectBundle(jsDelivrBundles);
     const workerUrl = URL.createObjectURL(
-      new Blob([`importScripts(\"${bundle.mainWorker}\");`], { type: 'text/javascript' })
+      new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' }),
     );
     const worker = new Worker(workerUrl);
     const logger = new duckdb.ConsoleLogger();

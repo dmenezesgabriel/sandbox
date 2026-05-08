@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import {
-  norm, quoteIdent, escapeSqlString, formatValue,
-  fieldKey, detectDateFormat, toRows, numberValue,
+  norm,
+  quoteIdent,
+  escapeSqlString,
+  formatValue,
+  fieldKey,
+  detectDateFormat,
+  toRows,
+  numberValue,
 } from '../../src/utils.ts';
 
 describe('norm()', () => {

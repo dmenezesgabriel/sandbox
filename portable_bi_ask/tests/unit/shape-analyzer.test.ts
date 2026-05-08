@@ -2,8 +2,36 @@ import { describe, it, expect } from 'vitest';
 import { ResultShapeAnalyzer } from '../../src/result-analysis.ts';
 import type { AskIntent } from '../../src/types.ts';
 
-const baseIntent = (): AskIntent => ({ question: '', analysisType: 'kpi', metric: null, dimensions: [], filters: [] });
-const timeIntent = (): AskIntent => ({ ...baseIntent(), dimensions: [{ id: 'sales::Order Date', table: 'sales', column: 'Order Date', role: 'time', label: 'Order Date', labels: {}, synonyms: [], localizedSynonyms: {}, description: '', default: false, priority: 0, sampleValues: [], samples: [], dateProfile: null, cardinality: 0, rowCount: 0 }] });
+const baseIntent = (): AskIntent => ({
+  question: '',
+  analysisType: 'kpi',
+  metric: null,
+  dimensions: [],
+  filters: [],
+});
+const timeIntent = (): AskIntent => ({
+  ...baseIntent(),
+  dimensions: [
+    {
+      id: 'sales::Order Date',
+      table: 'sales',
+      column: 'Order Date',
+      role: 'time',
+      label: 'Order Date',
+      labels: {},
+      synonyms: [],
+      localizedSynonyms: {},
+      description: '',
+      default: false,
+      priority: 0,
+      sampleValues: [],
+      samples: [],
+      dateProfile: null,
+      cardinality: 0,
+      rowCount: 0,
+    },
+  ],
+});
 
 describe('ResultShapeAnalyzer', () => {
   const analyzer = new ResultShapeAnalyzer();
@@ -23,13 +51,21 @@ describe('ResultShapeAnalyzer', () => {
   });
 
   it('classifies the label column as time when intent has a time dimension', () => {
-    const shape = analyzer.analyze([{ label: '2017-01-01', value: 100 }], ['label', 'value'], timeIntent());
+    const shape = analyzer.analyze(
+      [{ label: '2017-01-01', value: 100 }],
+      ['label', 'value'],
+      timeIntent(),
+    );
     expect(shape.time).toContain('label');
     expect(shape.timeCount).toBe(1);
   });
 
   it('counts rows and unique groups correctly', () => {
-    const rows = [{ label: 'A', value: 1 }, { label: 'B', value: 2 }, { label: 'A', value: 3 }];
+    const rows = [
+      { label: 'A', value: 1 },
+      { label: 'B', value: 2 },
+      { label: 'A', value: 3 },
+    ];
     const shape = analyzer.analyze(rows, ['label', 'value'], baseIntent());
     expect(shape.rowCount).toBe(3);
     expect(shape.groupCount).toBe(2);

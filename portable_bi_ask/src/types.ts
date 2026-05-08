@@ -1,8 +1,9 @@
 import type { ChartConfiguration, ChartType } from 'chart.js';
 import type Fuse from 'fuse.js';
 import type MiniSearch from 'minisearch';
-import type { DuckDBManager } from './db';
+
 import type { AskDataEngine } from './ask-data';
+import type { DuckDBManager } from './db';
 
 export type PrimitiveCell = string | number | bigint | boolean | Date | null | undefined;
 export type CellValue = PrimitiveCell | Record<string, unknown> | unknown[];
@@ -12,8 +13,26 @@ export type FilterOptions = Record<string, string[]>;
 export type ValueFormat = 'currency' | 'percent' | string | undefined;
 export type FieldRole = 'measure' | 'time' | 'dimension' | 'key';
 export type SortDirection = 'ASC' | 'DESC';
-export type AnalysisType = 'list_values' | 'yoy' | 'change' | 'share' | 'comparison' | 'trend' | 'ranking' | 'kpi';
-export type AskChartType = 'kpi' | 'table' | 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter' | 'bubble' | 'histogram';
+export type AnalysisType =
+  | 'list_values'
+  | 'yoy'
+  | 'change'
+  | 'share'
+  | 'comparison'
+  | 'trend'
+  | 'ranking'
+  | 'kpi';
+export type AskChartType =
+  | 'kpi'
+  | 'table'
+  | 'bar'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'donut'
+  | 'scatter'
+  | 'bubble'
+  | 'histogram';
 
 export interface DataSourceConfig {
   name: string;
@@ -79,7 +98,9 @@ export interface FieldConfig {
   parseFormat?: string | null;
 }
 
-export interface CatalogField extends Required<Omit<FieldConfig, 'role' | 'aggregation' | 'format' | 'default' | 'parseFormat'>> {
+export interface CatalogField extends Required<
+  Omit<FieldConfig, 'role' | 'aggregation' | 'format' | 'default' | 'parseFormat'>
+> {
   id: string;
   type: string;
   role: FieldRole;
@@ -145,8 +166,16 @@ export interface AskDataConfig {
   inferRelationships?: boolean;
   semanticMatching?: SemanticMatchingConfig;
   profiling?: { maxDistinctValuesPerField?: number; maxSampleRows?: number };
-  relationshipInference?: { autoAcceptThreshold?: number; ambiguousThreshold?: number; sampleSize?: number };
-  validation?: { joinFanoutRatio?: number; joinFanoutMinExtraRows?: number; filterSelectivityRatio?: number };
+  relationshipInference?: {
+    autoAcceptThreshold?: number;
+    ambiguousThreshold?: number;
+    sampleSize?: number;
+  };
+  validation?: {
+    joinFanoutRatio?: number;
+    joinFanoutMinExtraRows?: number;
+    filterSelectivityRatio?: number;
+  };
   defaultMetric?: SourceColumnRef & { aggregation?: string };
   chartCapabilities?: Partial<Record<AskChartType, boolean>>;
   fields?: FieldConfig[];
@@ -195,7 +224,14 @@ export interface IntentFilter {
 
 export type DateRange =
   | { field: CatalogField; start: string; end: string; text: string; kind?: undefined }
-  | { field: CatalogField; kind: 'monthOfYear'; month: number; text: string; start?: undefined; end?: undefined };
+  | {
+      field: CatalogField;
+      kind: 'monthOfYear';
+      month: number;
+      text: string;
+      start?: undefined;
+      end?: undefined;
+    };
 
 export interface ChangeSpec {
   startYear: number;

@@ -23,7 +23,10 @@ Then('the chart type is {string}', function (this: AskWorld, expected: string) {
 });
 
 Then('the interpretation contains {string}', function (this: AskWorld, text: string) {
-  assert.ok(success(this).interpretation.includes(text), `"${success(this).interpretation}" does not contain "${text}"`);
+  assert.ok(
+    success(this).interpretation.includes(text),
+    `"${success(this).interpretation}" does not contain "${text}"`,
+  );
 });
 
 Then('there are {int} result rows', function (this: AskWorld, count: number) {
@@ -36,31 +39,46 @@ Then('the first row label is {string}', function (this: AskWorld, label: string)
 
 Then('the first row value is close to {float}', function (this: AskWorld, expected: number) {
   const actual = Number(success(this).rows[0]?.value);
-  assert.ok(Math.abs(actual - expected) < 1, `Expected value close to ${expected} but got ${actual}`);
+  assert.ok(
+    Math.abs(actual - expected) < 1,
+    `Expected value close to ${expected} but got ${actual}`,
+  );
 });
 
 Then('the result rows are sorted descending by value', function (this: AskWorld) {
   const rows = success(this).rows;
   for (let i = 1; i < rows.length; i++) {
-    assert.ok(Number(rows[i - 1]?.value) >= Number(rows[i]?.value), `Row ${i - 1} value should be >= row ${i} value`);
+    assert.ok(
+      Number(rows[i - 1]?.value) >= Number(rows[i]?.value),
+      `Row ${i - 1} value should be >= row ${i} value`,
+    );
   }
 });
 
 Then('the result contains the label {string}', function (this: AskWorld, label: string) {
-  const labels = success(this).rows.map(r => String(r.label));
+  const labels = success(this).rows.map((r) => String(r.label));
   assert.ok(labels.includes(label), `Label "${label}" not found in [${labels.join(', ')}]`);
 });
 
-Then('the first result row has a {string} column with a value between {float} and {float}', function (this: AskWorld, col: string, min: number, max: number) {
-  const val = Number(success(this).rows[0]?.[col]);
-  assert.ok(val >= min && val <= max, `Expected "${col}" in [${min}, ${max}] but got ${val}`);
-});
+Then(
+  'the first result row has a {string} column with a value between {float} and {float}',
+  function (this: AskWorld, col: string, min: number, max: number) {
+    const val = Number(success(this).rows[0]?.[col]);
+    assert.ok(val >= min && val <= max, `Expected "${col}" in [${min}, ${max}] but got ${val}`);
+  },
+);
 
 Then('the result is an error', function (this: AskWorld) {
-  assert.ok(this.result && 'error' in this.result, `Expected an error result but got: ${JSON.stringify(this.result)}`);
+  assert.ok(
+    this.result && 'error' in this.result,
+    `Expected an error result but got: ${JSON.stringify(this.result)}`,
+  );
 });
 
 Then('the error message contains {string}', function (this: AskWorld, text: string) {
   assert.ok(this.result && 'error' in this.result, 'No error result available');
-  assert.ok((this.result as { error: string }).error.includes(text), `Error "${(this.result as { error: string }).error}" does not contain "${text}"`);
+  assert.ok(
+    (this.result as { error: string }).error.includes(text),
+    `Error "${(this.result as { error: string }).error}" does not contain "${text}"`,
+  );
 });

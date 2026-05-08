@@ -1,5 +1,14 @@
+import type {
+  AskChartType,
+  AskIntent,
+  CatalogField,
+  ChartDecision,
+  DataRow,
+  Diagnostics,
+  Relationship,
+  ResultShape,
+} from './types';
 import { formatValue, norm } from './utils';
-import type { AskChartType, AskIntent, CatalogField, ChartDecision, DataRow, Diagnostics, Relationship, ResultShape } from './types';
 
 export class ResultShapeAnalyzer {
   analyze(rows: DataRow[], columns: string[] | undefined, intent: AskIntent): ResultShape {
@@ -8,13 +17,22 @@ export class ResultShapeAnalyzer {
     const categoric: string[] = [];
     const time: string[] = [];
     for (const col of cols) {
-      const values = rows.map(row => row[col]).filter(v => v !== null && v !== undefined && v !== '');
-      if (intent.dimensions?.some(d => d.role === 'time') && (col === 'label' || col === 'period')) time.push(col);
-      else if (values.length && values.every(v => Number.isFinite(Number(v)))) numeric.push(col);
+      const values = rows
+        .map((row) => row[col])
+        .filter((v) => v !== null && v !== undefined && v !== '');
+      if (
+        intent.dimensions?.some((d) => d.role === 'time') &&
+        (col === 'label' || col === 'period')
+      )
+        time.push(col);
+      else if (values.length && values.every((v) => Number.isFinite(Number(v)))) numeric.push(col);
       else categoric.push(col);
     }
-    const seriesCount = intent.dimensions?.length > 1 ? new Set(rows.map(r => String(r.label || '').split(' / ')[0])).size : 1;
-    const groupCount = new Set(rows.map(r => String(r.label ?? r.period ?? ''))).size;
+    const seriesCount =
+      intent.dimensions?.length > 1
+        ? new Set(rows.map((r) => String(r.label || '').split(' / ')[0])).size
+        : 1;
+    const groupCount = new Set(rows.map((r) => String(r.label ?? r.period ?? ''))).size;
     return {
       columns: cols,
       rowCount: rows.length,
@@ -27,7 +45,7 @@ export class ResultShapeAnalyzer {
       seriesCount,
       groupCount,
       hasMetric: numeric.length > 0,
-      oneObservationPerGroup: groupCount === rows.length
+      oneObservationPerGroup: groupCount === rows.length,
     };
   }
 }
@@ -36,54 +54,187 @@ export class ChartDecisionTree {
   private readonly capabilities: Partial<Record<AskChartType, boolean>>;
 
   constructor(capabilities: Partial<Record<AskChartType, boolean>> = {}) {
-    this.capabilities = { kpi: true, table: true, bar: true, line: true, area: true, pie: true, ...capabilities };
+    this.capabilities = {
+      kpi: true,
+      table: true,
+      bar: true,
+      line: true,
+      area: true,
+      pie: true,
+      ...capabilities,
+    };
   }
 
   decide(shape: ResultShape, intent: AskIntent): ChartDecision {
-    if (intent.analysisType === 'list_values') return this.decision(['CATEGORIC only', '1 variable'], 'table', ['bar'], 'Listing distinct categorical values is clearest as a table.');
-    if (intent.analysisType === 'yoy') return this.decision(['TIME SERIES', '1 series', 'year-over-year calculation'], 'table', ['line'], 'YoY includes multiple derived numeric columns, so a table preserves exact values and change percentages.');
-    if (intent.analysisType === 'change') return this.decision(['TIME SERIES', '2 periods', 'delta calculation'], 'table', ['bar'], 'Change analysis includes start, end, delta and percent change, so a table preserves exact values.');
-    if (intent.analysisType === 'share') return this.decision(['PART-TO-WHOLE', 'percent of total'], 'bar', ['pie', 'table'], 'Percent-of-total results compare contribution by group; bar is reliable and keeps exact share values in the table.');
-    if (!intent.dimensions?.length && shape.numericCount === 1) return this.decision(['NUMERIC only', '1 variable', 'single aggregate'], 'kpi', ['bar'], 'A single aggregate value is best shown as a KPI.');
-    if (intent.dimensions?.[0]?.role === 'time') {
-      const path = ['TIME SERIES', shape.seriesCount > 1 ? 'several series' : '1 series'];
-      if (shape.seriesCount > 7) return this.decision([...path, 'many series'], 'table', ['heatmap', 'small multiples'], 'More than 7 line series would be hard to read; table is the enabled fallback.');
-      return this.decision([...path, shape.seriesCount > 1 ? 'few series (<7)' : 'single metric over ordered time'], 'line', ['area', 'bar'], 'Time is ordered, so a line chart shows trend direction clearly.');
-    }
-    if (shape.categoricCount >= 1 && shape.numericCount === 1) {
-      const path = ['NUMERIC + CATEGORIC (mixed)', 'one observation per group', '1 numeric'];
-      if (shape.rowCount <= 5 && !intent.sort?.direction && this.capabilities.pie) return this.decision(path, 'pie', ['bar', 'donut'], 'Few categories with one numeric can be shown as part-to-whole; anti-pattern guard prevents large pies.');
-      return this.decision(path, 'bar', ['lollipop', 'treemap'], 'One numeric metric grouped by categories is most reliably compared with a bar chart.');
-    }
-    if (shape.numericCount === 2 && shape.categoricCount === 0) return this.decision(['NUMERIC only', '2 variables', shape.rowCount < 2000 ? 'few points (<2000)' : 'many points'], shape.rowCount < 2000 ? 'scatter' : 'table', ['2D density', 'hex bin'], 'Two numeric variables can be compared as points; dense renderers are not enabled.');
-    return this.decision(['Fallback'], 'table', [], 'The result shape is best preserved as a table with the enabled renderers.');
+    const fixed = this.decideByAnalysisType(intent);
+    if (fixed) return fixed;
+    if (!intent.dimensions?.length && shape.numericCount === 1)
+      return this.decision(
+        ['NUMERIC only', '1 variable', 'single aggregate'],
+        'kpi',
+        ['bar'],
+        'A single aggregate value is best shown as a KPI.',
+      );
+    if (intent.dimensions?.[0]?.role === 'time') return this.decideTimeSeries(shape);
+    if (shape.categoricCount >= 1 && shape.numericCount === 1)
+      return this.decideMixed(shape, intent);
+    if (shape.numericCount === 2 && shape.categoricCount === 0)
+      return this.decideTwoNumerics(shape);
+    return this.decision(
+      ['Fallback'],
+      'table',
+      [],
+      'The result shape is best preserved as a table with the enabled renderers.',
+    );
   }
 
-  private decision(path: string[], recommended: AskChartType, alternatives: string[], reason: string): ChartDecision {
+  private decideByAnalysisType(intent: AskIntent): ChartDecision | null {
+    if (intent.analysisType === 'list_values')
+      return this.decision(
+        ['CATEGORIC only', '1 variable'],
+        'table',
+        ['bar'],
+        'Listing distinct categorical values is clearest as a table.',
+      );
+    if (intent.analysisType === 'yoy')
+      return this.decision(
+        ['TIME SERIES', '1 series', 'year-over-year calculation'],
+        'table',
+        ['line'],
+        'YoY includes multiple derived numeric columns, so a table preserves exact values and change percentages.',
+      );
+    if (intent.analysisType === 'change')
+      return this.decision(
+        ['TIME SERIES', '2 periods', 'delta calculation'],
+        'table',
+        ['bar'],
+        'Change analysis includes start, end, delta and percent change, so a table preserves exact values.',
+      );
+    if (intent.analysisType === 'share')
+      return this.decision(
+        ['PART-TO-WHOLE', 'percent of total'],
+        'bar',
+        ['pie', 'table'],
+        'Percent-of-total results compare contribution by group; bar is reliable and keeps exact share values in the table.',
+      );
+    return null;
+  }
+
+  private decideTimeSeries(shape: ResultShape): ChartDecision {
+    const path = ['TIME SERIES', shape.seriesCount > 1 ? 'several series' : '1 series'];
+    if (shape.seriesCount > 7)
+      return this.decision(
+        [...path, 'many series'],
+        'table',
+        ['heatmap', 'small multiples'],
+        'More than 7 line series would be hard to read; table is the enabled fallback.',
+      );
+    const detail = shape.seriesCount > 1 ? 'few series (<7)' : 'single metric over ordered time';
+    return this.decision(
+      [...path, detail],
+      'line',
+      ['area', 'bar'],
+      'Time is ordered, so a line chart shows trend direction clearly.',
+    );
+  }
+
+  private decideMixed(shape: ResultShape, intent: AskIntent): ChartDecision {
+    const path = ['NUMERIC + CATEGORIC (mixed)', 'one observation per group', '1 numeric'];
+    if (shape.rowCount <= 5 && !intent.sort?.direction && this.capabilities.pie)
+      return this.decision(
+        path,
+        'pie',
+        ['bar', 'donut'],
+        'Few categories with one numeric can be shown as part-to-whole; anti-pattern guard prevents large pies.',
+      );
+    return this.decision(
+      path,
+      'bar',
+      ['lollipop', 'treemap'],
+      'One numeric metric grouped by categories is most reliably compared with a bar chart.',
+    );
+  }
+
+  private decideTwoNumerics(shape: ResultShape): ChartDecision {
+    const density = shape.rowCount < 2000 ? 'few points (<2000)' : 'many points';
+    const chartType = shape.rowCount < 2000 ? 'scatter' : 'table';
+    return this.decision(
+      ['NUMERIC only', '2 variables', density],
+      chartType,
+      ['2D density', 'hex bin'],
+      'Two numeric variables can be compared as points; dense renderers are not enabled.',
+    );
+  }
+
+  private decision(
+    path: string[],
+    recommended: AskChartType,
+    alternatives: string[],
+    reason: string,
+  ): ChartDecision {
     const rendered = this.capabilities[recommended] ? recommended : 'table';
     return {
       path,
       recommended,
       rendered,
       alternatives,
-      reason: rendered === recommended ? reason : `${reason} ${recommended} is not enabled, so rendering as table.`
+      reason:
+        rendered === recommended
+          ? reason
+          : `${reason} ${recommended} is not enabled, so rendering as table.`,
     };
   }
 }
 
 export class ResultValidator {
-  validate({ rows, intent, confidence, diagnostics }: { rows: DataRow[]; intent: AskIntent; confidence: number; diagnostics: Diagnostics | null }): string[] {
+  validate({
+    rows,
+    intent,
+    confidence,
+    diagnostics,
+  }: {
+    rows: DataRow[];
+    intent: AskIntent;
+    confidence: number;
+    diagnostics: Diagnostics | null;
+  }): string[] {
     const warnings: string[] = [];
-    if (!rows?.length || rows.every(row => Object.values(row).every(value => value === null || value === undefined || value === ''))) warnings.push('No rows matched this question. Try removing filters or broadening the date range.');
-    if (confidence < 0.8) warnings.push('Some matches were fuzzy or inferred; review SQL/details if the result looks unexpected.');
-    if (intent.dimensions?.length && rows?.some(row => String(row.label ?? '').trim() === '' || String(row.label ?? '').includes(' /  / ') || String(row.label ?? '').endsWith(' / '))) {
-      warnings.push('Some grouped dimension labels are null or blank. Review source data before drawing conclusions.');
+    if (
+      !rows?.length ||
+      rows.every((row) =>
+        Object.values(row).every((value) => value === null || value === undefined || value === ''),
+      )
+    )
+      warnings.push(
+        'No rows matched this question. Try removing filters or broadening the date range.',
+      );
+    if (confidence < 0.8)
+      warnings.push(
+        'Some matches were fuzzy or inferred; review SQL/details if the result looks unexpected.',
+      );
+    if (
+      intent.dimensions?.length &&
+      rows?.some(
+        (row) =>
+          String(row.label ?? '').trim() === '' ||
+          String(row.label ?? '').includes(' /  / ') ||
+          String(row.label ?? '').endsWith(' / '),
+      )
+    ) {
+      warnings.push(
+        'Some grouped dimension labels are null or blank. Review source data before drawing conclusions.',
+      );
     }
     const fanout = diagnostics?.joinFanout;
     if (fanout?.warning) warnings.push(fanout.warning);
-    if (diagnostics?.filterSelectivity?.warning) warnings.push(diagnostics.filterSelectivity.warning);
+    if (diagnostics?.filterSelectivity?.warning)
+      warnings.push(diagnostics.filterSelectivity.warning);
     if (diagnostics?.dateParse?.warning) warnings.push(diagnostics.dateParse.warning);
-    if (intent.dimensions?.length && intent.analysisType !== 'trend' && rows?.length >= (Number(intent.limit) || Infinity)) {
+    if (
+      intent.dimensions?.length &&
+      intent.analysisType !== 'trend' &&
+      rows?.length >= (Number(intent.limit) || Infinity)
+    ) {
       warnings.push(`Showing the top ${intent.limit} rows. There may be more matching groups.`);
     }
     return warnings;
@@ -106,7 +257,13 @@ export class ConfidenceScorer {
   private readonly localizedTerms: (field: Partial<CatalogField>) => string[];
   private readonly buildJoinPlan: (baseTable: string, neededTables: string[]) => JoinPlanLike;
 
-  constructor({ config, termMatcher, displayLabel, localizedTerms, buildJoinPlan }: {
+  constructor({
+    config,
+    termMatcher,
+    displayLabel,
+    localizedTerms,
+    buildJoinPlan,
+  }: {
     config: { dataSources?: { name: string }[] };
     termMatcher: TermMatcherLike;
     displayLabel: (field: Partial<CatalogField> | { label?: string }) => string;
@@ -123,7 +280,9 @@ export class ConfidenceScorer {
   estimate(intent: AskIntent): number {
     const q = norm(intent.question || '');
     const scores: number[] = [];
-    const add = (value: number): void => { if (Number.isFinite(value)) scores.push(Math.max(0, Math.min(1, value))); };
+    const add = (value: number): void => {
+      if (Number.isFinite(value)) scores.push(Math.max(0, Math.min(1, value)));
+    };
     if (intent.analysisType !== 'list_values') {
       if (intent.metric && 'kind' in intent.metric) add(0.95);
       else add(this.fieldEvidenceScore(q, intent.metric, 0.76));
@@ -138,38 +297,58 @@ export class ConfidenceScorer {
 
   fieldEvidenceScore(q: string, field: Partial<CatalogField> | null, fallback = 0.75): number {
     if (!field) return fallback;
-    const activeTerms = [this.displayLabel(field), field.label, field.column, ...(field.synonyms || []), ...this.localizedTerms(field)].map(norm).filter(Boolean);
-    const exact = activeTerms.some(term => this.termMatcher.patternFromTerm(term)?.test(q));
+    const activeTerms = [
+      this.displayLabel(field),
+      field.label,
+      field.column,
+      ...(field.synonyms || []),
+      ...this.localizedTerms(field),
+    ]
+      .map(norm)
+      .filter(Boolean);
+    const exact = activeTerms.some((term) => this.termMatcher.patternFromTerm(term)?.test(q));
     if (exact) return 0.97;
     const questionTokens = new Set(q.split(/\s+/));
-    const evidenceTokens = new Set(activeTerms.flatMap(term => term.split(/\s+/)));
-    const tokenOverlap = [...questionTokens].some(token => evidenceTokens.has(token));
+    const evidenceTokens = new Set(activeTerms.flatMap((term) => term.split(/\s+/)));
+    const tokenOverlap = [...questionTokens].some((token) => evidenceTokens.has(token));
     if (tokenOverlap) return 0.88;
     return field.default ? Math.max(fallback, 0.78) : fallback;
   }
 
   joinConfidence(intent: AskIntent): number {
     const filters = intent.filters || [];
-    const fields = [metricField(intent.metric), intent.timeField, ...(intent.dimensions || []), ...filters.map(f => f.field), intent.dateRange?.field].filter((f): f is CatalogField => !!f && !!f.table);
+    const fields = [
+      metricField(intent.metric),
+      intent.timeField,
+      ...(intent.dimensions || []),
+      ...filters.map((f) => f.field),
+      intent.dateRange?.field,
+    ].filter((f): f is CatalogField => !!f && !!f.table);
     if (!fields.length) return 0.9;
     const metric = metricField(intent.metric);
     const baseTable = metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
     if (!baseTable) return 0.4;
-    const neededTables = [...new Set([baseTable, ...fields.map(f => f.table)])];
+    const neededTables = [...new Set([baseTable, ...fields.map((f) => f.table)])];
     const joinPlan = this.buildJoinPlan(baseTable, neededTables);
     if (joinPlan.error) return 0.4;
     if (!joinPlan.joins?.length) return 0.95;
-    return Math.min(...joinPlan.joins.map(rel => rel.confidence ?? 0.85));
+    return Math.min(...joinPlan.joins.map((rel) => rel.confidence ?? 0.85));
   }
 }
 
 export class InsightGenerator {
   generate(rows: DataRow[], intent: AskIntent, _shape: ResultShape): string[] {
     if (!rows?.length) return ['No rows matched this question.'];
-    if (intent.analysisType === 'list_values') return [`Found ${rows.filter(r => r.label !== null && r.label !== undefined && r.label !== '').length} distinct ${intent.dimensions.map(d => d.label).join(' / ')} values.`];
+    if (intent.analysisType === 'list_values')
+      return [
+        `Found ${rows.filter((r) => r.label !== null && r.label !== undefined && r.label !== '').length} distinct ${intent.dimensions.map((d) => d.label).join(' / ')} values.`,
+      ];
     if (intent.analysisType === 'yoy') return this.yoyInsights(rows);
     if (intent.analysisType === 'change') return this.changeInsights(rows, intent);
-    if (!intent.dimensions?.length && rows[0]?.value !== undefined) return [`Total ${metricLabel(intent)} is ${formatValue(rows[0].value, metricField(intent.metric)?.format)}.`];
+    if (!intent.dimensions?.length && rows[0]?.value !== undefined)
+      return [
+        `Total ${metricLabel(intent)} is ${formatValue(rows[0].value, metricField(intent.metric)?.format)}.`,
+      ];
     if (rows[0]?.value !== undefined) return this.groupedMetricInsights(rows, intent);
     return [];
   }
@@ -181,7 +360,12 @@ export class InsightGenerator {
     const percent = Number(row.change_percent);
     if (!Number.isFinite(change)) return [];
     const direction = change >= 0 ? 'increased' : 'decreased';
-    return [`${this.labelForMetric(intent)} ${direction} by ${formatValue(Math.abs(change), metricField(intent.metric)?.format)}${Number.isFinite(percent) ? ` (${formatValue(Math.abs(percent), 'percent')})` : ''} from ${row.period}.`];
+    const percentStr = Number.isFinite(percent)
+      ? ` (${formatValue(Math.abs(percent), 'percent')})`
+      : '';
+    return [
+      `${this.labelForMetric(intent)} ${direction} by ${formatValue(Math.abs(change), metricField(intent.metric)?.format)}${percentStr} from ${row.period}.`,
+    ];
   }
 
   labelForMetric(intent: AskIntent): string {
@@ -190,40 +374,105 @@ export class InsightGenerator {
 
   groupedMetricInsights(rows: DataRow[], intent: AskIntent): string[] {
     const metricFormat = metricField(intent.metric)?.format;
-    const valid = rows.filter(r => Number.isFinite(Number(r.value)));
+    const valid = rows.filter((r) => Number.isFinite(Number(r.value)));
     if (!valid.length) return [];
     const total = valid.reduce((sum, r) => sum + Number(r.value), 0);
-    const top = [...valid].sort((a, b) => Number(b.value) - Number(a.value))[0];
-    const bottom = [...valid].sort((a, b) => Number(a.value) - Number(b.value))[0];
+    const sorted = [...valid].sort((a, b) => Number(b.value) - Number(a.value));
+    const top = sorted[0];
+    const bottom = sorted[sorted.length - 1];
     const insights: string[] = [];
-    if (top) insights.push(`${top.label} is highest at ${formatValue(top.value, metricFormat)}${total ? ` (${formatValue(Number(top.value) / total, 'percent')} of total)` : ''}.`);
-    if (bottom && bottom.label !== top?.label) insights.push(`${bottom.label} is lowest at ${formatValue(bottom.value, metricFormat)}.`);
-    if (valid.length >= 3 && total) {
-      const topN = [...valid].sort((a, b) => Number(b.value) - Number(a.value)).slice(0, Math.min(3, valid.length));
-      const share = topN.reduce((sum, row) => sum + Number(row.value), 0) / total;
-      insights.push(`Top ${topN.length} ${intent.dimensions?.[0]?.role === 'time' ? 'periods' : 'groups'} account for ${formatValue(share, 'percent')} of total.`);
-    }
-    if (intent.dimensions?.[0]?.role === 'time' && valid.length >= 2) {
-      const first = valid[0];
-      const last = valid[valid.length - 1];
-      const change = Number(last.value) - Number(first.value);
-      const pct = Number(first.value) ? change / Number(first.value) : null;
-      insights.push(`${last.label} is ${change >= 0 ? 'up' : 'down'} ${formatValue(Math.abs(change), metricFormat)}${pct === null ? '' : ` (${formatValue(Math.abs(pct), 'percent')})`} versus ${first.label}.`);
-    }
-    if (valid.length >= 4) {
-      const avg = total / valid.length;
-      const outliers = valid.filter(r => Number(r.value) > avg * 1.5).map(r => String(r.label)).slice(0, 3);
-      if (outliers.length) insights.push(`Above-average standout ${intent.dimensions?.[0]?.role === 'time' ? 'periods' : 'groups'}: ${outliers.join(', ')}.`);
-    }
+    this.addExtremeInsights(insights, top, bottom, total, metricFormat);
+    this.addTopNShareInsight(insights, valid, total, intent);
+    this.addTrendInsight(insights, valid, intent, metricFormat);
+    this.addOutlierInsight(insights, valid, total, intent);
     return insights;
   }
 
+  private addExtremeInsights(
+    insights: string[],
+    top: DataRow | undefined,
+    bottom: DataRow | undefined,
+    total: number,
+    metricFormat: string | undefined,
+  ): void {
+    if (!top) return;
+    const shareStr = total
+      ? ` (${formatValue(Number(top.value) / total, 'percent')} of total)`
+      : '';
+    insights.push(`${top.label} is highest at ${formatValue(top.value, metricFormat)}${shareStr}.`);
+    if (bottom && bottom.label !== top.label)
+      insights.push(`${bottom.label} is lowest at ${formatValue(bottom.value, metricFormat)}.`);
+  }
+
+  private addTopNShareInsight(
+    insights: string[],
+    valid: DataRow[],
+    total: number,
+    intent: AskIntent,
+  ): void {
+    if (valid.length < 3 || !total) return;
+    const topN = [...valid]
+      .sort((a, b) => Number(b.value) - Number(a.value))
+      .slice(0, Math.min(3, valid.length));
+    const share = topN.reduce((sum, row) => sum + Number(row.value), 0) / total;
+    const kind = intent.dimensions?.[0]?.role === 'time' ? 'periods' : 'groups';
+    insights.push(`Top ${topN.length} ${kind} account for ${formatValue(share, 'percent')} of total.`);
+  }
+
+  private addTrendInsight(
+    insights: string[],
+    valid: DataRow[],
+    intent: AskIntent,
+    metricFormat: string | undefined,
+  ): void {
+    if (intent.dimensions?.[0]?.role !== 'time' || valid.length < 2) return;
+    const first = valid[0];
+    const last = valid[valid.length - 1];
+    const change = Number(last.value) - Number(first.value);
+    const pct = Number(first.value) ? change / Number(first.value) : null;
+    const direction = change >= 0 ? 'up' : 'down';
+    const pctStr = pct !== null ? ` (${formatValue(Math.abs(pct), 'percent')})` : '';
+    insights.push(
+      `${last.label} is ${direction} ${formatValue(Math.abs(change), metricFormat)}${pctStr} versus ${first.label}.`,
+    );
+  }
+
+  private addOutlierInsight(
+    insights: string[],
+    valid: DataRow[],
+    total: number,
+    intent: AskIntent,
+  ): void {
+    if (valid.length < 4) return;
+    const avg = total / valid.length;
+    const outliers = valid
+      .filter((r) => Number(r.value) > avg * 1.5)
+      .map((r) => String(r.label))
+      .slice(0, 3);
+    if (!outliers.length) return;
+    const kind = intent.dimensions?.[0]?.role === 'time' ? 'periods' : 'groups';
+    insights.push(`Above-average standout ${kind}: ${outliers.join(', ')}.`);
+  }
+
   yoyInsights(rows: DataRow[]): string[] {
-    const last = [...rows].reverse().find(r => r.change_percent !== null && r.change_percent !== undefined && r.change_percent !== '');
+    const last = [...rows]
+      .reverse()
+      .find(
+        (r) =>
+          r.change_percent !== null && r.change_percent !== undefined && r.change_percent !== '',
+      );
     const insights: string[] = [];
-    if (last) insights.push(`Latest YoY change is ${formatValue(last.change_percent, 'percent')} (${formatValue(last.change, 'currency')}).`);
-    const best = rows.filter(r => Number.isFinite(Number(r.change_percent))).sort((a, b) => Number(b.change_percent) - Number(a.change_percent))[0];
-    if (best) insights.push(`Strongest YoY growth was ${String(best.period).slice(0, 4)} at ${formatValue(best.change_percent, 'percent')}.`);
+    if (last)
+      insights.push(
+        `Latest YoY change is ${formatValue(last.change_percent, 'percent')} (${formatValue(last.change, 'currency')}).`,
+      );
+    const best = rows
+      .filter((r) => Number.isFinite(Number(r.change_percent)))
+      .sort((a, b) => Number(b.change_percent) - Number(a.change_percent))[0];
+    if (best)
+      insights.push(
+        `Strongest YoY growth was ${String(best.period).slice(0, 4)} at ${formatValue(best.change_percent, 'percent')}.`,
+      );
     return insights;
   }
 }

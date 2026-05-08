@@ -1,5 +1,13 @@
+import type {
+  CellValue,
+  ChartDataResult,
+  DashboardDataLoaderOptions,
+  DashboardRefreshResult,
+  DataRow,
+  FilterOptions,
+  Filters,
+} from './types';
 import { escapeSqlString, numberValue, quoteIdent, toRows } from './utils';
-import type { CellValue, ChartDataResult, DashboardDataLoaderOptions, DashboardRefreshResult, DataRow, FilterOptions, Filters } from './types';
 
 export class DashboardDataLoader {
   private readonly config: DashboardDataLoaderOptions['config'];
@@ -16,19 +24,23 @@ export class DashboardDataLoader {
   async ensureDataReady(): Promise<void> {
     if (this.dataReady) return;
     for (const source of this.config.dataSources) {
-      await this.duckDBManager.query(`CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(source.url)}')`);
+      await this.duckDBManager.query(
+        `CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(source.url)}')`,
+      );
     }
     await this.askEngine.initialize();
     this.dataReady = true;
   }
 
-  async loadFilterOptions(filters: Filters): Promise<{ filterOptions: FilterOptions; filters: Filters }> {
+  async loadFilterOptions(
+    filters: Filters,
+  ): Promise<{ filterOptions: FilterOptions; filters: Filters }> {
     const filterOptions: FilterOptions = {};
     const nextFilters: Filters = { ...filters };
     for (const filter of this.config.filters) {
       const sql = `SELECT DISTINCT ${quoteIdent(filter.source.column)} AS val FROM ${quoteIdent(filter.source.table)} ORDER BY val`;
       const result = await this.duckDBManager.query(sql);
-      const options = toRows(result).map(row => String(row.val));
+      const options = toRows(result).map((row) => String(row.val));
       options.unshift('All');
       filterOptions[filter.field] = options;
       if (!nextFilters[filter.field]) nextFilters[filter.field] = 'All';
@@ -40,7 +52,7 @@ export class DashboardDataLoader {
     return {
       kpiResults: await this.loadKpis(filters),
       chartData: await this.loadCharts(filters),
-      tableRows: await this.loadTables(filters)
+      tableRows: await this.loadTables(filters),
     };
   }
 
@@ -58,7 +70,11 @@ export class DashboardDataLoader {
     for (const chartDef of this.config.charts) {
       const result = await this.duckDBManager.query(this.applyFilters(chartDef.query, filters));
       const rows = toRows(result);
-      chartData.push({ chartDef, labels: rows.map(row => String(row.label)), data: rows.map(row => numberValue(row.value)) });
+      chartData.push({
+        chartDef,
+        labels: rows.map((row) => String(row.label)),
+        data: rows.map((row) => numberValue(row.value)),
+      });
     }
     return chartData;
   }
@@ -74,8 +90,22 @@ export class DashboardDataLoader {
 
   extractTableAliases(query: string): Record<string, string> {
     const aliases: Record<string, string> = {};
-    const keywords = new Set(['where', 'join', 'on', 'using', 'group', 'order', 'limit', 'left', 'right', 'inner', 'outer', 'full', 'cross']);
-    const re = /\b(?:from|join)\s+"?([a-zA-Z_][a-zA-Z0-9_]*)"?(?:\s+(?:as\s+)?"?([a-zA-Z_][a-zA-Z0-9_]*)"?)?/gi;
+    const keywords = new Set([
+      'where',
+      'join',
+      'on',
+      'using',
+      'group',
+      'order',
+      'limit',
+      'left',
+      'right',
+      'inner',
+      'outer',
+      'full',
+      'cross',
+    ]);
+    const re = /\b(?:from|join)\s+"?([a-zA-Z_]\w*)"?(?:\s+(?:as\s+)?"?([a-zA-Z_]\w*)"?)?/gi;
     for (const match of query.matchAll(re)) {
       const [, table, alias] = match;
       if (table && alias && !keywords.has(alias.toLowerCase())) aliases[table] = alias;
@@ -91,7 +121,10 @@ export class DashboardDataLoader {
       if (!sql.includes(placeholder)) continue;
       const value = filters[filter.field] || 'All';
       const tableRef = quoteIdent(aliasMap[filter.source.table] || filter.source.table);
-      const filterExpr = value && value !== 'All' ? `${tableRef}.${quoteIdent(filter.source.column)} = '${escapeSqlString(value)}'` : '1=1';
+      const filterExpr =
+        value && value !== 'All'
+          ? `${tableRef}.${quoteIdent(filter.source.column)} = '${escapeSqlString(value)}'`
+          : '1=1';
       sql = sql.replaceAll(placeholder, filterExpr);
     }
     return sql;

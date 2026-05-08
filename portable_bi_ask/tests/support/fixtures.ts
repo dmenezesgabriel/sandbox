@@ -12,8 +12,16 @@ export const TEST_CONFIG: DashboardConfig = {
     { name: 'sales', url: '' },
   ],
   relationships: [
-    { left: { table: 'sales', column: 'Customer ID' }, right: { table: 'customer', column: 'Customer ID' }, confidence: 1 },
-    { left: { table: 'sales', column: 'Product ID' }, right: { table: 'product', column: 'Product ID' }, confidence: 1 },
+    {
+      left: { table: 'sales', column: 'Customer ID' },
+      right: { table: 'customer', column: 'Customer ID' },
+      confidence: 1,
+    },
+    {
+      left: { table: 'sales', column: 'Product ID' },
+      right: { table: 'product', column: 'Product ID' },
+      confidence: 1,
+    },
   ],
   askData: {
     ...DASHBOARD_CONFIG.askData,

@@ -13,32 +13,43 @@ function isDataRow(value: unknown): value is DataRow {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export const toRows = (result: unknown): DataRow[] => {
-  const rawRows = isRowResultLike(result) && typeof result.toArray === 'function'
-    ? result.toArray()
-    : isRowResultLike(result) && Array.isArray(result.rows)
-      ? result.rows
-      : Array.isArray(result)
-        ? result
-        : [];
-  return rawRows.filter(isDataRow);
-};
+function getRawRows(result: unknown): unknown[] {
+  if (isRowResultLike(result) && typeof result.toArray === 'function')
+    return result.toArray() as unknown[];
+  if (isRowResultLike(result) && Array.isArray(result.rows)) return result.rows;
+  if (Array.isArray(result)) return result;
+  return [];
+}
+
+export const toRows = (result: unknown): DataRow[] => getRawRows(result).filter(isDataRow);
 
 export const quoteIdent = (name: string): string => `"${String(name).replaceAll('"', '""')}"`;
 export const escapeSqlString = (value: CellValue): string => String(value).replaceAll("'", "''");
-export const norm = (value: unknown): string => String(value || '')
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .toLowerCase()
-  .replace(/[^a-z0-9]+/g, ' ')
-  .trim();
+export const norm = (value: unknown): string =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 export const compact = (value: unknown): string => norm(value).replaceAll(' ', '');
-export const escapeRegExp = (value: unknown): string => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-export const singularize = (value: unknown): string => String(value || '').replace(/ies$/i, 'y').replace(/s$/i, '');
-export const isIdLike = (name: unknown): boolean => /(^|\s|_|-)(id|key|code|postal|zip|row)(\s|_|-|$)/i.test(String(name)) || / id$/i.test(String(name));
-export const isNumericType = (type: unknown): boolean => /int|double|float|decimal|numeric|real|hugeint|bigint|smallint|utinyint|uinteger/i.test(String(type || ''));
-export const isDateName = (name: unknown): boolean => /date|time|month|year|timestamp/i.test(String(name || ''));
-export const numberValue = (value: CellValue): number => typeof value === 'bigint' ? Number(value) : Number(value || 0);
+export const escapeRegExp = (value: unknown): string =>
+  String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export const singularize = (value: unknown): string =>
+  String(value || '')
+    .replace(/ies$/i, 'y')
+    .replace(/s$/i, '');
+export const isIdLike = (name: unknown): boolean =>
+  /(^|\s|_|-)(id|key|code|postal|zip|row)(\s|_|-|$)/i.test(String(name)) ||
+  / id$/i.test(String(name));
+export const isNumericType = (type: unknown): boolean =>
+  /int|double|float|decimal|numeric|real|hugeint|bigint|smallint|utinyint|uinteger/i.test(
+    String(type || ''),
+  );
+export const isDateName = (name: unknown): boolean =>
+  /date|time|month|year|timestamp/i.test(String(name || ''));
+export const numberValue = (value: CellValue): number =>
+  typeof value === 'bigint' ? Number(value) : Number(value || 0);
 export const isoDate = (date: Date): string => date.toISOString().slice(0, 10);
 export const asIsoDate = (value: CellValue): string | null => {
   if (!value) return null;
@@ -48,9 +59,12 @@ export const asIsoDate = (value: CellValue): string | null => {
   const m = s.match(/\d{4}-\d{2}-\d{2}/);
   return m ? m[0] : null;
 };
-export const addDays = (date: Date, days: number): Date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
-export const addMonths = (date: Date, months: number): Date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
-export const startOfMonth = (date: Date): Date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+export const addDays = (date: Date, days: number): Date =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+export const addMonths = (date: Date, months: number): Date =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+export const startOfMonth = (date: Date): Date =>
+  new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 export const startOfYear = (date: Date): Date => new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
 
 export function formatValue(value: CellValue, format?: ValueFormat): string {
@@ -66,7 +80,7 @@ export function fieldKey(table: string, column: string): string {
 }
 
 export function safeAlias(tableName: string, index: number): string {
-  return `t${index}_${String(tableName).replace(/[^a-zA-Z0-9_]/g, '_')}`;
+  return `t${index}_${String(tableName).replace(/\W/g, '_')}`;
 }
 
 export function detectDateFormat(samples: CellValue[]): string | null {
@@ -78,7 +92,7 @@ export function detectDateFormat(samples: CellValue[]): string | null {
     { fmt: '%m-%d-%Y', re: /^(\d{1,2})-(\d{1,2})-(\d{4})$/, order: ['m', 'd', 'y'] },
     { fmt: '%d/%m/%Y', re: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, order: ['d', 'm', 'y'] },
     { fmt: '%m/%d/%Y', re: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, order: ['m', 'd', 'y'] },
-    { fmt: '%Y/%m/%d', re: /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/, order: ['y', 'm', 'd'] }
+    { fmt: '%Y/%m/%d', re: /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/, order: ['y', 'm', 'd'] },
   ];
   let best: { format: string; score: number } | null = null;
   for (const c of candidates) {
@@ -86,8 +100,18 @@ export function detectDateFormat(samples: CellValue[]): string | null {
     for (const value of values) {
       const m = value.match(c.re);
       if (!m) continue;
-      const parts: Record<string, number> = Object.fromEntries(c.order.map((name, i) => [name, Number(m[i + 1])])) as Record<string, number>;
-      if ((parts.y ?? 0) >= 1900 && (parts.y ?? 0) <= 2200 && (parts.m ?? 0) >= 1 && (parts.m ?? 0) <= 12 && (parts.d ?? 0) >= 1 && (parts.d ?? 0) <= 31) score++;
+      const parts: Record<string, number> = Object.fromEntries(
+        c.order.map((name, i) => [name, Number(m[i + 1])]),
+      ) as Record<string, number>;
+      if (
+        (parts.y ?? 0) >= 1900 &&
+        (parts.y ?? 0) <= 2200 &&
+        (parts.m ?? 0) >= 1 &&
+        (parts.m ?? 0) <= 12 &&
+        (parts.d ?? 0) >= 1 &&
+        (parts.d ?? 0) <= 31
+      )
+        score++;
     }
     if (!best || score > best.score) best = { format: c.fmt, score };
   }

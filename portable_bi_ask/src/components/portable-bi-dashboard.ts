@@ -1,20 +1,52 @@
-import Chart from 'chart.js/auto';
 import type { ChartConfiguration, ChartType } from 'chart.js';
-import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from 'lit';
+import Chart from 'chart.js/auto';
+import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from 'lit';
+
 import { AskDataEngine } from '../ask-data';
 import { DASHBOARD_CONFIG } from '../config';
 import { DashboardDataLoader } from '../data-loader';
 import { duckDBManager } from '../db';
+import type {
+  AskChartType,
+  AskResult,
+  AskSuccessResult,
+  CatalogField,
+  CellValue,
+  Clarification,
+  ClarificationChoice,
+  DashboardConfig,
+  DataRow,
+  FilterOptions,
+  Filters,
+} from '../types';
 import { formatValue, numberValue } from '../utils';
-import type { AskChartType, AskResult, AskSuccessResult, CellValue, Clarification, ClarificationChoice, DashboardConfig, DataRow, FilterOptions, Filters } from '../types';
 
 type ActiveTab = 'dashboard' | 'askData';
 type ChartInstances = Record<string, Chart>;
-type RenderableAskChartType = 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter' | 'bubble' | 'histogram';
+type RenderableAskChartType =
+  | 'bar'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'donut'
+  | 'scatter'
+  | 'bubble'
+  | 'histogram';
 
-const RENDERABLE_CHARTS: RenderableAskChartType[] = ['bar', 'line', 'area', 'pie', 'donut', 'scatter', 'bubble', 'histogram'];
+const RENDERABLE_CHARTS: RenderableAskChartType[] = [
+  'bar',
+  'line',
+  'area',
+  'pie',
+  'donut',
+  'scatter',
+  'bubble',
+  'histogram',
+];
 
-function isRenderableAskChartType(value: AskChartType | undefined): value is RenderableAskChartType {
+function isRenderableAskChartType(
+  value: AskChartType | undefined,
+): value is RenderableAskChartType {
   return value !== undefined && RENDERABLE_CHARTS.includes(value as RenderableAskChartType);
 }
 
@@ -23,7 +55,9 @@ function isAskSuccess(result: AskResult): result is AskSuccessResult {
 }
 
 function inputValue(event: Event): string {
-  return event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement ? event.target.value : '';
+  return event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement
+    ? event.target.value
+    : '';
 }
 
 export class PortableBiDashboard extends LitElement {
@@ -41,7 +75,7 @@ export class PortableBiDashboard extends LitElement {
     _askError: { state: true },
     _askClarification: { state: true },
     loading: { state: true },
-    error: { state: true }
+    error: { state: true },
   };
 
   config: DashboardConfig;
@@ -80,7 +114,11 @@ export class PortableBiDashboard extends LitElement {
     this.loading = false;
     this.error = '';
     this.askEngine = new AskDataEngine(this.config, duckDBManager);
-    this.dashboardLoader = new DashboardDataLoader({ config: this.config, duckDBManager, askEngine: this.askEngine });
+    this.dashboardLoader = new DashboardDataLoader({
+      config: this.config,
+      duckDBManager,
+      askEngine: this.askEngine,
+    });
   }
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
@@ -130,8 +168,10 @@ export class PortableBiDashboard extends LitElement {
 
   private _drawCharts(): void {
     if (this._activeTab !== 'dashboard') return;
-    Object.values(this._chartInstances).forEach(inst => {
-      try { inst.destroy(); } catch (_err: unknown) {}
+    Object.values(this._chartInstances).forEach((inst) => {
+      try {
+        inst.destroy();
+      } catch (_err: unknown) {}
     });
     this._chartInstances = {};
     this._chartData.forEach(({ chartDef, labels, data }) => {
@@ -141,13 +181,15 @@ export class PortableBiDashboard extends LitElement {
       this._chartInstances[chartDef.id] = new Chart(context, {
         type: chartDef.type,
         data: { labels, datasets: [{ label: chartDef.title || chartDef.id, data }] },
-        options: chartDef.options || {}
+        options: chartDef.options || {},
       });
     });
   }
 
   private _drawAskChart(): void {
-    try { this._askChartInstance?.destroy(); } catch (_err: unknown) {}
+    try {
+      this._askChartInstance?.destroy();
+    } catch (_err: unknown) {}
     this._askChartInstance = null;
     const result = this._askResult;
     const chartType = result?.chartType;
@@ -156,21 +198,43 @@ export class PortableBiDashboard extends LitElement {
     const context = canvas?.getContext('2d');
     if (!context) return;
     const rows = result.rows || [];
-    const colors = ['#406ac1', '#6aa7e8', '#8fd0a6', '#f2bf5e', '#e07a72', '#8d7ae8', '#6cc5c0', '#c0d065'];
-    let type: ChartType = chartType === 'area' ? 'line' : chartType === 'donut' ? 'doughnut' : chartType === 'histogram' ? 'bar' : chartType;
+    const colors = [
+      '#406ac1',
+      '#6aa7e8',
+      '#8fd0a6',
+      '#f2bf5e',
+      '#e07a72',
+      '#8d7ae8',
+      '#6cc5c0',
+      '#c0d065',
+    ];
+    let type: ChartType =
+      chartType === 'area'
+        ? 'line'
+        : chartType === 'donut'
+          ? 'doughnut'
+          : chartType === 'histogram'
+            ? 'bar'
+            : chartType;
     let config: ChartConfiguration = {
       type,
       data: {
-        labels: rows.map(row => String(row.label)),
-        datasets: [{
-          label: result.interpretation,
-          data: rows.map(row => numberValue(row.value)),
-          fill: chartType === 'area',
-          borderColor: '#406ac1',
-          backgroundColor: chartType === 'area' ? '#406ac133' : colors
-        }]
+        labels: rows.map((row) => String(row.label)),
+        datasets: [
+          {
+            label: result.interpretation,
+            data: rows.map((row) => numberValue(row.value)),
+            fill: chartType === 'area',
+            borderColor: '#406ac1',
+            backgroundColor: chartType === 'area' ? '#406ac133' : colors,
+          },
+        ],
       },
-      options: { responsive: true, scales: chartType === 'bar' ? { y: { beginAtZero: true } } : {}, plugins: { legend: { display: ['pie', 'donut'].includes(chartType) } } }
+      options: {
+        responsive: true,
+        scales: chartType === 'bar' ? { y: { beginAtZero: true } } : {},
+        plugins: { legend: { display: ['pie', 'donut'].includes(chartType) } },
+      },
     };
 
     if (chartType === 'scatter' || chartType === 'bubble') {
@@ -181,41 +245,66 @@ export class PortableBiDashboard extends LitElement {
       config = {
         type,
         data: {
-          datasets: [{
-            label: result.interpretation,
-            data: rows.map(row => ({ x: numberValue(row[xKey]), y: numberValue(row[yKey]), r: Math.max(3, Math.sqrt(Math.abs(numberValue(row[rKey])) || 9)) })),
-            backgroundColor: '#406ac188',
-            borderColor: '#406ac1'
-          }]
+          datasets: [
+            {
+              label: result.interpretation,
+              data: rows.map((row) => ({
+                x: numberValue(row[xKey]),
+                y: numberValue(row[yKey]),
+                r: Math.max(3, Math.sqrt(Math.abs(numberValue(row[rKey])) || 9)),
+              })),
+              backgroundColor: '#406ac188',
+              borderColor: '#406ac1',
+            },
+          ],
         },
-        options: { responsive: true, scales: { x: { title: { display: true, text: xKey } }, y: { title: { display: true, text: yKey } } } }
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: xKey } },
+            y: { title: { display: true, text: yKey } },
+          },
+        },
       };
     } else if (chartType === 'histogram') {
       const key = result.shape?.numeric?.[0] || 'value';
-      const values = rows.map(row => numberValue(row[key])).filter(Number.isFinite);
+      const values = rows.map((row) => numberValue(row[key])).filter(Number.isFinite);
       if (!values.length) return;
-      const min = Math.min(...values), max = Math.max(...values);
+      const min = Math.min(...values),
+        max = Math.max(...values);
       const binCount = Math.min(12, Math.max(3, Math.ceil(Math.sqrt(values.length))));
       const step = (max - min || 1) / binCount;
-      const bins = Array.from({ length: binCount }, (_, i) => ({ start: min + i * step, count: 0 }));
-      for (const value of values) bins[Math.min(binCount - 1, Math.floor((value - min) / step))].count++;
+      const bins = Array.from({ length: binCount }, (_, i) => ({
+        start: min + i * step,
+        count: 0,
+      }));
+      for (const value of values)
+        bins[Math.min(binCount - 1, Math.floor((value - min) / step))].count++;
       config = {
         type: 'bar',
-        data: { labels: bins.map(b => `${b.start.toFixed(0)}–${(b.start + step).toFixed(0)}`), datasets: [{ label: key, data: bins.map(b => b.count), backgroundColor: '#406ac1' }] },
-        options: { responsive: true, scales: { y: { beginAtZero: true } } }
+        data: {
+          labels: bins.map((b) => `${b.start.toFixed(0)}–${(b.start + step).toFixed(0)}`),
+          datasets: [{ label: key, data: bins.map((b) => b.count), backgroundColor: '#406ac1' }],
+        },
+        options: { responsive: true, scales: { y: { beginAtZero: true } } },
       };
     }
 
     this._askChartInstance = new Chart(context, config);
   }
 
-  private async _runAsk(appliedClarification: Clarification['pending'] | null = null): Promise<void> {
+  private async _runAsk(
+    appliedClarification: Clarification['pending'] | null = null,
+  ): Promise<void> {
     this._askLoading = true;
     this._askError = '';
     this._askClarification = null;
     this._askResult = null;
     try {
-      const result = await this.askEngine.ask(this._askQuestion, appliedClarification ? { clarification: appliedClarification } : {});
+      const result = await this.askEngine.ask(
+        this._askQuestion,
+        appliedClarification ? { clarification: appliedClarification } : {},
+      );
       if ('clarification' in result) this._askClarification = result.clarification;
       else if ('error' in result) this._askError = result.error;
       else if (isAskSuccess(result)) this._askResult = result;
@@ -231,7 +320,12 @@ export class PortableBiDashboard extends LitElement {
     const pending = this._askClarification?.pending;
     if (!pending) return;
     this._askQuestion = pending.originalQuestion || this._askQuestion;
-    void this._runAsk({ ...pending, fieldId: choice.fieldId, value: choice.value, valueNormalized: choice.valueNormalized });
+    void this._runAsk({
+      ...pending,
+      fieldId: choice.fieldId,
+      value: choice.value,
+      valueNormalized: choice.valueNormalized,
+    });
   }
 
   private _setExample(example: string): void {
@@ -240,8 +334,8 @@ export class PortableBiDashboard extends LitElement {
     this._askClarification = null;
   }
 
-  private async _copyText(text: CellValue): Promise<void> {
-    await navigator.clipboard?.writeText(String(text || ''));
+  private _copyText(text: CellValue): void {
+    navigator.clipboard?.writeText(String(text || '')).catch(() => {});
   }
 
   private _downloadText(filename: string, text: string, type = 'text/plain'): void {
@@ -257,7 +351,10 @@ export class PortableBiDashboard extends LitElement {
   private _resultToCsv(result: AskSuccessResult): string {
     const columns = result.columns || [];
     const esc = (value: CellValue): string => `"${String(value ?? '').replaceAll('"', '""')}"`;
-    return [columns.map(esc).join(','), ...(result.rows || []).map(row => columns.map(col => esc(row[col])).join(','))].join('\n');
+    return [
+      columns.map(esc).join(','),
+      ...(result.rows || []).map((row) => columns.map((col) => esc(row[col])).join(',')),
+    ].join('\n');
   }
 
   private _exportAskCsv(result: AskSuccessResult): void {
@@ -265,7 +362,20 @@ export class PortableBiDashboard extends LitElement {
   }
 
   private _exportAskJson(result: AskSuccessResult): void {
-    this._downloadText('ask-result.json', JSON.stringify({ interpretation: result.interpretation, sql: result.sql, columns: result.columns, rows: result.rows }, null, 2), 'application/json');
+    this._downloadText(
+      'ask-result.json',
+      JSON.stringify(
+        {
+          interpretation: result.interpretation,
+          sql: result.sql,
+          columns: result.columns,
+          rows: result.rows,
+        },
+        null,
+        2,
+      ),
+      'application/json',
+    );
   }
 
   override render(): TemplateResult {
@@ -277,64 +387,110 @@ export class PortableBiDashboard extends LitElement {
       </header>
 
       <nav class="tabs" aria-label="App sections">
-        <button class="tab-button ${this._activeTab === 'dashboard' ? 'active' : ''}" @click=${() => { this._activeTab = 'dashboard'; }}>Dashboard</button>
-        <button class="tab-button ${this._activeTab === 'askData' ? 'active' : ''}" @click=${() => { this._activeTab = 'askData'; }}>Ask Data</button>
+        <button
+          class="tab-button ${this._activeTab === 'dashboard' ? 'active' : ''}"
+          @click=${() => {
+            this._activeTab = 'dashboard';
+          }}
+        >
+          Dashboard
+        </button>
+        <button
+          class="tab-button ${this._activeTab === 'askData' ? 'active' : ''}"
+          @click=${() => {
+            this._activeTab = 'askData';
+          }}
+        >
+          Ask Data
+        </button>
       </nav>
 
       ${this._activeTab === 'dashboard' ? this.renderDashboard(c) : this.renderAskData(c)}
-
-      ${(this.loading || this.error || this._askLoading) ? html`
-        <div id="loading-state" style="display:${(this.loading || this._askLoading)?'block':'none'}">${this._askLoading ? 'Asking data…' : 'Loading data, please wait…'}</div>
-        <div id="error-state" style="display:${this.error?'block':'none'};color:#e74c3c">${this.error}</div>
-      ` : nothing}
+      ${this.loading || this.error || this._askLoading
+        ? html`
+            <div
+              id="loading-state"
+              style="display:${this.loading || this._askLoading ? 'block' : 'none'}"
+            >
+              ${this._askLoading ? 'Asking data…' : 'Loading data, please wait…'}
+            </div>
+            <div id="error-state" style="display:${this.error ? 'block' : 'none'};color:#e74c3c">
+              ${this.error}
+            </div>
+          `
+        : nothing}
     `;
   }
 
   private renderDashboard(c: DashboardConfig): TemplateResult {
     return html`
       <form id="filter-bar">
-        ${c.filters.map(f => html`
-          <label>${f.label}:
-            <select name="${f.field}"
-                    .value=${this.filters[f.field] || 'All'}
-                    @change=${(e: Event) => this._onFilterChange(e, f.field)}
-                    style="margin-right:.8em;font-size:1em;padding:0.12em .9em;border-radius:.5em;border:1.5px solid #b0c4e7;background:#fff;">
-              ${this._filterOptions[f.field]?.map(o => html`<option value=${o}>${o}</option>`) || nothing}
-            </select>
-          </label>
-        `)}
+        ${c.filters.map(
+          (f) => html`
+            <label
+              >${f.label}:
+              <select
+                name="${f.field}"
+                .value=${this.filters[f.field] || 'All'}
+                @change=${(e: Event) => this._onFilterChange(e, f.field)}
+                style="margin-right:.8em;font-size:1em;padding:0.12em .9em;border-radius:.5em;border:1.5px solid #b0c4e7;background:#fff;"
+              >
+                ${this._filterOptions[f.field]?.map(
+                  (o) => html`<option value=${o}>${o}</option>`,
+                ) || nothing}
+              </select>
+            </label>
+          `,
+        )}
       </form>
 
       <section id="kpi-cards">
-        ${c.kpis.map((kpi, i) => html`
-          <div class="kpi-card">
-            <div class="kpi-title">${kpi.title}</div>
-            <div class="kpi-value">${kpi.format ? kpi.format(this._kpiResults[i]) : this._kpiResults[i]}</div>
-          </div>
-        `)}
+        ${c.kpis.map(
+          (kpi, i) => html`
+            <div class="kpi-card">
+              <div class="kpi-title">${kpi.title}</div>
+              <div class="kpi-value">
+                ${kpi.format ? kpi.format(this._kpiResults[i]) : this._kpiResults[i]}
+              </div>
+            </div>
+          `,
+        )}
       </section>
 
       <section id="viz-section">
-        ${this._chartData.map(({ chartDef }) => html`
-          <div class="chart-card">
-            <canvas id="${chartDef.id}"></canvas>
-          </div>
-        `)}
+        ${this._chartData.map(
+          ({ chartDef }) => html`
+            <div class="chart-card">
+              <canvas id="${chartDef.id}"></canvas>
+            </div>
+          `,
+        )}
       </section>
 
-      ${c.tables.map((t, i) => html`
-        <section id="table-section">
-          <h2>${t.title}</h2>
-          <div id="data-table-wrap">
-            <table>
-              <thead><tr>${t.columns.map(col => html`<th>${col}</th>`)}</tr></thead>
-              <tbody>
-              ${(this._tableRows[i] || []).map(r => html`<tr>${t.columns.map(col => html`<td>${r[col]}</td>`)}</tr>`)}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      `)}
+      ${c.tables.map(
+        (t, i) => html`
+          <section id="table-section">
+            <h2>${t.title}</h2>
+            <div id="data-table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    ${t.columns.map((col) => html`<th>${col}</th>`)}
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(this._tableRows[i] || []).map(
+                    (r) =>
+                      html`<tr>
+                        ${t.columns.map((col) => html`<td>${r[col]}</td>`)}
+                      </tr>`,
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        `,
+      )}
     `;
   }
 
@@ -345,47 +501,115 @@ export class PortableBiDashboard extends LitElement {
         <section class="ask-card">
           <h2>Ask Data</h2>
           <div class="ask-input-row">
-            <input aria-label="Ask your data" .value=${this._askQuestion} @input=${(e: Event) => { this._askQuestion = inputValue(e); }} @keydown=${(e: KeyboardEvent) => { if (e.key === 'Enter') void this._runAsk(); }} placeholder="sales by region">
-            <button class="primary-button" @click=${() => void this._runAsk()} ?disabled=${this._askLoading}>Ask</button>
+            <input
+              aria-label="Ask your data"
+              .value=${this._askQuestion}
+              @input=${(e: Event) => {
+                this._askQuestion = inputValue(e);
+              }}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') void this._runAsk();
+              }}
+              placeholder="sales by region"
+            />
+            <button
+              class="primary-button"
+              @click=${() => void this._runAsk()}
+              ?disabled=${this._askLoading}
+            >
+              Ask
+            </button>
           </div>
           <div class="ask-examples">
             Try:
-            ${(c.askData.examples || []).map((example, i) => html`${i ? ' · ' : ''}<button @click=${() => this._setExample(example)}>${example}</button>`)}
+            ${(c.askData.examples || []).map(
+              (example, i) =>
+                html`${i ? ' · ' : ''}<button @click=${() => this._setExample(example)}>
+                    ${example}
+                  </button>`,
+            )}
           </div>
         </section>
 
         ${this._askError ? html`<div class="warning">${this._askError}</div>` : nothing}
-        ${this._askClarification ? html`
-          <section class="ask-card">
-            <h3>Clarification needed</h3>
-            <p>${this._askClarification.message}</p>
-            ${this._askClarification.choices.map(choice => html`<button class="choice-button" @click=${() => this._chooseClarification(choice)}>${choice.label}</button>`)}
-          </section>
-        ` : nothing}
-
-        ${result ? html`
-          <section class="ask-card">
-            <div class="interpretation"><strong>Interpreted as:</strong> ${result.interpretation}</div>
-            ${(result.warnings || []).map(w => html`<div class="warning">${w}</div>`)}
-            ${this.renderAskDecision(result)}
-            ${this.renderAskInsights(result)}
-            ${this.renderAskExports(result)}
-            ${this.renderAskResult(result)}
-            <details class="sql-details">
-              <summary>Show SQL and details</summary>
-              <pre>${result.sql}</pre>
-              <p><strong>Decision path:</strong> ${(result.chartDecision?.path || []).join(' → ')}</p>
-              <p><strong>Recommended chart:</strong> ${result.chartDecision?.recommended}; <strong>Rendered:</strong> ${result.chartDecision?.rendered}</p>
-              ${result.confidence !== undefined ? html`<p><strong>Confidence:</strong> ${Math.round(result.confidence * 100)}%</p>` : nothing}
-              ${result.metrics ? html`<p><strong>Latency:</strong> catalog ${result.metrics.catalogBuildMs ?? 'n/a'}ms; parse ${result.metrics.parseMs ?? 'n/a'}ms; SQL ${result.metrics.sqlExecutionMs ?? 'n/a'}ms; total ${result.metrics.totalAskMs ?? 'n/a'}ms.</p>` : nothing}
-              ${result.diagnostics?.joinFanout ? html`<p><strong>Join fanout check:</strong> ${result.diagnostics.joinFanout.baseCount?.toLocaleString?.() || result.diagnostics.joinFanout.baseCount} base rows → ${result.diagnostics.joinFanout.joinedCount?.toLocaleString?.() || result.diagnostics.joinFanout.joinedCount} joined rows (${result.diagnostics.joinFanout.ratio}x).</p>` : nothing}
-              ${result.evidence?.length ? html`
-                <p><strong>Evidence:</strong></p>
-                <ul>${result.evidence.map(item => html`<li>${item.kind}: ${item.field}${item.value !== undefined ? ` = ${item.value}` : ''} (${item.source})</li>`)}</ul>
-              ` : nothing}
-            </details>
-          </section>
-        ` : nothing}
+        ${this._askClarification
+          ? html`
+              <section class="ask-card">
+                <h3>Clarification needed</h3>
+                <p>${this._askClarification.message}</p>
+                ${this._askClarification.choices.map(
+                  (choice) =>
+                    html`<button
+                      class="choice-button"
+                      @click=${() => this._chooseClarification(choice)}
+                    >
+                      ${choice.label}
+                    </button>`,
+                )}
+              </section>
+            `
+          : nothing}
+        ${result
+          ? html`
+              <section class="ask-card">
+                <div class="interpretation">
+                  <strong>Interpreted as:</strong> ${result.interpretation}
+                </div>
+                ${(result.warnings || []).map((w) => html`<div class="warning">${w}</div>`)}
+                ${this.renderAskDecision(result)} ${this.renderAskInsights(result)}
+                ${this.renderAskExports(result)} ${this.renderAskResult(result)}
+                <details class="sql-details">
+                  <summary>Show SQL and details</summary>
+                  <pre>${result.sql}</pre>
+                  <p>
+                    <strong>Decision path:</strong> ${(result.chartDecision?.path || []).join(
+                      ' → ',
+                    )}
+                  </p>
+                  <p>
+                    <strong>Recommended chart:</strong> ${result.chartDecision?.recommended};
+                    <strong>Rendered:</strong> ${result.chartDecision?.rendered}
+                  </p>
+                  ${result.confidence !== undefined
+                    ? html`<p>
+                        <strong>Confidence:</strong> ${Math.round(result.confidence * 100)}%
+                      </p>`
+                    : nothing}
+                  ${result.metrics
+                    ? html`<p>
+                        <strong>Latency:</strong> catalog
+                        ${result.metrics.catalogBuildMs ?? 'n/a'}ms; parse
+                        ${result.metrics.parseMs ?? 'n/a'}ms; SQL
+                        ${result.metrics.sqlExecutionMs ?? 'n/a'}ms; total
+                        ${result.metrics.totalAskMs ?? 'n/a'}ms.
+                      </p>`
+                    : nothing}
+                  ${result.diagnostics?.joinFanout
+                    ? html`<p>
+                        <strong>Join fanout check:</strong>
+                        ${result.diagnostics.joinFanout.baseCount?.toLocaleString?.() ||
+                        result.diagnostics.joinFanout.baseCount}
+                        base rows →
+                        ${result.diagnostics.joinFanout.joinedCount?.toLocaleString?.() ||
+                        result.diagnostics.joinFanout.joinedCount}
+                        joined rows (${result.diagnostics.joinFanout.ratio}x).
+                      </p>`
+                    : nothing}
+                  ${result.evidence?.length
+                    ? html`
+                        <p><strong>Evidence:</strong></p>
+                        <ul>
+                          ${result.evidence.map((item) => {
+                            const val = item.value !== undefined ? ` = ${item.value}` : '';
+                            return html`<li>${item.kind}: ${item.field}${val} (${item.source})</li>`;
+                          })}
+                        </ul>
+                      `
+                    : nothing}
+                </details>
+              </section>
+            `
+          : nothing}
       </main>
     `;
   }
@@ -394,9 +618,15 @@ export class PortableBiDashboard extends LitElement {
     return html`
       <div class="interpretation" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
         <strong>Export:</strong>
-        <button class="choice-button" @click=${() => void this._copyText(result.sql)}>Copy SQL</button>
-        <button class="choice-button" @click=${() => this._exportAskCsv(result)}>Download CSV</button>
-        <button class="choice-button" @click=${() => this._exportAskJson(result)}>Download JSON</button>
+        <button class="choice-button" @click=${() => this._copyText(result.sql)}>
+          Copy SQL
+        </button>
+        <button class="choice-button" @click=${() => this._exportAskCsv(result)}>
+          Download CSV
+        </button>
+        <button class="choice-button" @click=${() => this._exportAskJson(result)}>
+          Download JSON
+        </button>
       </div>
     `;
   }
@@ -419,7 +649,7 @@ export class PortableBiDashboard extends LitElement {
       <div class="interpretation">
         <strong>Insights:</strong>
         <ul style="margin:.45rem 0 0 1.1rem;padding:0;">
-          ${insights.map(insight => html`<li>${insight}</li>`)}
+          ${insights.map((insight) => html`<li>${insight}</li>`)}
         </ul>
       </div>
     `;
@@ -428,8 +658,15 @@ export class PortableBiDashboard extends LitElement {
   private renderAskResult(result: AskSuccessResult): TemplateResult {
     if (result.chartType === 'kpi') {
       const value = result.rows[0]?.value;
-      const metric = 'kind' in result.intent.metric! ? ('field' in result.intent.metric! ? result.intent.metric.field : undefined) : result.intent.metric;
-      return html`<div class="ask-kpi-value">${formatValue(value, metric?.format)}</div>${this.renderAskTable(result)}`;
+      const intentMetric = result.intent.metric;
+      let metric: CatalogField | undefined;
+      if (intentMetric && 'kind' in intentMetric) {
+        metric = 'field' in intentMetric ? intentMetric.field : undefined;
+      } else {
+        metric = intentMetric ?? undefined;
+      }
+      return html`<div class="ask-kpi-value">${formatValue(value, metric?.format)}</div>
+        ${this.renderAskTable(result)}`;
     }
     if (isRenderableAskChartType(result.chartType)) {
       return html`
@@ -445,24 +682,44 @@ export class PortableBiDashboard extends LitElement {
   private formatAskCell(col: string, value: CellValue, metric?: { format?: string }): string {
     if (value === null || value === undefined || value === '') return '';
     if (String(col).includes('percent') || col === 'share') return formatValue(value, 'percent');
-    if (['value', 'previous_value', 'start_value', 'end_value', 'change'].includes(col)) return formatValue(value, metric?.format);
+    if (['value', 'previous_value', 'start_value', 'end_value', 'change'].includes(col))
+      return formatValue(value, metric?.format);
     return String(value);
   }
 
   private renderAskTable(result: AskSuccessResult): TemplateResult {
     const columns = result.columns || [];
     const intentMetric = result.intent.metric;
-    const metric = intentMetric && 'table' in intentMetric ? intentMetric : intentMetric && 'kind' in intentMetric && intentMetric.kind === 'count_distinct' ? intentMetric.field : undefined;
+    let metric: CatalogField | undefined;
+    if (intentMetric && 'table' in intentMetric) {
+      metric = intentMetric;
+    } else if (intentMetric && 'kind' in intentMetric && intentMetric.kind === 'count_distinct') {
+      metric = intentMetric.field;
+    }
     return html`
       <div class="ask-table-wrap">
         <table>
-          <thead><tr>${columns.map(col => html`<th>${col}</th>`)}</tr></thead>
+          <thead>
+            <tr>
+              ${columns.map((col) => html`<th>${col}</th>`)}
+            </tr>
+          </thead>
           <tbody>
-            ${(result.rows || []).map(row => html`<tr>${columns.map(col => html`<td>${this.formatAskCell(col, row[col], metric)}</td>`)}</tr>`)}
+            ${(result.rows || []).map((row) => this.renderTableRow(row, columns, metric))}
           </tbody>
         </table>
       </div>
     `;
+  }
+
+  private renderTableRow(
+    row: DataRow,
+    columns: string[],
+    metric: CatalogField | undefined,
+  ): TemplateResult {
+    return html`<tr>
+      ${columns.map((col) => html`<td>${this.formatAskCell(col, row[col], metric)}</td>`)}
+    </tr>`;
   }
 }
 

@@ -3,23 +3,53 @@ import { ConfidenceScorer } from '../../src/result-analysis.ts';
 import type { AskIntent, CatalogField } from '../../src/types.ts';
 
 const salesField = (): CatalogField => ({
-  id: 'sales::Sales', table: 'sales', column: 'Sales', role: 'measure', label: 'Sales',
-  labels: {}, synonyms: ['revenue'], localizedSynonyms: {}, description: '',
-  default: true, priority: 20, sampleValues: [], samples: [],
-  dateProfile: null, cardinality: 0, rowCount: 100,
-  aggregation: 'SUM', type: 'DOUBLE',
+  id: 'sales::Sales',
+  table: 'sales',
+  column: 'Sales',
+  role: 'measure',
+  label: 'Sales',
+  labels: {},
+  synonyms: ['revenue'],
+  localizedSynonyms: {},
+  description: '',
+  default: true,
+  priority: 20,
+  sampleValues: [],
+  samples: [],
+  dateProfile: null,
+  cardinality: 0,
+  rowCount: 100,
+  aggregation: 'SUM',
+  type: 'DOUBLE',
 });
 
 const regionField = (): CatalogField => ({
-  id: 'customer::Region', table: 'customer', column: 'Region', role: 'dimension', label: 'Region',
-  labels: {}, synonyms: [], localizedSynonyms: {}, description: '',
-  default: false, priority: 10, sampleValues: [], samples: [],
-  dateProfile: null, cardinality: 4, rowCount: 100, type: 'VARCHAR',
+  id: 'customer::Region',
+  table: 'customer',
+  column: 'Region',
+  role: 'dimension',
+  label: 'Region',
+  labels: {},
+  synonyms: [],
+  localizedSynonyms: {},
+  description: '',
+  default: false,
+  priority: 10,
+  sampleValues: [],
+  samples: [],
+  dateProfile: null,
+  cardinality: 4,
+  rowCount: 100,
+  type: 'VARCHAR',
 });
 
 const baseIntent = (overrides: Partial<AskIntent> = {}): AskIntent => ({
-  question: 'sales by region', analysisType: 'kpi', metric: salesField(),
-  dimensions: [regionField()], filters: [], ...overrides,
+  question: 'sales by region',
+  analysisType: 'kpi',
+  metric: salesField(),
+  dimensions: [regionField()],
+  filters: [],
+  ...overrides,
 });
 
 function makeScorer() {
@@ -58,7 +88,10 @@ describe('ConfidenceScorer', () => {
     it('calls buildJoinPlan with the metric table as base', () => {
       const { scorer, buildJoinPlan } = makeScorer();
       scorer.estimate(baseIntent());
-      expect(buildJoinPlan).toHaveBeenCalledWith('sales', expect.arrayContaining(['sales', 'customer']));
+      expect(buildJoinPlan).toHaveBeenCalledWith(
+        'sales',
+        expect.arrayContaining(['sales', 'customer']),
+      );
     });
   });
 
