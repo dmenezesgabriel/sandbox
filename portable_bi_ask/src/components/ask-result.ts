@@ -2,7 +2,7 @@ import type { ChartConfiguration, ChartType } from 'chart.js';
 import Chart from 'chart.js/auto';
 import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from 'lit';
 
-import type { AskSuccessResult, CatalogField, CellValue, DataRow } from '../types';
+import type { AskSuccessResult, CatalogField, CellValue, DataRow, NarrativeResult } from '../types';
 import { formatValue, numberValue } from '../utils';
 
 type RenderableChartType = 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter' | 'bubble' | 'histogram';
@@ -241,13 +241,38 @@ export class AskResult extends LitElement {
   }
 
   private _renderInsights(result: AskSuccessResult): TemplateResult | typeof nothing {
-    if (!result.insights?.length) return nothing;
+    if (!result.insights?.length && !result.narratives) return nothing;
     return html`
       <div class="interpretation">
         <strong>Insights:</strong>
         <ul style="margin:.45rem 0 0 1.1rem;padding:0;">
           ${result.insights.map((insight) => html`<li>${insight}</li>`)}
         </ul>
+      </div>
+    `;
+  }
+
+  private _renderNarratives(result: AskSuccessResult): TemplateResult | typeof nothing {
+    const narratives = result.narratives;
+    if (!narratives?.narratives?.length) return nothing;
+    return html`
+      <div class="narratives-section">
+        <strong>AI Narrative Summary:</strong>
+        <p class="narrative-summary">${narratives.summary}</p>
+        <div class="narratives-list">
+          ${narratives.narratives.map((n) => html`
+            <div class="narrative-item narrative-${n.type}" data-importance="${n.importance}">
+              <span class="narrative-type">${n.type}</span>
+              <span class="narrative-title">${n.title}</span>
+              <p class="narrative-text">${n.text}</p>
+            </div>
+          `)}
+        </div>
+        ${narratives.keyTakeaway ? html`
+          <div class="narrative-takeaway">
+            <strong>Key Takeaway:</strong> ${narratives.keyTakeaway}
+          </div>
+        ` : nothing}
       </div>
     `;
   }
@@ -334,6 +359,7 @@ export class AskResult extends LitElement {
         ${(result.warnings || []).map((w) => html`<div class="warning">${w}</div>`)}
         ${this._renderDecision(result)}
         ${this._renderInsights(result)}
+        ${this._renderNarratives(result)}
         ${this._renderExports(result)}
         ${this._renderVisualization(result)}
         ${this._renderDetails(result)}

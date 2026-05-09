@@ -1,6 +1,6 @@
 import { html, LitElement, type TemplateResult } from 'lit';
 
-export type ActiveTab = 'dashboard' | 'askData';
+export type ActiveTab = 'dashboard' | 'askData' | 'sheets';
 
 export class TabNav extends LitElement {
   static override readonly properties = {
@@ -31,6 +31,12 @@ export class TabNav extends LitElement {
           @click=${() => this._select('askData')}
         >
           Ask Data
+        </button>
+        <button
+          class="tab-button ${this.activeTab === 'sheets' ? 'active' : ''}"
+          @click=${() => this._select('sheets')}
+        >
+          Sheets
         </button>
       </nav>
     `;

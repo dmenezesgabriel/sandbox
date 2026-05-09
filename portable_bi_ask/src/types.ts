@@ -166,6 +166,8 @@ export interface AskDataConfig {
   maxMetrics?: number;
   inferRelationships?: boolean;
   semanticMatching?: SemanticMatchingConfig;
+  autoSemanticModeling?: boolean;
+  autoNarratives?: boolean;
   profiling?: { maxDistinctValuesPerField?: number; maxSampleRows?: number };
   relationshipInference?: {
     autoAcceptThreshold?: number;
@@ -360,6 +362,20 @@ export interface Clarification {
   choices: ClarificationChoice[];
 }
 
+export interface Narrative {
+  type: 'trend' | 'outlier' | 'pattern' | 'comparison' | 'distribution' | 'summary';
+  title: string;
+  text: string;
+  importance: number;
+  details?: Record<string, unknown>;
+}
+
+export interface NarrativeResult {
+  narratives: Narrative[];
+  summary: string;
+  keyTakeaway: string;
+}
+
 export interface AskSuccessResult {
   question: string;
   interpretation: string;
@@ -371,6 +387,7 @@ export interface AskSuccessResult {
   diagnostics: Diagnostics;
   chartDecision: ChartDecision;
   insights: string[];
+  narratives?: NarrativeResult | null;
   evidence: EvidenceItem[];
   chartType: AskChartType;
   warnings: string[];
@@ -440,3 +457,47 @@ export interface ValueItem {
 export type FieldFuse = Fuse<FieldSearchItem>;
 export type ValueFuse = Fuse<ValueItem>;
 export type FieldSearchIndexType = MiniSearch<{ id: string; role: FieldRole; text: string }>;
+
+export type WidgetType = 'chart' | 'table' | 'kpi' | 'text' | 'image' | 'filter';
+export type ChartType2 = 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter' | 'bubble' | 'histogram' | 'gauge' | 'funnel';
+
+export interface Position {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface WidgetConfig {
+  id: string;
+  type: WidgetType;
+  title: string;
+  query?: string;
+  chartType?: ChartType2;
+  columns?: string[];
+  columnFormats?: Record<string, (v: CellValue) => string>;
+  kpiConfig?: KpiConfig;
+  textContent?: string;
+  filters?: DashboardFilterConfig[];
+  crossFilterFields?: string[];
+  options?: Record<string, unknown>;
+}
+
+export interface Sheet {
+  id: string;
+  name: string;
+  type: 'sheet' | 'dashboard';
+  widgets: WidgetConfig[];
+  layout: Position[];
+  filters?: DashboardFilterConfig[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SheetState {
+  sheets: Sheet[];
+  activeSheetId: string | null;
+  editMode: boolean;
+  selectedWidgetId: string | null;
+  crossFilters: Record<string, CellValue[]>;
+}

@@ -23,6 +23,8 @@ import './filter-bar';
 import './header';
 import './kpi-cards';
 import './loading-state';
+import './sheet-editor';
+import './sheets-view';
 import './tab-nav';
 import type { ActiveTab } from './tab-nav';
 
@@ -225,7 +227,9 @@ export class Dashboard extends LitElement {
         @tab-change=${(e: CustomEvent<ActiveTab>) => { this._activeTab = e.detail; }}
       ></tab-nav>
 
-      ${this._activeTab === 'dashboard' ? this._renderDashboard() : this._renderAskData()}
+      ${this._activeTab === 'dashboard' ? this._renderDashboard() :
+        this._activeTab === 'askData' ? this._renderAskData() :
+        html`<sheets-view></sheets-view>`}
 
       <loading-state
         .loading=${this.loading}

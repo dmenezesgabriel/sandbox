@@ -29,6 +29,8 @@ export const DASHBOARD_CONFIG: DashboardConfig = {
     maxDimensions: 2,
     maxMetrics: 1,
     inferRelationships: true,
+    autoSemanticModeling: true,
+    autoNarratives: true,
     semanticMatching: {
       enabled: true,
       model: 'onnx-community/all-MiniLM-L6-v2-ONNX',

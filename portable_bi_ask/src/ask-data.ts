@@ -49,6 +49,8 @@ import {
   startOfYear,
   toRows,
 } from './utils';
+import { SemanticModelingEngine } from './semantic-modeling';
+import { NarrativeGenerator, type Narrative, type NarrativeResult } from './narrative-generator';
 
 export class SemanticFieldMatcher {
   config: SemanticMatchingConfig;
@@ -841,11 +843,11 @@ export class FieldResolver {
   }
 
   async resolvePhrase(phrase, roles, clarification: Record<string, unknown> | null = null) {
-    if (!norm(phrase)) return { field: null };
+    if (!norm(phrase)) return { field: undefined };
     for (const strategy of this.strategies) {
       const raw = await strategy.matchPhrase?.(phrase, roles);
       if (!raw) continue;
-      const result = raw as { field?: CatalogField; ambiguous?: boolean; fields?: CatalogField[]; score?: number };
+      const result = raw as { field?: CatalogField | null; ambiguous?: boolean; fields?: CatalogField[]; score?: number };
       if (result.ambiguous) {
         const fields = result.fields || [];
         const clarified =
@@ -861,7 +863,7 @@ export class FieldResolver {
       }
       if (result.field) return { field: result.field };
     }
-    return { field: null };
+    return { field: undefined };
   }
 
   async findInText(text, role) {
@@ -1099,7 +1101,7 @@ export class SqlPlanner {
       const joinedSql = `SELECT COUNT(*) AS row_count FROM ${joinedFrom}${joinedWhereClause}`;
       diagnostics.joinFanout = {
         baseTable,
-        joinedTables: [...new Set(joinRels.map((rel) => rel.right.table))],
+        joinedTables: [...new Set(joinRels.map((rel) => rel.right.table))] as string[],
         baseCountSql: baseSql,
         joinedCountSql: joinedSql,
         threshold: this.askConfig.validation?.joinFanoutRatio || 1.5,
@@ -2047,6 +2049,10 @@ export class AskDataEngine {
   metrics: { catalogBuildMs: number | null };
   questionParser: QuestionParser;
   initialized: boolean;
+  semanticModelingEngine: SemanticModelingEngine;
+  narrativeGenerator: NarrativeGenerator;
+  autoSemanticEnabled: boolean;
+  autoNarrativesEnabled: boolean;
 
   constructor(config: AskDataEngine['config'], duckDBManager: AskDataEngine['duckDBManager']) {
     this.config = config;
@@ -2105,6 +2111,10 @@ export class AskDataEngine {
       displayLabel: (item) => this.displayLabel(item),
       localizedTerms: (item) => this.localizedTerms(item),
     });
+    this.semanticModelingEngine = new SemanticModelingEngine();
+    this.autoSemanticEnabled = this.askConfig.autoSemanticModeling !== false;
+    this.narrativeGenerator = new NarrativeGenerator();
+    this.autoNarrativesEnabled = this.askConfig.autoNarratives !== false;
     this.fieldResolver = new FieldResolver(
       [
         new ExactFieldMatchStrategy({
@@ -2140,7 +2150,7 @@ export class AskDataEngine {
       dateRangeParser: this.dateRangeParser,
       localizedTerms: (field) => this.localizedTerms(field),
       resolveFieldPhrase: (phrase, roles, clarification) =>
-        this.fieldResolver.resolvePhrase(phrase, roles, clarification),
+        this.fieldResolver.resolvePhrase(phrase, roles, clarification as Record<string, unknown> | null),
       findBestFieldInText: (q, role) => this.fieldResolver.findInText(q, role),
       getDefaultMetric: () => this.getDefaultMetric(),
       getDefaultTimeField: () => this.getDefaultTimeField(),
@@ -2434,6 +2444,16 @@ export class AskDataEngine {
       };
     console.info('[AskData] SQL', planned.sql);
     const sqlStarted = performance.now();
+    if (!planned.sql) {
+      return {
+        error: planned.error || 'Failed to generate SQL query',
+        metrics: {
+          catalogBuildMs: this.metrics.catalogBuildMs,
+          parseMs,
+          totalAskMs: Math.round(performance.now() - totalStarted),
+        },
+      };
+    }
     const result = await this.duckDBManager.query(planned.sql);
     const sqlExecutionMs = Math.round(performance.now() - sqlStarted);
     const rows = toRows(result).map((row) =>
@@ -2446,6 +2466,15 @@ export class AskDataEngine {
     const shape = this.shapeAnalyzer.analyze(rows, columns, parsed.intent);
     const chartDecision = this.chartDecisionTree.decide(shape, parsed.intent);
     const insights = this.insightGenerator.generate(rows, parsed.intent, shape);
+    let narratives: NarrativeResult | null = null;
+    if (this.autoNarrativesEnabled && rows.length > 0) {
+      try {
+        const metricField = parsed.intent.metric && 'table' in parsed.intent.metric ? parsed.intent.metric : null;
+        narratives = this.narrativeGenerator.generateNarratives(rows, parsed.intent, shape, metricField);
+      } catch (err) {
+        console.warn('[AskData] Narrative generation failed', err);
+      }
+    }
     const confidence = this.confidenceScorer.estimate(parsed.intent);
     const validationWarnings = this.resultValidator.validate({
       rows,
@@ -2465,6 +2494,7 @@ export class AskDataEngine {
       diagnostics,
       chartDecision,
       insights,
+      narratives,
       evidence,
       chartType: chartDecision.rendered,
       warnings: [...(parsed.warnings || []), ...validationWarnings],
