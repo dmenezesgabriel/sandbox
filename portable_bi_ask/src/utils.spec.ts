@@ -8,7 +8,7 @@ import {
   detectDateFormat,
   toRows,
   numberValue,
-} from '../../src/utils.ts';
+} from './utils.ts';
 
 describe('norm()', () => {
   it('lowercases and strips accents', () => {
