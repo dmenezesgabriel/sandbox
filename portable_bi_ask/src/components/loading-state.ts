@@ -21,7 +21,7 @@ export class LoadingState extends LitElement {
     const msg = this.askLoading ? 'Asking data…' : 'Loading data, please wait…';
     return html`
       <div id="loading-state" style="display:${active ? 'block' : 'none'}">${msg}</div>
-      <div id="error-state" style="display:${this.error ? 'block' : 'none'};color:#e74c3c">
+      <div id="error-state" style="display:${this.error ? 'block' : 'none'}">
         ${this.error}
       </div>
     `;

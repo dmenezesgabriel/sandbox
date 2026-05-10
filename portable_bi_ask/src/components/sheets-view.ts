@@ -31,6 +31,10 @@ export class SheetsView extends LitElement {
   private _editingWidget: WidgetConfig | null = null;
   private _showEditor: boolean = false;
   private readonly _askEngine: AskDataEngine;
+  private _dataCache: Record<string, Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }>> = {};
+  private _cachedFilterResult: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> | null = null;
+  private _cachedFilterSheetData: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> | null = null;
+  private _cachedFilterCrossFilters: Record<string, CellValue[]> | null = null;
 
   constructor() {
     super();
@@ -55,7 +59,16 @@ export class SheetsView extends LitElement {
   private _onSheetSelect(e: CustomEvent<{ id: string }>): void {
     this.activeSheetId = e.detail.id;
     this.selectedWidgetId = null;
-    this._refreshWidgetData();
+    this._syncSheetData();
+  }
+
+  private _syncSheetData(): void {
+    if (!this.activeSheetId) return;
+    if (this._dataCache[this.activeSheetId]) {
+      this.sheetData = { ...this._dataCache[this.activeSheetId] };
+    } else {
+      this._refreshWidgetData();
+    }
   }
 
   private _onSheetCreate(e: CustomEvent<{ name: string; type: 'sheet' | 'dashboard' }>): void {
@@ -70,13 +83,16 @@ export class SheetsView extends LitElement {
     };
     this.sheets = [...this.sheets, newSheet];
     this.activeSheetId = newSheet.id;
+    this.sheetData = {};
     this._persistSheets();
   }
 
   private _onSheetDelete(e: CustomEvent<{ id: string }>): void {
+    delete this._dataCache[e.detail.id];
     this.sheets = this.sheets.filter(s => s.id !== e.detail.id);
     if (this.activeSheetId === e.detail.id) {
       this.activeSheetId = this.sheets[0]?.id ?? null;
+      this._syncSheetData();
     }
     this._persistSheets();
   }
@@ -113,6 +129,9 @@ export class SheetsView extends LitElement {
     );
     this._updateActiveSheet({ widgets, layout });
     this.selectedWidgetId = null;
+    if (this.activeSheetId) {
+      delete this._dataCache[this.activeSheetId];
+    }
     this._persistSheets();
   }
 
@@ -186,6 +205,13 @@ export class SheetsView extends LitElement {
   }
 
   private _getFilteredData(): Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> {
+    if (
+      this._cachedFilterSheetData === this.sheetData &&
+      this._cachedFilterCrossFilters === this.crossFilters
+    ) {
+      return this._cachedFilterResult!;
+    }
+
     const result: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> = {};
 
     for (const [widgetId, data] of Object.entries(this.sheetData)) {
@@ -213,6 +239,9 @@ export class SheetsView extends LitElement {
       };
     }
 
+    this._cachedFilterResult = result;
+    this._cachedFilterSheetData = this.sheetData;
+    this._cachedFilterCrossFilters = this.crossFilters;
     return result;
   }
 
@@ -243,6 +272,8 @@ export class SheetsView extends LitElement {
 
   private async _loadWidgetData(): Promise<void> {
     if (!this._activeSheet) return;
+    const loadingSheetId = this.activeSheetId;
+
     const newData: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> = {};
 
     for (const widget of this._activeSheet.widgets) {
@@ -261,11 +292,22 @@ export class SheetsView extends LitElement {
       }
     }
 
-    this.sheetData = { ...this.sheetData, ...newData };
+    if (this.activeSheetId !== loadingSheetId) {
+      console.log(`[sheets] data load stale (sheet changed), discarding results for "${loadingSheetId}"`);
+      return;
+    }
+
+    if (this.activeSheetId) {
+      this._dataCache[this.activeSheetId] = { ...newData };
+    }
+    this.sheetData = newData;
   }
 
   private async _refreshWidgetData(): Promise<void> {
     this.sheetData = {};
+    if (this.activeSheetId) {
+      delete this._dataCache[this.activeSheetId];
+    }
     await this._loadWidgetData();
   }
 

@@ -110,10 +110,15 @@ export class SheetCanvas extends LitElement {
   }
 
   private _onWidgetSelect(e: Event): void {
+    if (!this.editMode) {
+      console.log('[canvas] widget-select ignored — not in edit mode');
+      return;
+    }
     const widget = (e.target as HTMLElement).closest('app-widget');
     if (!widget) return;
     const shadowRoot = widget.shadowRoot;
     const id = shadowRoot?.querySelector('.widget')?.getAttribute('data-widget-id') ?? (widget as any).config?.id;
+    console.log(`[canvas] widget selected: ${id}`);
     this.selectedWidgetId = id;
     this.dispatchEvent(new CustomEvent('widget-select', { detail: { id }, bubbles: true, composed: true }));
   }

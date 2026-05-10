@@ -15,7 +15,8 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:acceptance": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/acceptance/features/**/*.feature' --import 'tests/acceptance/steps/**/*.ts' --format progress --force-exit",
-    "test": "vitest run tests/unit && vitest run tests/integration && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/acceptance/features/**/*.feature' --import 'tests/acceptance/steps/**/*.ts' --format progress --force-exit"
+    "test:browser": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/browser/features/**/*.feature' --import 'tests/browser/steps/**/*.ts' --format progress --force-exit",
+    "test": "vitest run tests/unit && vitest run tests/integration && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/acceptance/features/**/*.feature' --import 'tests/acceptance/steps/**/*.ts' --format progress --force-exit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/browser/features/**/*.feature' --import 'tests/browser/steps/**/*.ts' --format progress --force-exit"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.30.0",
@@ -30,6 +31,7 @@
   "devDependencies": {
     "@cucumber/cucumber": "^12.8.2",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.59.1",
     "duckdb": "^1.4.4",
     "eslint": "^10.3.0",
     "eslint-plugin-lit": "^2.2.1",

@@ -11,7 +11,7 @@ const RENDERABLE_CHARTS: RenderableChartType[] = [
   'bar', 'line', 'area', 'pie', 'donut', 'scatter', 'bubble', 'histogram',
 ];
 
-const CHART_COLORS = ['#406ac1', '#6aa7e8', '#8fd0a6', '#f2bf5e', '#e07a72', '#8d7ae8', '#6cc5c0', '#c0d065'];
+const CHART_COLORS = ['#c9613f', '#4a8c6f', '#2d6a8f', '#c8963e', '#8b6f9e', '#d9756a', '#6bb5a0', '#b89b6b'];
 
 function isRenderable(value: string | undefined): value is RenderableChartType {
   return value !== undefined && RENDERABLE_CHARTS.includes(value as RenderableChartType);
@@ -82,8 +82,8 @@ export class AskResult extends LitElement {
           label: result.interpretation,
           data: rows.map((row) => numberValue(row.value)),
           fill: chartType === 'area',
-          borderColor: '#406ac1',
-          backgroundColor: chartType === 'area' ? '#406ac133' : CHART_COLORS,
+          borderColor: '#c9613f',
+          backgroundColor: chartType === 'area' ? '#c9613f33' : CHART_COLORS,
         }],
       },
       options: {
@@ -107,8 +107,8 @@ export class AskResult extends LitElement {
             y: numberValue(row[yKey]),
             r: Math.max(3, Math.sqrt(Math.abs(numberValue(row[rKey])) || 9)),
           })),
-          backgroundColor: '#406ac188',
-          borderColor: '#406ac1',
+          backgroundColor: '#c9613f88',
+          borderColor: '#c9613f',
         }],
       },
       options: {
@@ -135,7 +135,7 @@ export class AskResult extends LitElement {
       type: 'bar',
       data: {
         labels: bins.map((b) => `${b.start.toFixed(0)}–${(b.start + step).toFixed(0)}`),
-        datasets: [{ label: key, data: bins.map((b) => b.count), backgroundColor: '#406ac1' }],
+        datasets: [{ label: key, data: bins.map((b) => b.count), backgroundColor: '#c9613f' }],
       },
       options: { responsive: true, scales: { y: { beginAtZero: true } } },
     };

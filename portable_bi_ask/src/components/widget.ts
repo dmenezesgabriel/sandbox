@@ -47,6 +47,11 @@ export class Widget extends LitElement {
 
   private _handleClick(e: MouseEvent): void {
     e.stopPropagation();
+    if (!this.editMode) {
+      console.log(`[widget] click on "${this.config.title}" — view mode, ignoring selection`);
+      return;
+    }
+    console.log(`[widget] click on "${this.config.title}" — edit mode, selecting widget`);
     this.dispatchEvent(new CustomEvent('widget-select', {
       detail: { id: this.config.id },
       bubbles: true,
@@ -57,6 +62,7 @@ export class Widget extends LitElement {
   private _onChartClick(element: { index: number }): void {
     if (!this.data?.labels) return;
     const label = this.data.labels[element.index];
+    console.log(`[widget] chart click on "${this.config.title}" — cross-filter label="${label}"`);
     this.dispatchEvent(new CustomEvent('cross-filter', {
       detail: { widgetId: this.config.id, field: 'label', value: label },
       bubbles: true,
@@ -67,6 +73,7 @@ export class Widget extends LitElement {
   private _onTableRowClick(e: Event, row: Record<string, CellValue>): void {
     e.stopPropagation();
     const label = String(row.label ?? row.name ?? '');
+    console.log(`[widget] table row click on "${this.config.title}" — cross-filter label="${label}"`);
     this.dispatchEvent(new CustomEvent('cross-filter', {
       detail: { widgetId: this.config.id, field: 'label', value: label },
       bubbles: true,
@@ -151,15 +158,23 @@ export class Widget extends LitElement {
     this._initChart();
   }
 
+  private _lastDataKey: string | null = null;
+
   override updated(changedProps: Map<string, unknown>): void {
     if (changedProps.has('data')) {
-      this._destroyChart();
-      this._initChart();
+      const key = this.data ? `${this.data.labels.join(',')}|${this.data.values.join(',')}` : null;
+      if (key !== this._lastDataKey) {
+        console.log(`[widget] data changed for "${this.config.title}" — recreating chart`);
+        this._destroyChart();
+        this._initChart();
+        this._lastDataKey = key;
+      }
     }
   }
 
   private _initChart(): void {
     if (this.config.type !== 'chart' || !this.data) return;
+    console.log(`[widget] initializing chart for "${this.config.title}"`);
 
     const canvas = this.querySelector('canvas') as HTMLCanvasElement | null;
     if (!canvas) return;
@@ -170,8 +185,8 @@ export class Widget extends LitElement {
     this._destroyChart();
     const chartType = this._getChartJsType();
     const colorSet = [
-      '#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
-      '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1',
+      '#c9613f', '#4a8c6f', '#2d6a8f', '#c8963e', '#8b6f9e',
+      '#d9756a', '#6bb5a0', '#b89b6b', '#d48466', '#5a9e82',
     ];
 
     const isLineChart = chartType === 'line' || this.config.chartType === 'area';
@@ -183,8 +198,8 @@ export class Widget extends LitElement {
         datasets: [{
           label: this.config.title,
           data: this.data.values,
-          backgroundColor: isLineChart ? 'rgba(79, 70, 229, 0.1)' : colorSet,
-          borderColor: '#4F46E5',
+          backgroundColor: isLineChart ? 'rgba(201, 97, 63, 0.1)' : colorSet,
+          borderColor: '#c9613f',
           borderWidth: isLineChart ? 2 : 1,
           fill: this.config.chartType === 'area' || isLineChart,
           tension: 0.4,
