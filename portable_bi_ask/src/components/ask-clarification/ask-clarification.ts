@@ -1,6 +1,6 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
-import type { Clarification, ClarificationChoice } from '../types';
+import type { Clarification, ClarificationChoice } from '../../types';
 
 export class AskClarification extends LitElement {
   static override readonly properties = {

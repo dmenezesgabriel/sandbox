@@ -1,6 +1,6 @@
 import { html, LitElement, type TemplateResult } from 'lit';
 
-import type { CellValue, DataRow } from '../types';
+import type { CellValue, DataRow } from '../../types';
 
 export class DataTable extends LitElement {
   static override readonly properties = {

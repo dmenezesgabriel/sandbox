@@ -1,12 +1,12 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
-import type { Sheet, WidgetConfig, CellValue, Filters, DashboardConfig } from '../types';
-import { AskDataEngine } from '../ask-data';
-import { duckDBManager } from '../db';
-import { DASHBOARD_CONFIG } from '../config';
+import type { Sheet, WidgetConfig, CellValue, Filters, DashboardConfig } from '../../types';
+import { AskDataEngine } from '../../ask-data';
+import { duckDBManager } from '../../db';
+import { DASHBOARD_CONFIG } from '../../config';
 
-import './sheets-manager';
-import './sheet-canvas';
-import './sheet-editor';
+import '../sheets-manager';
+import '../sheet-canvas';
+import '../sheet-editor';
 
 export class SheetsView extends LitElement {
   static override readonly properties = {

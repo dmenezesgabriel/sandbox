@@ -2,8 +2,8 @@ import type { ChartConfiguration, ChartType } from 'chart.js';
 import Chart from 'chart.js/auto';
 import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from 'lit';
 
-import type { AskSuccessResult, CatalogField, CellValue, DataRow, NarrativeResult } from '../types';
-import { formatValue, numberValue } from '../utils';
+import type { AskSuccessResult, CatalogField, CellValue, DataRow, NarrativeResult } from '../../types';
+import { formatValue, numberValue } from '../../utils';
 
 type RenderableChartType = 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter' | 'bubble' | 'histogram';
 

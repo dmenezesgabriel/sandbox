@@ -1,6 +1,6 @@
 import { html, LitElement, type TemplateResult } from 'lit';
 
-import type { CellValue, KpiConfig } from '../types';
+import type { CellValue, KpiConfig } from '../../types';
 
 export class KpiCards extends LitElement {
   static override readonly properties = {

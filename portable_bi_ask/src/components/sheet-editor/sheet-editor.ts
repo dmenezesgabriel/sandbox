@@ -1,5 +1,5 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
-import type { WidgetConfig, ChartType2, WidgetType } from '../types';
+import type { WidgetConfig, ChartType2, WidgetType } from '../../types';
 
 interface WidgetFormData {
   id: string;

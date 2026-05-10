@@ -1,9 +1,9 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
-import { AskDataEngine } from '../ask-data';
-import { DASHBOARD_CONFIG } from '../config';
-import { DashboardDataLoader } from '../data-loader';
-import { duckDBManager } from '../db';
+import { AskDataEngine } from '../../ask-data';
+import { DASHBOARD_CONFIG } from '../../config';
+import { DashboardDataLoader } from '../../data-loader';
+import { duckDBManager } from '../../db';
 import type {
   AskResult,
   AskSuccessResult,
@@ -12,21 +12,21 @@ import type {
   DashboardConfig,
   FilterOptions,
   Filters,
-} from '../types';
+} from '../../types';
 
-import './ask-clarification';
-import './ask-input';
-import './ask-result';
-import './chart-section';
-import './data-table';
-import './filter-bar';
-import './header';
-import './kpi-cards';
-import './loading-state';
-import './sheet-editor';
-import './sheets-view';
-import './tab-nav';
-import type { ActiveTab } from './tab-nav';
+import '../ask-clarification';
+import '../ask-input';
+import '../ask-result';
+import '../chart-section';
+import '../data-table';
+import '../filter-bar';
+import '../header';
+import '../kpi-cards';
+import '../loading-state';
+import '../sheet-editor';
+import '../sheets-view';
+import '../tab-nav';
+import type { ActiveTab } from '../tab-nav';
 
 function isAskSuccess(result: AskResult): result is AskSuccessResult {
   return 'rows' in result && 'sql' in result && 'chartType' in result;

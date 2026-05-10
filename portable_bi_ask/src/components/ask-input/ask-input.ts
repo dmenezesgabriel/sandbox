@@ -1,5 +1,5 @@
 import { html, LitElement, type TemplateResult } from 'lit';
-import { icon } from '../icons';
+import { icon } from '../../icons';
 import { Sparkles } from 'lucide';
 
 export class AskInput extends LitElement {

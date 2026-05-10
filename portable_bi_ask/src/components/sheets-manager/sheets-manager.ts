@@ -1,5 +1,5 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
-import type { Sheet } from '../types';
+import type { Sheet } from '../../types';
 
 export class SheetsManager extends LitElement {
   static override readonly properties = {

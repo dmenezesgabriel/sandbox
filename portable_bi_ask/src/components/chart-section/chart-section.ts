@@ -1,7 +1,7 @@
 import Chart from 'chart.js/auto';
 import { html, LitElement, type PropertyValues, type TemplateResult } from 'lit';
 
-import type { ChartDataResult } from '../types';
+import type { ChartDataResult } from '../../types';
 
 export class ChartSection extends LitElement {
   static override readonly properties = {

@@ -1,6 +1,6 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { Chart, registerables } from 'chart.js';
-import type { WidgetConfig, CellValue, Filters } from '../types';
+import type { WidgetConfig, CellValue, Filters } from '../../types';
 
 Chart.register(...registerables);
 

@@ -1,7 +1,7 @@
 import { html, LitElement, nothing as renderNothing, type TemplateResult } from 'lit';
-import type { Sheet, WidgetConfig, CellValue, Filters } from '../types';
+import type { Sheet, WidgetConfig, CellValue, Filters } from '../../types';
 
-import './widget';
+import '../widget';
 
 const GRID_COLS = 12;
 const ROW_HEIGHT = 40;

@@ -1,6 +1,6 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
-import type { DashboardFilterConfig, FilterOptions, Filters } from '../types';
+import type { DashboardFilterConfig, FilterOptions, Filters } from '../../types';
 
 export class FilterBar extends LitElement {
   static override readonly properties = {
