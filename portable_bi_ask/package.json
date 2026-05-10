@@ -13,10 +13,9 @@
     "format:check": "prettier --check .",
     "preview": "vite preview --host 0.0.0.0",
     "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
-    "test:acceptance": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/acceptance/features/**/*.feature' --import 'tests/acceptance/steps/**/*.ts' --format progress --force-exit",
-    "test:browser": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/browser/features/**/*.feature' --import 'tests/browser/steps/**/*.ts' --format progress --force-exit",
-    "test": "vitest run tests/unit && vitest run tests/integration && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/acceptance/features/**/*.feature' --import 'tests/acceptance/steps/**/*.ts' --format progress --force-exit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/browser/features/**/*.feature' --import 'tests/browser/steps/**/*.ts' --format progress --force-exit"
+    "test:integration": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit",
+    "test:e2e": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
+    "test": "vitest run tests/unit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.30.0",

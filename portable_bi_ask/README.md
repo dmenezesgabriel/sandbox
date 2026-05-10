@@ -49,9 +49,12 @@ Key responsibilities:
 
 Configuration lives in `DASHBOARD_CONFIG.askData`.
 
-## References
+## Development
 
-- https://duckdb.org/docs/current/clients/wasm/instantiation
-- https://lit.dev/docs/components/overview/
-- https://lit.dev/docs/templates/overview/
-- https://huggingface.co/docs/transformers.js/pipelines
+1. BDD: define behavior / acceptance examples
+2. TDD: write small failing unit tests
+3. Implement code
+4. Add/pass integration tests
+5. Add/pass a small number of E2E tests
+6. Regression tests: prevent old bugs from returning
+7. Mutation tests: verify your unit tests are actually strong

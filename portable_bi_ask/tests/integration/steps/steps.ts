@@ -14,10 +14,6 @@ Given('the data engine is initialized', function (this: AskWorld) {
   assert.ok(this.getEngine().initialized, 'Engine must be initialized before scenarios run');
 });
 
-When('I ask {string}', async function (this: AskWorld, question: string) {
-  this.result = await this.getEngine().ask(question);
-});
-
 Then('the chart type is {string}', function (this: AskWorld, expected: string) {
   assert.equal(success(this).chartType, expected);
 });
@@ -80,5 +76,55 @@ Then('the error message contains {string}', function (this: AskWorld, text: stri
   assert.ok(
     (this.result as { error: string }).error.includes(text),
     `Error "${(this.result as { error: string }).error}" does not contain "${text}"`,
+  );
+});
+
+When('I ask {string}', async function (this: AskWorld, question: string) {
+  this.result = await this.getEngine().ask(question);
+});
+
+When('I ask {string} twice', async function (this: AskWorld, question: string) {
+  await this.getEngine().ask(question);
+  this._catalogBuildMs = this.getEngine().metrics.catalogBuildMs as number;
+  this.result = await this.getEngine().ask(question);
+});
+
+Then('the catalog should have at least {int} fields', function (this: AskWorld, min: number) {
+  assert.ok(
+    this.getEngine().catalog.length >= min,
+    `Expected >= ${min} fields, got ${this.getEngine().catalog.length}`,
+  );
+});
+
+Then('the field {string} should have role {string}', function (this: AskWorld, fieldKey: string, role: string) {
+  const f = this.getEngine().fieldByKey.get(fieldKey);
+  assert.ok(f, `Field "${fieldKey}" not found in catalog`);
+  assert.equal(f!.role, role);
+});
+
+Then('the field {string} should have sample values including {string}', function (this: AskWorld, fieldKey: string, value: string) {
+  const f = this.getEngine().fieldByKey.get(fieldKey);
+  assert.ok(f, `Field "${fieldKey}" not found in catalog`);
+  const values = f!.sampleValues ?? [];
+  assert.ok(
+    values.includes(value),
+    `Sample values [${values.join(', ')}] do not include "${value}"`,
+  );
+});
+
+Then('the confidence should be between 0 and 1', function (this: AskWorld) {
+  const r = this.result;
+  assert.ok(r && 'confidence' in r, 'Result has no confidence score');
+  const c = (r as { confidence: number }).confidence;
+  assert.ok(typeof c === 'number' && Number.isFinite(c), `Confidence is not a finite number: ${c}`);
+  assert.ok(c >= 0 && c <= 1, `Confidence ${c} is not in [0, 1]`);
+});
+
+Then('the catalog build time should be unchanged', function (this: AskWorld) {
+  const current = this.getEngine().metrics.catalogBuildMs as number;
+  assert.equal(
+    current,
+    this._catalogBuildMs,
+    `Catalog rebuild detected: ${this._catalogBuildMs} -> ${current}`,
   );
 });
