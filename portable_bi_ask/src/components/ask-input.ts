@@ -1,4 +1,6 @@
 import { html, LitElement, type TemplateResult } from 'lit';
+import { icon } from '../icons';
+import { Sparkles } from 'lucide';
 
 export class AskInput extends LitElement {
   static override readonly properties = {
@@ -48,7 +50,9 @@ export class AskInput extends LitElement {
             @keydown=${this._onKeydown}
             placeholder="sales by region"
           />
-          <button class="primary-button" @click=${this._ask} ?disabled=${this.loading}>Ask</button>
+          <button class="primary-button" @click=${this._ask} ?disabled=${this.loading}>
+            ${icon(Sparkles, { size: 16 })} Ask
+          </button>
         </div>
         <div class="ask-examples">
           Try:

@@ -24,6 +24,7 @@
     "chrono-node": "2.7.7",
     "fuse.js": "7.0.0",
     "lit": "3.1.0",
+    "lucide": "^1.14.0",
     "minisearch": "7.1.2"
   },
   "devDependencies": {
