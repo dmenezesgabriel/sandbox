@@ -5,7 +5,7 @@ import '../sheet-editor';
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
 import { AskDataEngine } from '../../ask-data';
-import { DASHBOARD_CONFIG } from '../../config';
+import { DASHBOARD_CONFIG } from '../../dashboard-config';
 import { duckDBManager } from '../../db';
 import type { CellValue, Filters, Sheet, WidgetConfig } from '../../types';
 

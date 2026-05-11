@@ -1,4 +1,4 @@
-import { DASHBOARD_CONFIG } from '../../src/config.ts';
+import { DASHBOARD_CONFIG } from '../../src/dashboard-config.ts';
 import type { DashboardConfig } from '../../src/types.ts';
 import type { NodeDuckDBManager } from './node-duckdb.ts';
 

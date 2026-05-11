@@ -14,9 +14,9 @@
     "preview": "vite preview --host 0.0.0.0",
     "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run",
-    "test:integration": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit",
-    "test:e2e": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
-    "test": "vitest run && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
+    "test:integration": "node --import tsx/esm --loader ./tests/helpers/yaml-loader.mjs node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit",
+    "test:e2e": "node --import tsx/esm --loader ./tests/helpers/yaml-loader.mjs node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
+    "test": "vitest run && node --import tsx/esm --loader ./tests/helpers/yaml-loader.mjs node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit && node --import tsx/esm --loader ./tests/helpers/yaml-loader.mjs node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
     "test:mutation": "stryker run",
     "prepare": "echo 'gitdir: ../.git' > .git && husky && git config core.hooksPath portable_bi_ask/.husky/_; R=$?; rm -f .git; exit $R"
   },
@@ -28,7 +28,8 @@
     "fuse.js": "7.0.0",
     "lit": "3.1.0",
     "lucide": "^1.14.0",
-    "minisearch": "7.1.2"
+    "minisearch": "7.1.2",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^12.8.2",
