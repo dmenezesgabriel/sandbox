@@ -1,11 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach,describe, expect, it, vi } from 'vitest';
+
 import {
   ChartDecisionTree,
   ConfidenceScorer,
-  ResultValidator,
   ResultShapeAnalyzer,
-} from './result-analysis.ts';
-import type { AskIntent, ResultShape, CatalogField, Diagnostics } from './types.ts';
+  ResultValidator,
+} from './result-analysis';
+import type { AskIntent, CatalogField, Diagnostics, Relationship,ResultShape } from './types';
 
 // --- ChartDecisionTree helpers ---
 
@@ -34,11 +35,12 @@ const cdIntent = (overrides: Partial<AskIntent>): AskIntent => ({
   ...overrides,
 });
 
-const timeField = {
+const timeField: CatalogField = {
   id: 'sales::Order Date',
   table: 'sales',
   column: 'Order Date',
   role: 'time' as const,
+  type: 'VARCHAR',
   label: 'Order Date',
   labels: {},
   synonyms: [],
@@ -115,7 +117,7 @@ const csBaseIntent = (overrides: Partial<AskIntent> = {}): AskIntent => ({
 function csMakeScorer() {
   const displayLabel = vi.fn((f: Partial<CatalogField>) => f.label ?? '');
   const localizedTerms = vi.fn(() => [] as string[]);
-  const buildJoinPlan = vi.fn(() => ({ joins: [] }));
+  const buildJoinPlan = vi.fn((): { error?: string; joins?: Relationship[] } => ({ joins: [] }));
   const patternFromTerm = vi.fn((term: string) => new RegExp(`\\b${term}\\b`, 'i'));
 
   const scorer = new ConfidenceScorer({
@@ -145,6 +147,7 @@ const rvWithDim = (): AskIntent => ({
       table: 'customer',
       column: 'Region',
       role: 'dimension',
+      type: 'VARCHAR',
       label: 'Region',
       labels: {},
       synonyms: [],
@@ -163,13 +166,7 @@ const rvWithDim = (): AskIntent => ({
 
 // --- ResultShapeAnalyzer helpers ---
 
-const rsaBaseIntent = (): AskIntent => ({
-  question: '',
-  analysisType: 'kpi',
-  metric: null,
-  dimensions: [],
-  filters: [],
-});
+const rsaBaseIntent = rvNoIntent;
 const rsaTimeIntent = (): AskIntent => ({
   ...rsaBaseIntent(),
   dimensions: [
@@ -178,6 +175,7 @@ const rsaTimeIntent = (): AskIntent => ({
       table: 'sales',
       column: 'Order Date',
       role: 'time',
+      type: 'VARCHAR',
       label: 'Order Date',
       labels: {},
       synonyms: [],

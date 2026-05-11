@@ -1,14 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect,it } from 'vitest';
+
 import {
-  norm,
-  quoteIdent,
-  escapeSqlString,
-  formatValue,
-  fieldKey,
   detectDateFormat,
-  toRows,
+  escapeSqlString,
+  fieldKey,
+  formatValue,
+  norm,
   numberValue,
-} from './utils.ts';
+  quoteIdent,
+  toRows,
+} from './utils';
 
 describe('norm()', () => {
   it('lowercases and strips accents', () => {
