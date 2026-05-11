@@ -466,7 +466,7 @@ export class SheetCanvas extends LitElement {
           `;
         })}
         ${!this.sheet.widgets.length
-          ? html`<div class="sheet-empty">Add widgets to this sheet</div>`
+          ? html`<div class="sheet-empty">Add questions to this dashboard</div>`
           : renderNothing}
       </div>
     `;

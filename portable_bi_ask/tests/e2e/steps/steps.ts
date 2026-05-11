@@ -11,7 +11,7 @@ Given('the app is loaded', async function (this: BrowserWorld) {
 });
 
 Given('I navigate to the Dashboard tab', async function (this: BrowserWorld) {
-  await this.page.click('button:has-text("Dashboard")');
+  await this.page.click('button:has-text("Editor")');
   await this.page.waitForSelector('sheets-view', { timeout: 10000 });
 });
 
@@ -95,7 +95,7 @@ Given('a sheet exists with chart widgets', async function (this: BrowserWorld) {
   await this.page.reload();
   await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
   await this.installLogInterceptor();
-  await this.page.click('button:has-text("Dashboard")');
+  await this.page.click('button:has-text("Editor")');
   await this.waitForWidgets();
   await this.waitForDataCache('sheet-a');
   await this.page.waitForTimeout(500);
@@ -160,7 +160,7 @@ Given('I am in edit mode with a selected widget', async function (this: BrowserW
   await this.page.reload();
   await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
   await this.installLogInterceptor();
-  await this.page.click('button:has-text("Dashboard")');
+  await this.page.click('button:has-text("Editor")');
   await this.waitForWidgets();
   await this.clickEditToggle();
   await this.page.waitForTimeout(300);
@@ -224,7 +224,7 @@ Given('sheets exist with chart widgets on multiple sheets', async function (this
   ]);
   await this.page.reload();
   await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
-  await this.page.click('button:has-text("Dashboard")');
+  await this.page.click('button:has-text("Editor")');
   await this.waitForWidgets();
   await this.waitForDataCache('sheet-a');
   await this.installAskSpy();

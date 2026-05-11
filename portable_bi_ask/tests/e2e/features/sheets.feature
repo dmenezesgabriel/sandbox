@@ -11,7 +11,7 @@ Feature: Sheets – Dashboard Builder Workspace
     Then I should see widgets rendered on the canvas
 
   Scenario: Creating a new sheet adds it to the tab list
-    When I click "+ New Sheet"
+    When I click "+ New Dashboard"
     And I enter the sheet name "Test Sheet"
     And I click "Create"
     Then a sheet tab with the name "Test Sheet" should appear

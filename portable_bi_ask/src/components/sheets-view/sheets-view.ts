@@ -528,9 +528,11 @@ export class SheetsView extends LitElement {
   private _renderToolbar(sheet: Sheet | undefined): TemplateResult | typeof nothing {
     if (!this.editMode || !sheet) return nothing;
     return html`
-      <button class="btn-add-widget" @click=${this._onAddWidget}>+ Add Widget</button>
+      <button class="btn-add-widget" @click=${this._onAddWidget}>+ Add Question</button>
       ${this.selectedWidgetId
-        ? html` <button class="btn-edit-widget" @click=${this._onEditWidget}>Edit Widget</button> `
+        ? html`
+            <button class="btn-edit-widget" @click=${this._onEditWidget}>Edit Question</button>
+          `
         : nothing}
     `;
   }

@@ -40,7 +40,7 @@ export class TopNav extends LitElement {
               aria-selected=${this.activeTab === 'dashboard'}
               @click=${() => this._select('dashboard')}
             >
-              <span class="topnav-tab-text">Dashboard</span>
+              <span class="topnav-tab-text">Editor</span>
             </button>
             <button
               class="topnav-tab ${this.activeTab === 'askData' ? 'topnav-tab-active' : ''}"

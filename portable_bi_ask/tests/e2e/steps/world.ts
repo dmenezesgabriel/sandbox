@@ -50,7 +50,7 @@ export const TEST_SHEETS = [
   {
     id: 'sheet-b',
     name: 'Category Analysis',
-    type: 'sheet',
+    type: 'dashboard',
     widgets: [
       {
         id: 'w-chart-3',

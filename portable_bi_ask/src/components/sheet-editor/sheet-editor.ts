@@ -71,7 +71,7 @@ export class SheetEditor extends LitElement {
     const widget: WidgetConfig = {
       id: this._form.id,
       type: this._form.type as WidgetType,
-      title: this._form.title || 'Widget',
+      title: this._form.title || 'Question',
       query: this._form.query || undefined,
       chartType: this._form.chartType as ChartType2,
       textContent: this._form.type === 'text' ? this._form.textContent : undefined,
@@ -130,7 +130,7 @@ export class SheetEditor extends LitElement {
     return html`
       <div class="sheet-editor">
         <div class="editor-header">
-          <h3>${this.mode === 'add' ? 'Add Widget' : 'Edit Widget'}</h3>
+          <h3>${this.mode === 'add' ? 'Add Question' : 'Edit Question'}</h3>
         </div>
 
         <div class="editor-tabs">
@@ -156,7 +156,7 @@ export class SheetEditor extends LitElement {
           ${this._activeSection === 'general'
             ? html`
                 <div class="form-group">
-                  <label>Widget Type</label>
+                  <label>Question Type</label>
                   <select
                     @change=${(e: Event) =>
                       this._updateForm('type', (e.target as HTMLSelectElement).value)}
@@ -175,7 +175,7 @@ export class SheetEditor extends LitElement {
                     .value=${this._form.title}
                     @input=${(e: Event) =>
                       this._updateForm('title', (e.target as HTMLInputElement).value)}
-                    placeholder="Widget title"
+                    placeholder="Question title"
                   />
                 </div>
 
@@ -200,7 +200,7 @@ export class SheetEditor extends LitElement {
 
         <div class="editor-actions">
           <button class="btn-cancel" @click=${this._onCancel}>Cancel</button>
-          <button class="btn-save" @click=${this._onSave}>Save Widget</button>
+          <button class="btn-save" @click=${this._onSave}>Save Question</button>
         </div>
       </div>
     `;

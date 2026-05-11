@@ -34,7 +34,7 @@ export class Widget extends LitElement {
 
   constructor() {
     super();
-    this.config = { id: '', type: 'text', title: 'Widget' };
+    this.config = { id: '', type: 'text', title: 'Question' };
     this.data = null;
     this.filters = {};
     this.selected = false;
@@ -315,7 +315,7 @@ export class Widget extends LitElement {
                   @click=${(e: Event) => e.stopPropagation()}
                 />
               </label>
-              <button class="widget-delete" @click=${this._handleDelete} title="Delete widget">
+              <button class="widget-delete" @click=${this._handleDelete} title="Delete question">
                 ✕
               </button>
             `

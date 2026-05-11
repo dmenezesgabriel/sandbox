@@ -9,7 +9,6 @@ export class SheetsManager extends LitElement {
     editMode: { type: Boolean },
     _showNewSheetModal: { state: true },
     _newSheetName: { state: true },
-    _newSheetType: { state: true },
   };
 
   sheets: Sheet[];
@@ -17,7 +16,6 @@ export class SheetsManager extends LitElement {
   editMode: boolean;
   private _showNewSheetModal: boolean = false;
   private _newSheetName: string = '';
-  private _newSheetType: 'sheet' | 'dashboard' = 'sheet';
 
   constructor() {
     super();
@@ -39,7 +37,7 @@ export class SheetsManager extends LitElement {
 
   private _deleteSheet(e: Event, id: string): void {
     e.stopPropagation();
-    if (confirm('Delete this sheet?')) {
+    if (confirm('Delete this dashboard?')) {
       this.dispatchEvent(
         new CustomEvent('sheet-delete', { detail: { id }, bubbles: true, composed: true }),
       );
@@ -60,15 +58,10 @@ export class SheetsManager extends LitElement {
   private _openNewSheetModal(): void {
     this._showNewSheetModal = true;
     this._newSheetName = '';
-    this._newSheetType = 'sheet';
   }
 
   private _closeNewSheetModal(): void {
     this._showNewSheetModal = false;
-  }
-
-  private _newSheetTypeLabel(): string {
-    return this._newSheetType === 'dashboard' ? 'Dashboard' : 'Sheet';
   }
 
   private _createSheet(): void {
@@ -77,7 +70,7 @@ export class SheetsManager extends LitElement {
       new CustomEvent('sheet-create', {
         detail: {
           name: this._newSheetName,
-          type: this._newSheetType,
+          type: 'dashboard' as const,
         },
         bubbles: true,
         composed: true,
@@ -103,7 +96,7 @@ export class SheetsManager extends LitElement {
                 class="sheet-tab ${sheet.id === this.activeSheetId ? 'active' : ''}"
                 @click=${() => this._selectSheet(sheet.id)}
               >
-                <span class="sheet-icon">${sheet.type === 'dashboard' ? '📊' : '📄'}</span>
+                <span class="sheet-icon">📊</span>
                 <span class="sheet-name">${sheet.name}</span>
                 ${this.editMode
                   ? html`
@@ -131,9 +124,7 @@ export class SheetsManager extends LitElement {
         </div>
 
         <div class="sheets-toolbar">
-          <button class="btn-new-sheet" @click=${this._openNewSheetModal}>
-            + New ${this._newSheetType === 'dashboard' ? 'Dashboard' : 'Sheet'}
-          </button>
+          <button class="btn-new-sheet" @click=${this._openNewSheetModal}>+ New Dashboard</button>
           <button
             class="btn-edit-mode ${this.editMode ? 'active' : ''}"
             @click=${this._toggleEditMode}
@@ -147,7 +138,7 @@ export class SheetsManager extends LitElement {
         ? html`
             <div class="modal-overlay" @click=${this._closeNewSheetModal}>
               <div class="modal-content" @click=${(e: Event) => e.stopPropagation()}>
-                <h3>Create New ${this._newSheetTypeLabel()}</h3>
+                <h3>Create New Dashboard</h3>
                 <div class="form-group">
                   <label>Name</label>
                   <input
@@ -156,24 +147,9 @@ export class SheetsManager extends LitElement {
                     @input=${(e: Event) => {
                       this._newSheetName = (e.target as HTMLInputElement).value;
                     }}
-                    placeholder="Enter sheet name"
+                    placeholder="Enter dashboard name"
                     autofocus
                   />
-                </div>
-                <div class="form-group">
-                  <label>Type</label>
-                  <select
-                    @change=${(e: Event) => {
-                      this._newSheetType = (e.target as HTMLSelectElement).value as
-                        | 'sheet'
-                        | 'dashboard';
-                    }}
-                  >
-                    <option value="sheet" ?selected=${this._newSheetType === 'sheet'}>Sheet</option>
-                    <option value="dashboard" ?selected=${this._newSheetType === 'dashboard'}>
-                      Dashboard
-                    </option>
-                  </select>
                 </div>
                 <div class="modal-actions">
                   <button class="btn-cancel" @click=${this._closeNewSheetModal}>Cancel</button>

@@ -26,7 +26,7 @@ export class TabNav extends LitElement {
           class="tab-button ${this.activeTab === 'dashboard' ? 'active' : ''}"
           @click=${() => this._select('dashboard')}
         >
-          Dashboard
+          Editor
         </button>
         <button
           class="tab-button ${this.activeTab === 'askData' ? 'active' : ''}"
