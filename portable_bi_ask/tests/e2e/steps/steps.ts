@@ -1,8 +1,9 @@
-import { Given, When, Then } from '@cucumber/cucumber';
+import { Given, Then,When } from '@cucumber/cucumber';
 import { strict as assert } from 'assert';
-import type { BrowserWorld, TEST_SHEETS } from './world.ts';
 
-declare var __chartInitLogs: string[];
+import type { BrowserWorld } from './world.ts';
+
+declare let __chartInitLogs: string[];
 
 Given('the app is loaded', async function (this: BrowserWorld) {
   await this.navigate('/');
@@ -22,12 +23,15 @@ When('there are no sheets', async function (this: BrowserWorld) {
   await this.page.waitForSelector('sheets-view', { timeout: 10000 });
 });
 
-Then('I should see an empty canvas with {string}', async function (this: BrowserWorld, text: string) {
-  const empty = await this.hasEmptyState();
-  assert.ok(empty, 'Expected empty state to be visible');
-  const content = await this.page.textContent('.sheet-empty');
-  assert.ok(content?.includes(text), `Expected "${text}" in empty state, got "${content}"`);
-});
+Then(
+  'I should see an empty canvas with {string}',
+  async function (this: BrowserWorld, text: string) {
+    const empty = await this.hasEmptyState();
+    assert.ok(empty, 'Expected empty state to be visible');
+    const content = await this.page.textContent('.sheet-empty');
+    assert.ok(content?.includes(text), `Expected "${text}" in empty state, got "${content}"`);
+  },
+);
 
 Then('I should see a {string} button', async function (this: BrowserWorld, label: string) {
   const btn = await this.page.$(`text="${label}"`);
@@ -53,10 +57,13 @@ When('I click {string} to exit edit mode', async function (this: BrowserWorld, _
   await this.page.waitForTimeout(300);
 });
 
-Then('a sheet tab with the name {string} should appear', async function (this: BrowserWorld, name: string) {
-  const tabs = await this.getSheetTabNames();
-  assert.ok(tabs.includes(name), `Expected sheet tab "${name}" in [${tabs.join(', ')}]`);
-});
+Then(
+  'a sheet tab with the name {string} should appear',
+  async function (this: BrowserWorld, name: string) {
+    const tabs = await this.getSheetTabNames();
+    assert.ok(tabs.includes(name), `Expected sheet tab "${name}" in [${tabs.join(', ')}]`);
+  },
+);
 
 Then('the canvas should be empty', async function (this: BrowserWorld) {
   const count = await this.getWidgetCount();
@@ -70,8 +77,20 @@ Given('a sheet exists with chart widgets', async function (this: BrowserWorld) {
       name: 'Test Sheet',
       type: 'dashboard',
       widgets: [
-        { id: 'w1', type: 'chart', title: 'Chart 1', query: 'show me sales by region', chartType: 'bar' },
-        { id: 'w2', type: 'chart', title: 'Chart 2', query: 'show me monthly sales trend', chartType: 'line' },
+        {
+          id: 'w1',
+          type: 'chart',
+          title: 'Chart 1',
+          query: 'show me sales by region',
+          chartType: 'bar',
+        },
+        {
+          id: 'w2',
+          type: 'chart',
+          title: 'Chart 2',
+          query: 'show me monthly sales trend',
+          chartType: 'line',
+        },
       ],
       layout: [
         { x: 16, y: 16, w: 400, h: 240 },
@@ -86,6 +105,7 @@ Given('a sheet exists with chart widgets', async function (this: BrowserWorld) {
   await this.installLogInterceptor();
   await this.page.click('button:has-text("Sheets")');
   await this.waitForWidgets();
+  await this.waitForDataCache('sheet-a');
   await this.page.waitForTimeout(500);
 });
 
@@ -132,7 +152,13 @@ Given('I am in edit mode with a selected widget', async function (this: BrowserW
       name: 'Test Sheet',
       type: 'dashboard',
       widgets: [
-        { id: 'w1', type: 'chart', title: 'Chart 1', query: 'show me sales by region', chartType: 'bar' },
+        {
+          id: 'w1',
+          type: 'chart',
+          title: 'Chart 1',
+          query: 'show me sales by region',
+          chartType: 'bar',
+        },
       ],
       layout: [{ x: 16, y: 16, w: 400, h: 240 }],
       createdAt: new Date().toISOString(),
@@ -164,8 +190,20 @@ Given('sheets exist with chart widgets on multiple sheets', async function (this
       name: 'Sales Overview',
       type: 'dashboard',
       widgets: [
-        { id: 'w1', type: 'chart', title: 'Revenue by Region', query: 'show me sales by region', chartType: 'bar' },
-        { id: 'w2', type: 'chart', title: 'Monthly Trend', query: 'show me monthly sales trend', chartType: 'line' },
+        {
+          id: 'w1',
+          type: 'chart',
+          title: 'Revenue by Region',
+          query: 'show me sales by region',
+          chartType: 'bar',
+        },
+        {
+          id: 'w2',
+          type: 'chart',
+          title: 'Monthly Trend',
+          query: 'show me monthly sales trend',
+          chartType: 'line',
+        },
       ],
       layout: [
         { x: 16, y: 16, w: 400, h: 240 },
@@ -179,7 +217,13 @@ Given('sheets exist with chart widgets on multiple sheets', async function (this
       name: 'Category Analysis',
       type: 'sheet',
       widgets: [
-        { id: 'w3', type: 'chart', title: 'Category Breakdown', query: 'show me sales by category', chartType: 'pie' },
+        {
+          id: 'w3',
+          type: 'chart',
+          title: 'Category Breakdown',
+          query: 'show me sales by category',
+          chartType: 'pie',
+        },
       ],
       layout: [{ x: 16, y: 16, w: 400, h: 300 }],
       createdAt: new Date().toISOString(),
@@ -200,10 +244,13 @@ When('I switch to the second sheet', async function (this: BrowserWorld) {
   await this.page.waitForTimeout(500);
 });
 
-Then('the ask engine should have called {int} time', async function (this: BrowserWorld, expected: number) {
-  const count = await this.getAskCallCount();
-  assert.equal(count, expected, `Expected ${expected} ask calls, got ${count}`);
-});
+Then(
+  'the ask engine should have called {int} time',
+  async function (this: BrowserWorld, expected: number) {
+    const count = await this.getAskCallCount();
+    assert.equal(count, expected, `Expected ${expected} ask calls, got ${count}`);
+  },
+);
 
 When('I switch back to the first sheet', async function (this: BrowserWorld) {
   await this.clickSheetTab('Sales Overview');
