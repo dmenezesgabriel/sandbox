@@ -14,11 +14,21 @@ import {
   sheetToYaml,
   yamlToSheet,
 } from '../../sheet-yaml';
-import type { CellValue, DashboardFilterConfig, Filters, Sheet, WidgetConfig } from '../../types';
+import type {
+  CellValue,
+  DashboardConfig,
+  DashboardFilterConfig,
+  Filters,
+  Sheet,
+  WidgetConfig,
+} from '../../types';
 import { escapeSqlString, quoteIdent, toRows } from '../../utils';
 
 export class SheetsView extends LitElement {
   static override readonly properties = {
+    config: { type: Object },
+    isNew: { type: Boolean },
+    slug: { type: String },
     sheets: { type: Array },
     activeSheetId: { type: String },
     editMode: { type: Boolean },
@@ -30,6 +40,9 @@ export class SheetsView extends LitElement {
     _showEditor: { state: true },
   };
 
+  config: DashboardConfig;
+  isNew: boolean;
+  slug: string;
   sheets: Sheet[];
   activeSheetId: string | null;
   editMode: boolean;
@@ -42,7 +55,7 @@ export class SheetsView extends LitElement {
   crossFilters: Record<string, CellValue[]>;
   private _editingWidget: WidgetConfig | null = null;
   private _showEditor: boolean = false;
-  private readonly _askEngine: AskDataEngine;
+  private _askEngine: AskDataEngine;
   private _dataReady: boolean = false;
   private _dataCache: Record<
     string,
@@ -61,6 +74,9 @@ export class SheetsView extends LitElement {
 
   constructor() {
     super();
+    this.config = DASHBOARD_CONFIG;
+    this.slug = '';
+    this.isNew = false;
     this.sheets = [];
     this.activeSheetId = null;
     this.editMode = false;
@@ -68,11 +84,25 @@ export class SheetsView extends LitElement {
     this.sheetData = {};
     this.filters = {};
     this.crossFilters = {};
-    this._askEngine = new AskDataEngine(DASHBOARD_CONFIG, duckDBManager);
+    this._askEngine = new AskDataEngine(this.config, duckDBManager);
   }
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
     return this;
+  }
+
+  override updated(changedProps: Map<string, unknown>): void {
+    if (changedProps.has('config')) {
+      this._askEngine = new AskDataEngine(this.config, duckDBManager);
+      this._dataReady = false;
+      this._dataCache = {};
+      this._loadSheets();
+      return;
+    }
+
+    if (changedProps.has('slug') || changedProps.has('isNew')) {
+      this._loadSheets();
+    }
   }
 
   private get _activeSheet(): Sheet | undefined {
@@ -82,12 +112,23 @@ export class SheetsView extends LitElement {
   private async _ensureDataReady(): Promise<void> {
     if (this._dataReady) return;
     try {
-      for (const source of DASHBOARD_CONFIG.dataSources) {
-        await duckDBManager.query(
-          `CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(source.url)}')`,
-        );
+      for (const source of this.config.dataSources) {
+        console.info(`[sheets] creating view ${source.name} from ${source.url}`);
+        try {
+          await duckDBManager.query(
+            `CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(
+              source.url,
+            )}')`,
+          );
+          console.info(`[sheets] created view ${source.name}`);
+        } catch (err) {
+          console.error(`[sheets] failed to create view ${source.name}:`, err);
+          throw err;
+        }
       }
+      console.info('[sheets] initializing AskData engine');
       await this._askEngine.initialize();
+      console.info('[sheets] AskData engine initialized');
       this._dataReady = true;
     } catch (err) {
       console.error('[sheets] Failed to initialize data:', err);
@@ -100,7 +141,7 @@ export class SheetsView extends LitElement {
   }
 
   private _getFilterDefs(): DashboardFilterConfig[] {
-    return this._activeSheet?.filters ?? DASHBOARD_CONFIG.filters;
+    return this._activeSheet?.filters ?? this.config.filters;
   }
 
   private async _executeSqlQuery(widget: WidgetConfig): Promise<{
@@ -145,6 +186,7 @@ export class SheetsView extends LitElement {
     values: number[];
     rows?: Record<string, CellValue>[];
   }> {
+    await this._ensureDataReady();
     const result = await this._askEngine.ask(widget.query, {});
     if ('rows' in result && 'sql' in result) {
       const labels = result.rows.map((r) => String(r.label ?? r.name ?? ''));
@@ -179,22 +221,6 @@ export class SheetsView extends LitElement {
     } else {
       this._refreshWidgetData();
     }
-  }
-
-  private _onSheetCreate(e: CustomEvent<{ name: string; type: 'sheet' | 'dashboard' }>): void {
-    const newSheet: Sheet = {
-      id: crypto.randomUUID(),
-      name: e.detail.name,
-      type: e.detail.type,
-      widgets: [],
-      layout: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.sheets = [...this.sheets, newSheet];
-    this.activeSheetId = newSheet.id;
-    this.sheetData = {};
-    this._persistSheets();
   }
 
   private _onSheetDelete(e: CustomEvent<{ id: string }>): void {
@@ -377,15 +403,22 @@ export class SheetsView extends LitElement {
   private static readonly STORAGE_VERSION = 3;
 
   private _persistSheets(): void {
+    const key = `${SheetsView.STORAGE_KEY}:${this.slug || 'default'}`;
     localStorage.setItem(
-      SheetsView.STORAGE_KEY,
+      key,
       JSON.stringify({ version: SheetsView.STORAGE_VERSION, data: this.sheets }),
     );
   }
 
   private _loadSheets(): void {
     try {
-      const stored = localStorage.getItem(SheetsView.STORAGE_KEY);
+      if (this.isNew) {
+        // For new dashboards, do not load shared persisted sheets — start blank.
+        this._initDefaultSheet();
+        return;
+      }
+      const key = `${SheetsView.STORAGE_KEY}:${this.slug || 'default'}`;
+      const stored = localStorage.getItem(key);
       if (stored) {
         const raw = JSON.parse(stored);
         let parsed: Sheet[];
@@ -414,7 +447,7 @@ export class SheetsView extends LitElement {
   }
 
   private async _initDefaultSheet(): Promise<void> {
-    const defaultSheet = configToSheet(DASHBOARD_CONFIG);
+    const defaultSheet = configToSheet(this.config);
     this.sheets = [defaultSheet];
     this.activeSheetId = defaultSheet.id;
     this._persistSheets();
@@ -571,7 +604,6 @@ export class SheetsView extends LitElement {
         .activeSheetId=${this.activeSheetId}
         .editMode=${this.editMode}
         @sheet-select=${this._onSheetSelect}
-        @sheet-create=${this._onSheetCreate}
         @sheet-delete=${this._onSheetDelete}
         @sheet-duplicate=${this._onSheetDuplicate}
         @edit-mode-toggle=${this._onEditModeToggle}

@@ -77,14 +77,20 @@ export class BrowserWorld {
     await this.page.goto(`${BASE_URL}${urlPath}`);
   }
 
-  async injectSheets(sheets: typeof TEST_SHEETS): Promise<void> {
-    await this.page.evaluate((s) => {
-      localStorage.setItem('sheets', JSON.stringify({ version: 3, data: s }));
-    }, sheets);
+  async injectSheets(
+    sheets: typeof TEST_SHEETS,
+    slug: string = 'portable-bi-dashboard',
+  ): Promise<void> {
+    await this.page.evaluate(
+      ({ s, slug: sl }) => {
+        localStorage.setItem(`sheets:${sl}`, JSON.stringify({ version: 3, data: s }));
+      },
+      { s: sheets, slug },
+    );
   }
 
-  async clearSheets(): Promise<void> {
-    await this.page.evaluate(() => localStorage.removeItem('sheets'));
+  async clearSheets(slug: string = 'portable-bi-dashboard'): Promise<void> {
+    await this.page.evaluate((sl) => localStorage.removeItem(`sheets:${sl}`), slug);
   }
 
   async hasEmptyState(): Promise<boolean> {

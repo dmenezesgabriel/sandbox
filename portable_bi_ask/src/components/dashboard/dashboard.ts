@@ -4,22 +4,35 @@ import '../top-nav';
 
 import { html, LitElement, type TemplateResult } from 'lit';
 
-import { getDashboardBySlug } from '../../dashboard-registry';
+import { createEmptyDashboardConfig } from '../../dashboard-config';
+import { addDashboard, getDashboardBySlug } from '../../dashboard-registry';
 
-type Route = { view: 'list' } | { view: 'editor'; slug: string };
+type Route = { view: 'list' } | { view: 'editor'; slug: string; isNew?: boolean };
 
 function parseHash(hash: string): Route {
   const path = hash.replace(/^#\/?/, '');
   if (!path || path === '/') return { view: 'list' };
   if (path.startsWith('dashboard/')) {
-    const slug = path.replace('dashboard/', '');
-    return { view: 'editor', slug };
+    const rest = path.replace('dashboard/', '');
+    // support both `/dashboard/new` and `/dashboard/new/<slug>` for new dashboards
+    if (rest === 'new') return { view: 'editor', slug: 'new', isNew: true };
+    if (rest.startsWith('new/')) {
+      const slug = rest.replace(/^new\//, '');
+      return { view: 'editor', slug: slug || 'new', isNew: true };
+    }
+    return { view: 'editor', slug: rest };
   }
   return { view: 'list' };
 }
 
 function routeToHash(route: Route): string {
   if (route.view === 'list') return '#/';
+  // For new dashboards include the slug under `new/slug` so the isNew flag
+  // can be reconstructed from the hash on reload.
+  if (route.view === 'editor' && route.isNew) {
+    if (route.slug === 'new') return '#/dashboard/new';
+    return `#/dashboard/new/${route.slug}`;
+  }
   return `#/dashboard/${route.slug}`;
 }
 
@@ -58,14 +71,29 @@ export class Dashboard extends LitElement {
     window.location.hash = routeToHash(route);
   }
 
+  private _onDashboardCreate(e: CustomEvent<{ name: string }>): void {
+    const cfg = createEmptyDashboardConfig(e.detail.name);
+    const slug = addDashboard(cfg);
+    this._navigate({ view: 'editor', slug, isNew: true });
+  }
+
   override render(): TemplateResult {
     if (this._route.view === 'editor') {
-      const config = getDashboardBySlug(this._route.slug);
+      const { slug, isNew } = this._route;
+      function slugToTitle(s: string) {
+        if (!s) return 'New Dashboard';
+        if (s === 'new') return 'New Dashboard';
+        return s.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+
+      const config = isNew
+        ? createEmptyDashboardConfig(slugToTitle(slug))
+        : getDashboardBySlug(slug);
       if (!config) {
         return html`
           <div class="dashboard-not-found">
             <h2 class="dashboard-nf-heading">Dashboard not found</h2>
-            <p class="dashboard-nf-text">The dashboard "${this._route.slug}" does not exist.</p>
+            <p class="dashboard-nf-text">The dashboard "${slug}" does not exist.</p>
             <button class="primary-button" @click=${() => this._navigate({ view: 'list' })}>
               ← Back to Dashboards
             </button>
@@ -75,7 +103,8 @@ export class Dashboard extends LitElement {
       return html`
         <dashboard-editor
           .config=${config}
-          .slug=${this._route.slug}
+          .slug=${slug}
+          .isNew=${isNew ?? false}
           @navigate=${(e: CustomEvent<Route>) => this._navigate(e.detail)}
         ></dashboard-editor>
       `;
@@ -87,6 +116,7 @@ export class Dashboard extends LitElement {
         @dashboard-select=${(e: CustomEvent<{ slug: string }>) => {
           this._navigate({ view: 'editor', slug: e.detail.slug });
         }}
+        @dashboard-create=${(e: CustomEvent<{ name: string }>) => this._onDashboardCreate(e)}
       ></dashboard-list>
     `;
   }

@@ -10,12 +10,6 @@ Feature: Sheets – Dashboard Builder Workspace
   Scenario: Dashboard tab shows the default dashboard from YAML config
     Then I should see widgets rendered on the canvas
 
-  Scenario: Creating a new sheet adds it to the tab list
-    When I click "+ New Dashboard"
-    And I enter the sheet name "Test Sheet"
-    And I click "Create"
-    Then a sheet tab with the name "Test Sheet" should appear
-
   Scenario: Injecting a sheet with chart widgets renders the widgets
     Given a sheet exists with chart widgets
     Then I should see widgets rendered on the canvas

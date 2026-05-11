@@ -7,15 +7,11 @@ export class SheetsManager extends LitElement {
     sheets: { type: Array },
     activeSheetId: { type: String },
     editMode: { type: Boolean },
-    _showNewSheetModal: { state: true },
-    _newSheetName: { state: true },
   };
 
   sheets: Sheet[];
   activeSheetId: string | null;
   editMode: boolean;
-  private _showNewSheetModal: boolean = false;
-  private _newSheetName: string = '';
 
   constructor() {
     super();
@@ -53,30 +49,6 @@ export class SheetsManager extends LitElement {
         composed: true,
       }),
     );
-  }
-
-  private _openNewSheetModal(): void {
-    this._showNewSheetModal = true;
-    this._newSheetName = '';
-  }
-
-  private _closeNewSheetModal(): void {
-    this._showNewSheetModal = false;
-  }
-
-  private _createSheet(): void {
-    if (!this._newSheetName.trim()) return;
-    this.dispatchEvent(
-      new CustomEvent('sheet-create', {
-        detail: {
-          name: this._newSheetName,
-          type: 'dashboard' as const,
-        },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-    this._closeNewSheetModal();
   }
 
   private _duplicateSheet(e: Event, sheet: Sheet): void {
@@ -124,7 +96,6 @@ export class SheetsManager extends LitElement {
         </div>
 
         <div class="sheets-toolbar">
-          <button class="btn-new-sheet" @click=${this._openNewSheetModal}>+ New Dashboard</button>
           <button
             class="btn-edit-mode ${this.editMode ? 'active' : ''}"
             @click=${this._toggleEditMode}
@@ -133,32 +104,6 @@ export class SheetsManager extends LitElement {
           </button>
         </div>
       </div>
-
-      ${this._showNewSheetModal
-        ? html`
-            <div class="modal-overlay" @click=${this._closeNewSheetModal}>
-              <div class="modal-content" @click=${(e: Event) => e.stopPropagation()}>
-                <h3>Create New Dashboard</h3>
-                <div class="form-group">
-                  <label>Name</label>
-                  <input
-                    type="text"
-                    .value=${this._newSheetName}
-                    @input=${(e: Event) => {
-                      this._newSheetName = (e.target as HTMLInputElement).value;
-                    }}
-                    placeholder="Enter dashboard name"
-                    autofocus
-                  />
-                </div>
-                <div class="modal-actions">
-                  <button class="btn-cancel" @click=${this._closeNewSheetModal}>Cancel</button>
-                  <button class="btn-save" @click=${this._createSheet}>Create</button>
-                </div>
-              </div>
-            </div>
-          `
-        : nothing}
     `;
   }
 }

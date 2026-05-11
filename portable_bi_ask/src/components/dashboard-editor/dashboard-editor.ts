@@ -25,6 +25,7 @@ export class DashboardEditor extends LitElement {
   static override readonly properties = {
     config: { type: Object },
     slug: { type: String },
+    isNew: { type: Boolean },
     _activeTab: { state: true },
     _askQuestion: { state: true },
     _askResult: { state: true },
@@ -35,6 +36,7 @@ export class DashboardEditor extends LitElement {
 
   config: DashboardConfig | null = null;
   slug = '';
+  isNew = false;
 
   private _activeTab: 'dashboard' | 'askData' = 'dashboard';
   private _askQuestion = '';
@@ -59,11 +61,22 @@ export class DashboardEditor extends LitElement {
       this._askEngine = new AskDataEngine(this.config, duckDBManager);
     }
     for (const source of this.config.dataSources) {
-      await duckDBManager.query(
-        `CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(source.url)}')`,
-      );
+      console.info(`[editor] creating view ${source.name} from ${source.url}`);
+      try {
+        await duckDBManager.query(
+          `CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(
+            source.url,
+          )}')`,
+        );
+        console.info(`[editor] created view ${source.name}`);
+      } catch (err) {
+        console.error(`[editor] failed to create view ${source.name}:`, err);
+        throw err;
+      }
     }
+    console.info('[editor] initializing AskData engine');
     await this._askEngine.initialize();
+    console.info('[editor] AskData engine initialized');
     this._dataReady = true;
   }
 
@@ -142,7 +155,11 @@ export class DashboardEditor extends LitElement {
 
   private _renderTabContent(): TemplateResult {
     if (this._activeTab === 'askData') return this._renderAskData();
-    return html`<sheets-view></sheets-view>`;
+    return html`<sheets-view
+      .config=${this.config}
+      .isNew=${this.isNew}
+      .slug=${this.slug}
+    ></sheets-view>`;
   }
 
   override render(): TemplateResult {
