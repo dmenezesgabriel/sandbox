@@ -12,10 +12,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "preview": "vite preview --host 0.0.0.0",
+    "test:coverage": "vitest run --coverage",
     "test:unit": "vitest run tests/unit",
     "test:integration": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit",
     "test:e2e": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
-    "test": "vitest run tests/unit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit"
+    "test": "vitest run tests/unit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
+    "prepare": "echo 'gitdir: ../.git' > .git && husky && git config core.hooksPath portable_bi_ask/.husky/_"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.30.0",
@@ -31,11 +33,14 @@
     "@cucumber/cucumber": "^12.8.2",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.59.1",
+    "@vitest/coverage-v8": "^4.1.5",
     "duckdb": "^1.4.4",
     "eslint": "^10.3.0",
     "eslint-plugin-lit": "^2.2.1",
     "eslint-plugin-simple-import-sort": "^13.0.0",
     "eslint-plugin-sonarjs": "^4.0.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.4",
     "prettier": "^3.8.3",
     "stylelint": "^17.11.0",
     "stylelint-config-standard": "^40.0.0",
