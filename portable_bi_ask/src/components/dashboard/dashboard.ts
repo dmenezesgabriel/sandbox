@@ -3,7 +3,7 @@ import '../ask-input';
 import '../ask-result';
 import '../sheet-editor';
 import '../sheets-view';
-import '../tab-nav';
+import '../top-nav';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
@@ -18,7 +18,7 @@ import type {
   DashboardConfig,
 } from '../../types';
 import { escapeSqlString, quoteIdent } from '../../utils';
-import type { ActiveTab } from '../tab-nav';
+import type { ActiveTab } from '../top-nav';
 
 function isAskSuccess(result: AskResult): result is AskSuccessResult {
   return 'rows' in result && 'sql' in result && 'chartType' in result;
@@ -153,14 +153,13 @@ export class Dashboard extends LitElement {
   override render(): TemplateResult {
     const c = this.config;
     return html`
-      <page-header title="${c.title}" subtitle="${c.subtitle}"></page-header>
-
-      <tab-nav
+      <top-nav
         .activeTab=${this._activeTab}
+        .subtitle=${c.subtitle}
         @tab-change=${(e: CustomEvent<ActiveTab>) => {
           this._activeTab = e.detail;
         }}
-      ></tab-nav>
+      ></top-nav>
 
       ${this._renderTabContent()}
     `;
