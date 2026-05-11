@@ -5,6 +5,13 @@ import type { CellValue, Filters, WidgetConfig } from '../../types';
 
 Chart.register(...registerables);
 
+const FORMATTERS: Record<string, (v: CellValue) => string> = {
+  currency: (v: CellValue): string => {
+    const n = Number(v || 0);
+    return '$' + (Number.isNaN(n) ? '0' : Math.round(n).toLocaleString());
+  },
+};
+
 export class Widget extends LitElement {
   static override readonly properties = {
     config: { type: Object },
@@ -20,6 +27,7 @@ export class Widget extends LitElement {
   selected: boolean;
   editMode: boolean;
   private _chartInstance: Chart | null = null;
+  private _resizeObserver: ResizeObserver | null = null;
 
   constructor() {
     super();
@@ -37,6 +45,7 @@ export class Widget extends LitElement {
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._destroyChart();
+    this._resizeObserver?.disconnect();
   }
 
   private _destroyChart(): void {
@@ -46,8 +55,12 @@ export class Widget extends LitElement {
     }
   }
 
-  private _handleClick(e: MouseEvent): void {
-    e.stopPropagation();
+  private _formatValue(v: CellValue, format?: string): string {
+    if (format && FORMATTERS[format]) return FORMATTERS[format](v);
+    return String(v ?? '');
+  }
+
+  private _handleClick(_e: MouseEvent): void {
     if (!this.editMode) {
       console.log(`[widget] click on "${this.config.title}" — view mode, ignoring selection`);
       return;
@@ -60,6 +73,12 @@ export class Widget extends LitElement {
         composed: true,
       }),
     );
+  }
+
+  private _onColorChange(e: Event): void {
+    const input = e.target as HTMLInputElement;
+    this.config.backgroundColor = input.value || undefined;
+    this.requestUpdate();
   }
 
   private _onChartClick(element: { index: number }): void {
@@ -104,7 +123,7 @@ export class Widget extends LitElement {
   private _renderKpi(): TemplateResult {
     const kpi = this.config.kpiConfig;
     const value = this.data?.values?.[0] ?? this.data?.rows?.[0]?.value ?? 'N/A';
-    const formatted = typeof kpi?.format === 'function' ? kpi.format(value) : String(value);
+    const formatted = this._formatValue(value, kpi?.format);
     return html`
       <div class="widget-kpi">
         <div class="kpi-label">${this.config.title}</div>
@@ -137,7 +156,7 @@ export class Widget extends LitElement {
             ${rows.slice(0, 50).map(
               (row) => html`
                 <tr class="clickable-row" @click=${(e: Event) => this._onTableRowClick(e, row)}>
-                  ${cols.map((c) => html`<td>${this._formatCell(row[c])}</td>`)}
+                  ${cols.map((c) => html`<td>${this._formatCell(row[c], c)}</td>`)}
                 </tr>
               `,
             )}
@@ -161,8 +180,11 @@ export class Widget extends LitElement {
     `;
   }
 
-  private _formatCell(v: CellValue): string {
+  private _formatCell(v: CellValue, col?: string): string {
     if (v == null) return '-';
+    if (col && this.config.columnFormats?.[col]) {
+      return this._formatValue(v, this.config.columnFormats[col]);
+    }
     if (typeof v === 'number') {
       return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
     }
@@ -243,6 +265,14 @@ export class Widget extends LitElement {
         },
       },
     });
+
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = new ResizeObserver(() => {
+      if (this._chartInstance) {
+        this._chartInstance.resize();
+      }
+    });
+    this._resizeObserver.observe(this);
   }
 
   private _getChartJsType(): 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'bubble' {
@@ -265,18 +295,33 @@ export class Widget extends LitElement {
   }
 
   override render(): TemplateResult {
+    const bg = this.config.backgroundColor;
     return html`
-      <div class="widget-header">
+      <div class="widget-header" style=${bg ? `background: ${bg};` : ''}>
         <span class="widget-title">${this.config.title}</span>
         ${this.editMode
           ? html`
+              <label class="widget-color-picker" title="Background color">
+                <input
+                  type="color"
+                  .value=${bg || '#ffffff'}
+                  @input=${this._onColorChange}
+                  @click=${(e: Event) => e.stopPropagation()}
+                />
+              </label>
               <button class="widget-delete" @click=${this._handleDelete} title="Delete widget">
                 ✕
               </button>
             `
           : nothing}
       </div>
-      <div class="widget-content" @click=${this._handleClick}>${this._renderWidgetContent()}</div>
+      <div
+        class="widget-content"
+        style=${bg ? `background: ${bg};` : ''}
+        @click=${this._handleClick}
+      >
+        ${this._renderWidgetContent()}
+      </div>
     `;
   }
 

@@ -1,12 +1,6 @@
 import '../ask-clarification';
 import '../ask-input';
 import '../ask-result';
-import '../chart-section';
-import '../data-table';
-import '../filter-bar';
-import '../header';
-import '../kpi-cards';
-import '../loading-state';
 import '../sheet-editor';
 import '../sheets-view';
 import '../tab-nav';
@@ -15,7 +9,6 @@ import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
 import { AskDataEngine } from '../../ask-data';
 import { DASHBOARD_CONFIG } from '../../dashboard-config';
-import { DashboardDataLoader } from '../../data-loader';
 import { duckDBManager } from '../../db';
 import type {
   AskResult,
@@ -23,9 +16,8 @@ import type {
   Clarification,
   ClarificationChoice,
   DashboardConfig,
-  FilterOptions,
-  Filters,
 } from '../../types';
+import { escapeSqlString, quoteIdent } from '../../utils';
 import type { ActiveTab } from '../tab-nav';
 
 function isAskSuccess(result: AskResult): result is AskSuccessResult {
@@ -35,101 +27,56 @@ function isAskSuccess(result: AskResult): result is AskSuccessResult {
 export class Dashboard extends LitElement {
   static override readonly properties = {
     config: { type: Object },
-    filters: { type: Object },
-    _filterOptions: { state: true },
-    _kpiResults: { state: true },
-    _chartData: { state: true },
-    _tableRows: { state: true },
     _activeTab: { state: true },
     _askQuestion: { state: true },
     _askResult: { state: true },
     _askLoading: { state: true },
     _askError: { state: true },
     _askClarification: { state: true },
-    loading: { state: true },
-    error: { state: true },
   };
 
   config: DashboardConfig;
-  filters: Filters;
-  private _filterOptions: FilterOptions;
-  private _kpiResults: Awaited<ReturnType<DashboardDataLoader['refresh']>>['kpiResults'];
-  private _chartData: Awaited<ReturnType<DashboardDataLoader['refresh']>>['chartData'];
-  private _tableRows: Awaited<ReturnType<DashboardDataLoader['refresh']>>['tableRows'];
   private _activeTab: ActiveTab;
   private _askQuestion: string;
   private _askResult: AskSuccessResult | null;
   private _askLoading: boolean;
   private _askError: string;
   private _askClarification: Clarification | null;
-  loading: boolean;
-  error: string;
+  private _dataReady: boolean;
   private readonly askEngine: AskDataEngine;
-  private readonly dashboardLoader: DashboardDataLoader;
 
   constructor() {
     super();
     this.config = DASHBOARD_CONFIG;
-    this.filters = {};
-    this._filterOptions = {};
-    this._kpiResults = [];
-    this._chartData = [];
-    this._tableRows = [];
     this._activeTab = 'dashboard';
     this._askQuestion = DASHBOARD_CONFIG.askData.defaultQuestion;
     this._askResult = null;
     this._askLoading = false;
     this._askError = '';
     this._askClarification = null;
-    this.loading = false;
-    this.error = '';
+    this._dataReady = false;
     this.askEngine = new AskDataEngine(this.config, duckDBManager);
-    this.dashboardLoader = new DashboardDataLoader({
-      config: this.config,
-      duckDBManager,
-      askEngine: this.askEngine,
-    });
   }
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
     return this;
   }
 
-  override connectedCallback(): void {
-    super.connectedCallback();
-    this._initDashboard().catch(console.error);
-  }
-
-  private async _initDashboard(): Promise<void> {
-    this.loading = true;
-    this.error = '';
-    try {
-      await this.dashboardLoader.ensureDataReady();
-      if (!Object.keys(this._filterOptions).length) {
-        const loaded = await this.dashboardLoader.loadFilterOptions(this.filters);
-        this._filterOptions = loaded.filterOptions;
-        this.filters = loaded.filters;
-      }
-      const data = await this.dashboardLoader.refresh(this.filters);
-      this._kpiResults = data.kpiResults;
-      this._chartData = data.chartData;
-      this._tableRows = data.tableRows;
-      this.loading = false;
-    } catch (err: unknown) {
-      console.error(err);
-      this.loading = false;
-      this.error = 'Failed to load data or render dashboard: ' + String(err);
+  private async _ensureDataReady(): Promise<void> {
+    if (this._dataReady) return;
+    for (const source of DASHBOARD_CONFIG.dataSources) {
+      await duckDBManager.query(
+        `CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(source.url)}')`,
+      );
     }
-  }
-
-  private _onFilterChange(event: CustomEvent<{ field: string; value: string }>): void {
-    this.filters = { ...this.filters, [event.detail.field]: event.detail.value };
-    this._initDashboard().catch(console.error);
+    await this.askEngine.initialize();
+    this._dataReady = true;
   }
 
   private async _runAsk(
     appliedClarification: Clarification['pending'] | null = null,
   ): Promise<void> {
+    await this._ensureDataReady();
     this._askLoading = true;
     this._askError = '';
     this._askClarification = null;
@@ -160,33 +107,6 @@ export class Dashboard extends LitElement {
       value: choice.value,
       valueNormalized: choice.valueNormalized,
     }).catch(console.error);
-  }
-
-  private _renderDashboard(): TemplateResult {
-    const c = this.config;
-    return html`
-      <filter-bar
-        .filterDefs=${c.filters}
-        .filterOptions=${this._filterOptions}
-        .values=${this.filters}
-        @filter-change=${this._onFilterChange}
-      ></filter-bar>
-
-      <kpi-cards .kpis=${c.kpis} .results=${this._kpiResults}></kpi-cards>
-
-      <chart-section .chartData=${this._chartData}></chart-section>
-
-      ${c.tables.map(
-        (t, i) => html`
-          <data-table
-            title="${t.title}"
-            .columns=${t.columns}
-            .rows=${this._tableRows[i] || []}
-            .columnFormats=${t.columnFormats || {}}
-          ></data-table>
-        `,
-      )}
-    `;
   }
 
   private _renderAskData(): TemplateResult {
@@ -225,7 +145,7 @@ export class Dashboard extends LitElement {
   }
 
   private _renderTabContent(): TemplateResult {
-    if (this._activeTab === 'dashboard') return this._renderDashboard();
+    if (this._activeTab === 'dashboard') return html`<sheets-view></sheets-view>`;
     if (this._activeTab === 'askData') return this._renderAskData();
     return html`<sheets-view></sheets-view>`;
   }
@@ -243,12 +163,6 @@ export class Dashboard extends LitElement {
       ></tab-nav>
 
       ${this._renderTabContent()}
-
-      <loading-state
-        .loading=${this.loading}
-        .askLoading=${this._askLoading}
-        .error=${this.error}
-      ></loading-state>
     `;
   }
 }

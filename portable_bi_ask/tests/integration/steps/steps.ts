@@ -1,7 +1,8 @@
-import { Given, When, Then } from '@cucumber/cucumber';
+import { Given, Then, When } from '@cucumber/cucumber';
 import { strict as assert } from 'assert';
-import type { AskWorld } from './world.ts';
+
 import type { AskSuccessResult } from '../../../src/types.ts';
+import type { AskWorld } from './world.ts';
 
 function success(world: AskWorld): AskSuccessResult {
   const r = world.result;
@@ -96,21 +97,27 @@ Then('the catalog should have at least {int} fields', function (this: AskWorld, 
   );
 });
 
-Then('the field {string} should have role {string}', function (this: AskWorld, fieldKey: string, role: string) {
-  const f = this.getEngine().fieldByKey.get(fieldKey);
-  assert.ok(f, `Field "${fieldKey}" not found in catalog`);
-  assert.equal(f!.role, role);
-});
+Then(
+  'the field {string} should have role {string}',
+  function (this: AskWorld, fieldKey: string, role: string) {
+    const f = this.getEngine().fieldByKey.get(fieldKey);
+    assert.ok(f, `Field "${fieldKey}" not found in catalog`);
+    assert.equal(f!.role, role);
+  },
+);
 
-Then('the field {string} should have sample values including {string}', function (this: AskWorld, fieldKey: string, value: string) {
-  const f = this.getEngine().fieldByKey.get(fieldKey);
-  assert.ok(f, `Field "${fieldKey}" not found in catalog`);
-  const values = f!.sampleValues ?? [];
-  assert.ok(
-    values.includes(value),
-    `Sample values [${values.join(', ')}] do not include "${value}"`,
-  );
-});
+Then(
+  'the field {string} should have sample values including {string}',
+  function (this: AskWorld, fieldKey: string, value: string) {
+    const f = this.getEngine().fieldByKey.get(fieldKey);
+    assert.ok(f, `Field "${fieldKey}" not found in catalog`);
+    const values = f!.sampleValues ?? [];
+    assert.ok(
+      values.includes(value),
+      `Sample values [${values.join(', ')}] do not include "${value}"`,
+    );
+  },
+);
 
 Then('the confidence should be between 0 and 1', function (this: AskWorld) {
   const r = this.result;

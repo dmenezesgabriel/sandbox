@@ -34,7 +34,12 @@ export class DataTable extends LitElement {
               ${this.rows.map(
                 (row) => html`
                   <tr>
-                    ${this.columns.map((col) => html`<td>${this.columnFormats[col] ? this.columnFormats[col](row[col]) : row[col]}</td>`)}
+                    ${this.columns.map(
+                      (col) =>
+                        html`<td>
+                          ${this.columnFormats[col] ? this.columnFormats[col](row[col]) : row[col]}
+                        </td>`,
+                    )}
                   </tr>
                 `,
               )}

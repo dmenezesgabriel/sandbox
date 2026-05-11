@@ -40,9 +40,9 @@ export class FilterBar extends LitElement {
                 name="${f.field}"
                 .value=${this.values[f.field] || 'All'}
                 @change=${(e: Event) => this._onChange(e, f.field)}
-
               >
-                ${this.filterOptions[f.field]?.map((o) => html`<option value=${o}>${o}</option>`) || nothing}
+                ${this.filterOptions[f.field]?.map((o) => html`<option value=${o}>${o}</option>`) ||
+                nothing}
               </select>
             </label>
           `,

@@ -1,23 +1,20 @@
 Feature: Sheets – Dashboard Builder Workspace
   As a BI analyst using the dashboard builder
-  I want the Sheets tab to behave like a professional tool (QuickSight / Tableau)
+  I want the Dashboard tab to show the config-driven dashboard and support drag-and-drop editing
   So that charts only re-render when data actually changes and widgets are only selectable when editing
 
   Background:
     Given the app is loaded
-    And I navigate to the Sheets tab
+    And I navigate to the Dashboard tab
 
-  Scenario: Empty state shown when no sheets exist
-    When there are no sheets
-    Then I should see an empty canvas with "Add widgets to this sheet"
-    And I should see a "+ New Sheet" button
+  Scenario: Dashboard tab shows the default dashboard from YAML config
+    Then I should see widgets rendered on the canvas
 
   Scenario: Creating a new sheet adds it to the tab list
     When I click "+ New Sheet"
     And I enter the sheet name "Test Sheet"
     And I click "Create"
     Then a sheet tab with the name "Test Sheet" should appear
-    And the canvas should be empty
 
   Scenario: Injecting a sheet with chart widgets renders the widgets
     Given a sheet exists with chart widgets

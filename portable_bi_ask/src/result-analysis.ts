@@ -416,7 +416,9 @@ export class InsightGenerator {
       .slice(0, Math.min(3, valid.length));
     const share = topN.reduce((sum, row) => sum + Number(row.value), 0) / total;
     const kind = intent.dimensions?.[0]?.role === 'time' ? 'periods' : 'groups';
-    insights.push(`Top ${topN.length} ${kind} account for ${formatValue(share, 'percent')} of total.`);
+    insights.push(
+      `Top ${topN.length} ${kind} account for ${formatValue(share, 'percent')} of total.`,
+    );
   }
 
   private addTrendInsight(

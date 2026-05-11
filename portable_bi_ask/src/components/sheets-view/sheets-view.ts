@@ -7,7 +7,15 @@ import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { AskDataEngine } from '../../ask-data';
 import { DASHBOARD_CONFIG } from '../../dashboard-config';
 import { duckDBManager } from '../../db';
-import type { CellValue, Filters, Sheet, WidgetConfig } from '../../types';
+import {
+  configToSheet,
+  jsonToSheet,
+  sheetToJson,
+  sheetToYaml,
+  yamlToSheet,
+} from '../../sheet-yaml';
+import type { CellValue, DashboardFilterConfig, Filters, Sheet, WidgetConfig } from '../../types';
+import { escapeSqlString, quoteIdent, toRows } from '../../utils';
 
 export class SheetsView extends LitElement {
   static override readonly properties = {
@@ -35,6 +43,7 @@ export class SheetsView extends LitElement {
   private _editingWidget: WidgetConfig | null = null;
   private _showEditor: boolean = false;
   private readonly _askEngine: AskDataEngine;
+  private _dataReady: boolean = false;
   private _dataCache: Record<
     string,
     Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }>
@@ -48,6 +57,7 @@ export class SheetsView extends LitElement {
     { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
   > | null = null;
   private _cachedFilterCrossFilters: Record<string, CellValue[]> | null = null;
+  private _fileInput: HTMLInputElement | null = null;
 
   constructor() {
     super();
@@ -67,6 +77,93 @@ export class SheetsView extends LitElement {
 
   private get _activeSheet(): Sheet | undefined {
     return this.sheets.find((s) => s.id === this.activeSheetId);
+  }
+
+  private async _ensureDataReady(): Promise<void> {
+    if (this._dataReady) return;
+    try {
+      for (const source of DASHBOARD_CONFIG.dataSources) {
+        await duckDBManager.query(
+          `CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(source.url)}')`,
+        );
+      }
+      await this._askEngine.initialize();
+      this._dataReady = true;
+    } catch (err) {
+      console.error('[sheets] Failed to initialize data:', err);
+      throw err;
+    }
+  }
+
+  private _isSqlQuery(query: string): boolean {
+    return /^\s*(SELECT|WITH)\b/i.test(query.trim());
+  }
+
+  private _getFilterDefs(): DashboardFilterConfig[] {
+    return this._activeSheet?.filters ?? DASHBOARD_CONFIG.filters;
+  }
+
+  private async _executeSqlQuery(widget: WidgetConfig): Promise<{
+    labels: string[];
+    values: number[];
+    rows?: Record<string, CellValue>[];
+  }> {
+    await this._ensureDataReady();
+    let sql = widget.query ?? '';
+    const filterDefs = this._getFilterDefs();
+    for (const filterDef of filterDefs) {
+      const placeholder = `--filter:${filterDef.field}--`;
+      if (sql.includes(placeholder)) {
+        const val = this.filters[filterDef.field];
+        const replacement = val && val !== 'All' ? `'${String(val).replace(/'/g, "''")}'` : '1=1';
+        sql = sql.replaceAll(placeholder, replacement);
+      }
+    }
+    const result = await duckDBManager.query(sql);
+    const rows = toRows(result).map((row) =>
+      Object.fromEntries(
+        Object.entries(row).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v]),
+      ),
+    );
+
+    if (widget.type === 'kpi') {
+      const vals = rows.map((r) =>
+        Number(Object.values(r).find((v) => typeof v === 'number') ?? 0),
+      );
+      return { labels: [], values: vals, rows };
+    }
+
+    const labels = rows.map((r) => String(r.label ?? r.name ?? Object.values(r)[0] ?? ''));
+    const values = rows.map((r) =>
+      Number(r.value ?? Object.values(r).find((v) => typeof v === 'number') ?? 0),
+    );
+    return { labels, values, rows };
+  }
+
+  private async _executeAskQuery(widget: WidgetConfig): Promise<{
+    labels: string[];
+    values: number[];
+    rows?: Record<string, CellValue>[];
+  }> {
+    const result = await this._askEngine.ask(widget.query, {});
+    if ('rows' in result && 'sql' in result) {
+      const labels = result.rows.map((r) => String(r.label ?? r.name ?? ''));
+      const values = result.rows.map((r) => Number(r.value ?? r.sales ?? r.count ?? 0));
+      return { labels, values, rows: result.rows };
+    }
+    return { labels: [], values: [] };
+  }
+
+  private async _executeQuery(widget: WidgetConfig): Promise<{
+    labels: string[];
+    values: number[];
+    rows?: Record<string, CellValue>[];
+  }> {
+    if (!widget.query) return { labels: [], values: [] };
+
+    const isSql = widget.queryType === 'sql' || this._isSqlQuery(widget.query);
+
+    return isSql ? this._executeSqlQuery(widget) : this._executeAskQuery(widget);
   }
 
   private _onSheetSelect(e: CustomEvent<{ id: string }>): void {
@@ -136,10 +233,9 @@ export class SheetsView extends LitElement {
 
   private _onWidgetDelete(e: CustomEvent<{ id: string }>): void {
     if (!this._activeSheet) return;
+    const idx = this._activeSheet.widgets.findIndex((w) => w.id === e.detail.id);
     const widgets = this._activeSheet.widgets.filter((w) => w.id !== e.detail.id);
-    const layout = this._activeSheet.layout.filter(
-      (_, i) => this._activeSheet!.widgets[i].id !== e.detail.id,
-    );
+    const layout = this._activeSheet.layout.filter((_, i) => i !== idx);
     this._updateActiveSheet({ widgets, layout });
     this.selectedWidgetId = null;
     if (this.activeSheetId) {
@@ -277,21 +373,52 @@ export class SheetsView extends LitElement {
     );
   }
 
+  private static readonly STORAGE_KEY = 'sheets';
+  private static readonly STORAGE_VERSION = 3;
+
   private _persistSheets(): void {
-    localStorage.setItem('sheets', JSON.stringify(this.sheets));
+    localStorage.setItem(
+      SheetsView.STORAGE_KEY,
+      JSON.stringify({ version: SheetsView.STORAGE_VERSION, data: this.sheets }),
+    );
   }
 
   private _loadSheets(): void {
     try {
-      const stored = localStorage.getItem('sheets');
+      const stored = localStorage.getItem(SheetsView.STORAGE_KEY);
       if (stored) {
-        this.sheets = JSON.parse(stored);
-        this.activeSheetId = this.sheets[0]?.id ?? null;
-        this._loadWidgetData();
+        const raw = JSON.parse(stored);
+        let parsed: Sheet[];
+        if (raw && raw.version === SheetsView.STORAGE_VERSION && Array.isArray(raw.data)) {
+          parsed = raw.data as Sheet[];
+        } else {
+          parsed = [];
+        }
+        if (parsed.length) {
+          this.sheets = parsed.map((s) => {
+            const clean = { ...s } as Record<string, unknown>;
+            delete clean.width;
+            delete clean.height;
+            return clean as unknown as Sheet;
+          });
+          this.activeSheetId = this.sheets[0]?.id ?? null;
+          this._loadWidgetData();
+          return;
+        }
       }
     } catch {
-      this.sheets = [];
+      // ignore parse errors, fall through to default
     }
+
+    this._initDefaultSheet();
+  }
+
+  private async _initDefaultSheet(): Promise<void> {
+    const defaultSheet = configToSheet(DASHBOARD_CONFIG);
+    this.sheets = [defaultSheet];
+    this.activeSheetId = defaultSheet.id;
+    this._persistSheets();
+    this._loadWidgetData();
   }
 
   private async _loadWidgetData(): Promise<void> {
@@ -306,12 +433,8 @@ export class SheetsView extends LitElement {
     for (const widget of this._activeSheet.widgets) {
       if (widget.query) {
         try {
-          const result = await this._askEngine.ask(widget.query, {});
-          if ('rows' in result && 'sql' in result) {
-            const labels = result.rows.map((r) => String(r.label ?? r.name ?? ''));
-            const values = result.rows.map((r) => Number(r.value ?? r.sales ?? r.count ?? 0));
-            newData[widget.id] = { labels, values, rows: result.rows };
-          }
+          const result = await this._executeQuery(widget);
+          newData[widget.id] = result;
         } catch (err) {
           console.error(`Failed to load data for widget ${widget.id}:`, err);
           newData[widget.id] = { labels: [], values: [] };
@@ -338,6 +461,68 @@ export class SheetsView extends LitElement {
       delete this._dataCache[this.activeSheetId];
     }
     await this._loadWidgetData();
+  }
+
+  private _onExportYaml(): void {
+    if (!this._activeSheet) return;
+    const yaml = sheetToYaml(this._activeSheet);
+    const blob = new Blob([yaml], { type: 'text/yaml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this._activeSheet.name.replace(/\s+/g, '-').toLowerCase()}.yaml`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private _onExportJson(): void {
+    if (!this._activeSheet) return;
+    const json = sheetToJson(this._activeSheet);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this._activeSheet.name.replace(/\s+/g, '-').toLowerCase()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private _onImport(): void {
+    if (!this._fileInput) {
+      this._fileInput = document.createElement('input');
+      this._fileInput.type = 'file';
+      this._fileInput.accept = '.yaml,.yml,.json';
+      this._fileInput.style.display = 'none';
+      this._fileInput.addEventListener('change', () => this._handleFileImport());
+      document.body.appendChild(this._fileInput);
+    }
+    this._fileInput.value = '';
+    this._fileInput.click();
+  }
+
+  private async _handleFileImport(): Promise<void> {
+    const file = this._fileInput?.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      let sheet: Sheet;
+
+      if (file.name.endsWith('.json')) {
+        sheet = jsonToSheet(text);
+      } else {
+        sheet = yamlToSheet(text);
+      }
+
+      this.sheets = [...this.sheets, sheet];
+      this.activeSheetId = sheet.id;
+      this.sheetData = {};
+      this._persistSheets();
+      this._refreshWidgetData();
+    } catch (err) {
+      console.error('Failed to import file:', err);
+      alert('Failed to import file. Make sure it is valid YAML or JSON.');
+    }
   }
 
   private _renderToolbar(sheet: Sheet | undefined): TemplateResult | typeof nothing {
@@ -367,6 +552,14 @@ export class SheetsView extends LitElement {
     this._loadSheets();
   }
 
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    if (this._fileInput && this._fileInput.parentNode) {
+      this._fileInput.parentNode.removeChild(this._fileInput);
+      this._fileInput = null;
+    }
+  }
+
   override render(): TemplateResult {
     const sheet = this._activeSheet;
 
@@ -383,7 +576,14 @@ export class SheetsView extends LitElement {
       ></sheets-manager>
 
       <div class="sheets-toolbar-bar">
-        ${this._renderToolbar(sheet)}
+        ${this._renderToolbar(sheet)} ${sheet ? html`` : nothing}
+        <button class="btn-export-yaml" @click=${this._onExportYaml} title="Export as YAML">
+          Export YAML
+        </button>
+        <button class="btn-export-json" @click=${this._onExportJson} title="Export as JSON">
+          Export JSON
+        </button>
+        <button class="btn-import" @click=${this._onImport} title="Import YAML/JSON">Import</button>
         ${Object.keys(this.crossFilters).length
           ? html`
               <div class="cross-filters">

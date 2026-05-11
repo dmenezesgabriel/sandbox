@@ -1,9 +1,16 @@
-import { setWorldConstructor, setDefaultTimeout, BeforeAll, AfterAll, Before, After } from '@cucumber/cucumber';
+import {
+  After,
+  AfterAll,
+  Before,
+  BeforeAll,
+  setDefaultTimeout,
+  setWorldConstructor,
+} from '@cucumber/cucumber';
 
 setDefaultTimeout(30000);
-import { chromium, type Browser, type Page } from 'playwright';
-import { spawn, type ChildProcess } from 'child_process';
+import { type ChildProcess, spawn } from 'child_process';
 import path from 'path';
+import { type Browser, chromium, type Page } from 'playwright';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,8 +25,20 @@ export const TEST_SHEETS = [
     name: 'Sales Overview',
     type: 'dashboard',
     widgets: [
-      { id: 'w-chart-1', type: 'chart', title: 'Revenue by Region', query: 'show me sales by region', chartType: 'bar' },
-      { id: 'w-chart-2', type: 'chart', title: 'Monthly Trend', query: 'show me monthly sales trend', chartType: 'line' },
+      {
+        id: 'w-chart-1',
+        type: 'chart',
+        title: 'Revenue by Region',
+        query: 'show me sales by region',
+        chartType: 'bar',
+      },
+      {
+        id: 'w-chart-2',
+        type: 'chart',
+        title: 'Monthly Trend',
+        query: 'show me monthly sales trend',
+        chartType: 'line',
+      },
     ],
     layout: [
       { x: 16, y: 16, w: 400, h: 240 },
@@ -33,7 +52,13 @@ export const TEST_SHEETS = [
     name: 'Category Analysis',
     type: 'sheet',
     widgets: [
-      { id: 'w-chart-3', type: 'chart', title: 'Category Breakdown', query: 'show me sales by category', chartType: 'pie' },
+      {
+        id: 'w-chart-3',
+        type: 'chart',
+        title: 'Category Breakdown',
+        query: 'show me sales by category',
+        chartType: 'pie',
+      },
     ],
     layout: [{ x: 16, y: 16, w: 400, h: 300 }],
     createdAt: new Date().toISOString(),
@@ -54,7 +79,7 @@ export class BrowserWorld {
 
   async injectSheets(sheets: typeof TEST_SHEETS): Promise<void> {
     await this.page.evaluate((s) => {
-      localStorage.setItem('sheets', JSON.stringify(s));
+      localStorage.setItem('sheets', JSON.stringify({ version: 3, data: s }));
     }, sheets);
   }
 
@@ -67,9 +92,7 @@ export class BrowserWorld {
   }
 
   async hasNewSheetButton(): Promise<boolean> {
-    return this.page.evaluate(
-      () => !!document.querySelector('.btn-new-sheet'),
-    );
+    return this.page.evaluate(() => !!document.querySelector('.btn-new-sheet'));
   }
 
   async clickNewSheet(): Promise<void> {
@@ -123,32 +146,36 @@ export class BrowserWorld {
 
   async getChartInitLogs(): Promise<number> {
     return this.page.evaluate(() => {
-      const logs = (window as any).__chartInitLogs;
+      const logs = (window as unknown as { __chartInitLogs?: string[] }).__chartInitLogs;
       return Array.isArray(logs) ? logs.length : -1;
     });
   }
 
   async installLogInterceptor(): Promise<void> {
     await this.page.evaluate(() => {
-      (window as any).__chartInitLogs = [];
+      const w = window as unknown as { __chartInitLogs: string[] };
+      w.__chartInitLogs = [];
       const orig = console.log;
-      console.log = (...args: unknown[]) => {
-        const msg = String(args[0] ?? '');
+      console.log = (..._args: unknown[]) => {
+        const msg = String(_args[0] ?? '');
         if (msg.includes('[widget] initializing chart')) {
-          (window as any).__chartInitLogs.push(msg);
+          w.__chartInitLogs.push(msg);
         }
-        orig.apply(console, args);
+        orig.apply(console, _args);
       };
     });
   }
 
   async installAskSpy(): Promise<void> {
     await this.page.evaluate(() => {
-      (window as any).__askCallCount = 0;
-      const el = document.querySelector('sheets-view') as any;
+      const w = window as unknown as { __askCallCount: number };
+      w.__askCallCount = 0;
+      const el = document.querySelector('sheets-view') as unknown as {
+        _askEngine?: { ask: (...args: unknown[]) => Promise<unknown> };
+      };
       if (el && el._askEngine) {
-        el._askEngine.ask = async (...args: unknown[]) => {
-          (window as any).__askCallCount = ((window as any).__askCallCount || 0) + 1;
+        el._askEngine.ask = async (..._args: unknown[]) => {
+          w.__askCallCount = (w.__askCallCount || 0) + 1;
           return { rows: [{ label: 'Mock', value: 100 }], sql: 'SELECT 1', chartType: 'bar' };
         };
       }
@@ -158,7 +185,9 @@ export class BrowserWorld {
   async waitForDataCache(sheetId: string): Promise<void> {
     await this.page.waitForFunction(
       (id: string) => {
-        const el = document.querySelector('sheets-view') as any;
+        const el = document.querySelector('sheets-view') as unknown as {
+          _dataCache?: Record<string, unknown>;
+        };
         return el && el._dataCache && el._dataCache[id] !== undefined;
       },
       sheetId,
@@ -167,7 +196,9 @@ export class BrowserWorld {
   }
 
   async getAskCallCount(): Promise<number> {
-    return this.page.evaluate(() => (window as any).__askCallCount || 0);
+    return this.page.evaluate(
+      () => (window as unknown as { __askCallCount?: number }).__askCallCount || 0,
+    );
   }
 
   async waitForWidgets(): Promise<void> {
@@ -182,7 +213,12 @@ export class BrowserWorld {
 setWorldConstructor(BrowserWorld);
 
 BeforeAll(async () => {
-  server = spawn('npx', ['vite', '--port', String(PORT)], {
+  const npxPath =
+    process.platform === 'win32'
+      ? path.resolve(path.dirname(process.execPath), 'npx.cmd')
+      : path.resolve(path.dirname(process.execPath), 'npx');
+  // eslint-disable-next-line sonarjs/os-command
+  server = spawn(npxPath, ['vite', '--port', String(PORT)], {
     cwd: path.resolve(__dirname, '../../..'),
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: true,

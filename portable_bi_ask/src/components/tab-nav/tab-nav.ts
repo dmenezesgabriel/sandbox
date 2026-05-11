@@ -1,6 +1,6 @@
 import { html, LitElement, type TemplateResult } from 'lit';
 
-export type ActiveTab = 'dashboard' | 'askData' | 'sheets';
+export type ActiveTab = 'dashboard' | 'askData';
 
 export class TabNav extends LitElement {
   static override readonly properties = {
@@ -14,7 +14,9 @@ export class TabNav extends LitElement {
   }
 
   private _select(tab: ActiveTab): void {
-    this.dispatchEvent(new CustomEvent<ActiveTab>('tab-change', { detail: tab, bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent<ActiveTab>('tab-change', { detail: tab, bubbles: true, composed: true }),
+    );
   }
 
   override render(): TemplateResult {
@@ -31,12 +33,6 @@ export class TabNav extends LitElement {
           @click=${() => this._select('askData')}
         >
           Ask Data
-        </button>
-        <button
-          class="tab-button ${this.activeTab === 'sheets' ? 'active' : ''}"
-          @click=${() => this._select('sheets')}
-        >
-          Sheets
         </button>
       </nav>
     `;

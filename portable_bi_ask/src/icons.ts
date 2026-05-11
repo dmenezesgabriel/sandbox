@@ -2,10 +2,7 @@ import { html, type HTMLTemplateResult } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import type { IconNode, SVGProps } from 'lucide';
 
-export function icon(
-  iconNode: IconNode,
-  attrs: SVGProps = {},
-): HTMLTemplateResult {
+export function icon(iconNode: IconNode, attrs: SVGProps = {}): HTMLTemplateResult {
   const size = attrs.size ?? attrs.width ?? 24;
   const strokeWidth = attrs.strokeWidth ?? 2;
   const customClass = attrs.class ? ` ${String(attrs.class)}` : '';

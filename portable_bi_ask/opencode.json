@@ -4,9 +4,16 @@
     "paths": [".claude/skills"]
   },
   "mcp": {
-      "duckdb": {
+    "duckdb": {
       "command": "uvx",
-      "args": ["--python", "3.11", "mcp-server-motherduck", "--db-path", ":memory:", "--read-write"],
+      "args": [
+        "--python",
+        "3.11",
+        "mcp-server-motherduck",
+        "--db-path",
+        ":memory:",
+        "--read-write"
+      ],
       "enabled": true
     }
   }

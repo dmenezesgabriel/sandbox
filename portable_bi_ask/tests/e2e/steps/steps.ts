@@ -1,4 +1,4 @@
-import { Given, Then,When } from '@cucumber/cucumber';
+import { Given, Then, When } from '@cucumber/cucumber';
 import { strict as assert } from 'assert';
 
 import type { BrowserWorld } from './world.ts';
@@ -10,16 +10,8 @@ Given('the app is loaded', async function (this: BrowserWorld) {
   await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
 });
 
-Given('I navigate to the Sheets tab', async function (this: BrowserWorld) {
-  await this.page.click('button:has-text("Sheets")');
-  await this.page.waitForSelector('sheets-view', { timeout: 10000 });
-});
-
-When('there are no sheets', async function (this: BrowserWorld) {
-  await this.clearSheets();
-  await this.page.reload();
-  await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
-  await this.page.click('button:has-text("Sheets")');
+Given('I navigate to the Dashboard tab', async function (this: BrowserWorld) {
+  await this.page.click('button:has-text("Dashboard")');
   await this.page.waitForSelector('sheets-view', { timeout: 10000 });
 });
 
@@ -103,7 +95,7 @@ Given('a sheet exists with chart widgets', async function (this: BrowserWorld) {
   await this.page.reload();
   await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
   await this.installLogInterceptor();
-  await this.page.click('button:has-text("Sheets")');
+  await this.page.click('button:has-text("Dashboard")');
   await this.waitForWidgets();
   await this.waitForDataCache('sheet-a');
   await this.page.waitForTimeout(500);
@@ -168,7 +160,7 @@ Given('I am in edit mode with a selected widget', async function (this: BrowserW
   await this.page.reload();
   await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
   await this.installLogInterceptor();
-  await this.page.click('button:has-text("Sheets")');
+  await this.page.click('button:has-text("Dashboard")');
   await this.waitForWidgets();
   await this.clickEditToggle();
   await this.page.waitForTimeout(300);
@@ -232,7 +224,7 @@ Given('sheets exist with chart widgets on multiple sheets', async function (this
   ]);
   await this.page.reload();
   await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
-  await this.page.click('button:has-text("Sheets")');
+  await this.page.click('button:has-text("Dashboard")');
   await this.waitForWidgets();
   await this.waitForDataCache('sheet-a');
   await this.installAskSpy();

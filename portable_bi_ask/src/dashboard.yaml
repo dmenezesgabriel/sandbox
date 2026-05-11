@@ -188,13 +188,17 @@ filters:
     type: select
 
 kpis:
-  - title: Total Sales
+  - id: total-sales
+    title: Total Sales
     query: 'SELECT SUM(Sales) AS value FROM sales JOIN customer USING("Customer ID") WHERE --filter:Region--'
-  - title: Total Customers
+  - id: total-customers
+    title: Total Customers
     query: 'SELECT COUNT(DISTINCT "Customer ID") AS value FROM customer WHERE --filter:Region--'
-  - title: Categories
+  - id: categories
+    title: Categories
     query: 'SELECT COUNT(DISTINCT Category) AS value FROM product WHERE --filter:Category--'
-  - title: Top Region
+  - id: top-region
+    title: Top Region
     query: 'SELECT Region AS value FROM (SELECT Region, SUM(Sales) as s FROM sales JOIN customer USING("Customer ID") WHERE --filter:Region-- GROUP BY Region ORDER BY s DESC LIMIT 1)'
 
 charts:
@@ -235,3 +239,40 @@ tables:
       - Region
       - Category
       - Sales
+
+layout:
+  - id: total-sales
+    x: 0
+    y: 16
+    w: 306
+    h: 135
+  - id: total-customers
+    x: 306
+    y: 16
+    w: 306
+    h: 135
+  - id: categories
+    x: 612
+    y: 16
+    w: 306
+    h: 135
+  - id: top-region
+    x: 918
+    y: 16
+    w: 306
+    h: 135
+  - id: top10-bar
+    x: 0
+    y: 167
+    w: 804
+    h: 320
+  - id: region-pie
+    x: 820
+    y: 167
+    w: 404
+    h: 320
+  - id: combo-table
+    x: 0
+    y: 503
+    w: 1224
+    h: 320

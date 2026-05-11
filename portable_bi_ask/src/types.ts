@@ -52,9 +52,10 @@ export interface DashboardFilterConfig {
 }
 
 export interface KpiConfig {
+  id: string;
   title: string;
   query: string;
-  format?: (value: CellValue) => string;
+  format?: 'currency';
 }
 
 export interface ChartConfig {
@@ -71,7 +72,7 @@ export interface TableConfig {
   title: string;
   query: string;
   columns: string[];
-  columnFormats?: Record<string, (v: CellValue) => string>;
+  columnFormats?: Record<string, 'currency'>;
 }
 
 export interface DateProfile {
@@ -197,6 +198,7 @@ export interface DashboardConfig {
   kpis: KpiConfig[];
   charts: ChartConfig[];
   tables: TableConfig[];
+  layout?: Position[];
   relationships?: Relationship[];
 }
 
@@ -459,7 +461,17 @@ export type ValueFuse = Fuse<ValueItem>;
 export type FieldSearchIndexType = MiniSearch<{ id: string; role: FieldRole; text: string }>;
 
 export type WidgetType = 'chart' | 'table' | 'kpi' | 'text' | 'image' | 'filter';
-export type ChartType2 = 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter' | 'bubble' | 'histogram' | 'gauge' | 'funnel';
+export type ChartType2 =
+  | 'bar'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'donut'
+  | 'scatter'
+  | 'bubble'
+  | 'histogram'
+  | 'gauge'
+  | 'funnel';
 
 export interface Position {
   x: number;
@@ -473,14 +485,16 @@ export interface WidgetConfig {
   type: WidgetType;
   title: string;
   query?: string;
+  queryType?: 'nl' | 'sql';
   chartType?: ChartType2;
   columns?: string[];
-  columnFormats?: Record<string, (v: CellValue) => string>;
+  columnFormats?: Record<string, 'currency'>;
   kpiConfig?: KpiConfig;
   textContent?: string;
   filters?: DashboardFilterConfig[];
   crossFilterFields?: string[];
   options?: Record<string, unknown>;
+  backgroundColor?: string;
 }
 
 export interface Sheet {

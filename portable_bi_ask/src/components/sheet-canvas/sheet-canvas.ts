@@ -14,6 +14,7 @@ export class SheetCanvas extends LitElement {
     filters: { type: Object },
     selectedWidgetId: { type: String },
     editMode: { type: Boolean },
+    _canvasHeight: { state: true },
     _dragState: { state: true },
     _resizeState: { state: true },
     _dragOffset: { state: true },
@@ -25,6 +26,8 @@ export class SheetCanvas extends LitElement {
   filters: Filters;
   selectedWidgetId: string | null;
   editMode: boolean;
+  private _canvasHeight: number;
+  private _resizeObserver: ResizeObserver | null = null;
   private _dragState: {
     id: string;
     startX: number;
@@ -55,6 +58,7 @@ export class SheetCanvas extends LitElement {
     this.filters = {};
     this.selectedWidgetId = null;
     this.editMode = false;
+    this._canvasHeight = 400;
   }
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
@@ -244,7 +248,6 @@ export class SheetCanvas extends LitElement {
     const dx = e.clientX - this._resizeState.startX;
     const dy = e.clientY - this._resizeState.startY;
     const handle = this._resizeState.handle;
-    const colW = this._getColWidth();
 
     let newW = this._resizeState.startW;
     let newH = this._resizeState.startH;
@@ -252,17 +255,17 @@ export class SheetCanvas extends LitElement {
     let newY = this._resizeState.startTop;
 
     if (handle.includes('e')) {
-      newW = Math.max(colW * 2, this._resizeState.startW + dx);
+      newW = Math.max(20, this._resizeState.startW + dx);
     }
     if (handle.includes('s')) {
-      newH = Math.max(ROW_HEIGHT * 2, this._resizeState.startH + dy);
+      newH = Math.max(20, this._resizeState.startH + dy);
     }
     if (handle.includes('w')) {
-      newW = Math.max(colW * 2, this._resizeState.startW - dx);
+      newW = Math.max(20, this._resizeState.startW - dx);
       newX = this._resizeState.startLeft + this._resizeState.startW - newW;
     }
     if (handle.includes('n')) {
-      newH = Math.max(ROW_HEIGHT * 2, this._resizeState.startH - dy);
+      newH = Math.max(20, this._resizeState.startH - dy);
       newY = this._resizeState.startTop + this._resizeState.startH - newH;
     }
 
@@ -336,7 +339,43 @@ export class SheetCanvas extends LitElement {
     if (update.h !== undefined) layout.h = update.h;
   }
 
+  private _isOverlapping(
+    a: { x?: number; y?: number; w?: number; h?: number },
+    b: { x?: number; y?: number; w?: number; h?: number },
+  ): boolean {
+    const aRight = (a.x || 0) + (a.w || 0);
+    const aBottom = (a.y || 0) + (a.h || 0);
+    const bRight = (b.x || 0) + (b.w || 0);
+    const bBottom = (b.y || 0) + (b.h || 0);
+    return (
+      (a.x || 0) < bRight && aRight > (b.x || 0) && (a.y || 0) < bBottom && aBottom > (b.y || 0)
+    );
+  }
+
+  private _detectOverlaps(): void {
+    const layout = this.sheet.layout;
+    if (!layout?.length) return;
+    const warnings: string[] = [];
+    for (let i = 0; i < layout.length; i++) {
+      const a = layout[i];
+      if (!a) continue;
+      for (let j = i + 1; j < layout.length; j++) {
+        const b = layout[j];
+        if (!b) continue;
+        if (this._isOverlapping(a, b)) {
+          const aName = this.sheet.widgets[i]?.title || `widget #${i}`;
+          const bName = this.sheet.widgets[j]?.title || `widget #${j}`;
+          warnings.push(`"${aName}" overlaps "${bName}"`);
+        }
+      }
+    }
+    if (warnings.length) {
+      console.warn(`[canvas] Layout overlap detected:\n  ${warnings.join('\n  ')}`);
+    }
+  }
+
   private _emitLayoutChange(): void {
+    this._detectOverlaps();
     this.dispatchEvent(
       new CustomEvent('layout-change', {
         detail: { sheet: this.sheet },
@@ -352,10 +391,15 @@ export class SheetCanvas extends LitElement {
     this._boundMouseUp = this._onMouseUp.bind(this);
     window.addEventListener('mousemove', this._boundMouseMove);
     window.addEventListener('mouseup', this._boundMouseUp);
+    this._resizeObserver = new ResizeObserver(() => {
+      this._canvasHeight = this._computeCanvasHeight();
+    });
+    this._resizeObserver.observe(this.parentElement ?? document.body);
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    this._resizeObserver?.disconnect();
     if (this._rafId !== null) {
       cancelAnimationFrame(this._rafId);
     }
@@ -367,9 +411,27 @@ export class SheetCanvas extends LitElement {
     }
   }
 
+  override updated(changedProps: Map<string, unknown>): void {
+    if (changedProps.has('sheet')) {
+      this._canvasHeight = this._computeCanvasHeight();
+      this._detectOverlaps();
+    }
+  }
+
+  private _computeCanvasHeight(): number {
+    const padding = 56;
+    if (!this.sheet.layout?.length) return 400;
+    const maxBottom = Math.max(...this.sheet.layout.map((l) => (l.y || 0) + (l.h || 0)));
+    return Math.max(400, maxBottom + padding);
+  }
+
   override render(): TemplateResult {
     return html`
-      <div class="sheet-canvas ${this.editMode ? 'edit-mode' : ''}" @mousedown=${this._onMouseDown}>
+      <div
+        class="sheet-canvas ${this.editMode ? 'edit-mode' : ''}"
+        style="min-height: ${this._canvasHeight}px;"
+        @mousedown=${this._onMouseDown}
+      >
         ${this._renderGridLines()}
         ${this.sheet.widgets.map((widget) => {
           const widgetData = this.data[widget.id];

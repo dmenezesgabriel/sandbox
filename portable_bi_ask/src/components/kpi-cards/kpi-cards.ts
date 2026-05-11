@@ -23,7 +23,11 @@ export class KpiCards extends LitElement {
             <div class="kpi-card">
               <div class="kpi-title">${kpi.title}</div>
               <div class="kpi-value">
-                ${kpi.format ? kpi.format(this.results[i]) : this.results[i]}
+                ${kpi.format === 'currency'
+                  ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+                      Number(this.results[i]),
+                    )
+                  : this.results[i]}
               </div>
             </div>
           `,

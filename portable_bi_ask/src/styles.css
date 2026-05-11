@@ -880,6 +880,31 @@ details.sql-details li {
   box-shadow: 0 2px 8px rgb(45 106 143 / 30%);
 }
 
+.btn-import,
+.btn-export-yaml,
+.btn-export-json {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 500;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.btn-import:hover,
+.btn-export-yaml:hover,
+.btn-export-json:hover {
+  border-color: var(--color-accent-subtle);
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+  box-shadow: var(--shadow-sm);
+}
+
 .cross-filters {
   display: flex;
   align-items: center;
@@ -906,13 +931,13 @@ details.sql-details li {
 
 .sheet-canvas {
   position: relative;
-  min-height: 520px;
   background:
     radial-gradient(ellipse at 30% 20%, rgb(201 97 63 / 3%) 0%, transparent 60%), var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: 1.75rem;
-  overflow: auto;
+  overflow: hidden;
+  min-height: 400px;
   transition:
     border-color var(--transition-base),
     background var(--transition-base);
@@ -998,6 +1023,7 @@ details.sql-details li {
 
 .widget-wrapper {
   position: absolute;
+  overflow: visible;
   border: 2px solid transparent;
   transition:
     border-color var(--transition-fast),
@@ -1091,25 +1117,21 @@ details.sql-details li {
   cursor: nw-resize;
 }
 
-.widget {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
+app-widget {
   height: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
   transition:
     box-shadow var(--transition-base),
     transform var(--transition-fast);
-  border: 1px solid var(--color-border-light);
 }
 
-.widget:hover {
-  box-shadow: var(--shadow-md);
-}
-
-.widget-wrapper.selected .widget {
+.widget-wrapper.selected app-widget {
   box-shadow: 0 4px 24px rgb(201 97 63 / 12%);
 }
 
@@ -1149,6 +1171,24 @@ details.sql-details li {
 .widget-delete:hover {
   background: #fef2f2;
   color: var(--color-danger);
+}
+
+.widget-color-picker {
+  display: flex;
+  align-items: center;
+  padding: 0 0.3rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.widget-color-picker input[type='color'] {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background: none;
 }
 
 .widget-content {
