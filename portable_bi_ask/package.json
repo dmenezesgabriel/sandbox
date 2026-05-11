@@ -17,6 +17,7 @@
     "test:integration": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit",
     "test:e2e": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
     "test": "vitest run && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
+    "test:mutation": "stryker run",
     "prepare": "echo 'gitdir: ../.git' > .git && husky && git config core.hooksPath portable_bi_ask/.husky/_; R=$?; rm -f .git; exit $R"
   },
   "dependencies": {
@@ -33,6 +34,8 @@
     "@cucumber/cucumber": "^12.8.2",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.59.1",
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
     "@vitest/coverage-v8": "^4.1.5",
     "duckdb": "^1.4.4",
     "eslint": "^10.3.0",
