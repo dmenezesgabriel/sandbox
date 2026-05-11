@@ -17,7 +17,7 @@
     "test:integration": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit",
     "test:e2e": "node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
     "test": "vitest run tests/unit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/integration/features/**/*.feature' --import 'tests/integration/steps/**/*.ts' --format progress --force-exit && node --import tsx/esm node_modules/@cucumber/cucumber/bin/cucumber.js 'tests/e2e/features/**/*.feature' --import 'tests/e2e/steps/**/*.ts' --format progress --force-exit",
-    "prepare": "echo 'gitdir: ../.git' > .git && husky && git config core.hooksPath portable_bi_ask/.husky/_"
+    "prepare": "echo 'gitdir: ../.git' > .git && husky && git config core.hooksPath portable_bi_ask/.husky/_; R=$?; rm -f .git; exit $R"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "1.30.0",
