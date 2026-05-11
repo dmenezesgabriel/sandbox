@@ -1,12 +1,13 @@
-import { html, LitElement, nothing, type TemplateResult } from 'lit';
-import type { Sheet, WidgetConfig, CellValue, Filters, DashboardConfig } from '../../types';
-import { AskDataEngine } from '../../ask-data';
-import { duckDBManager } from '../../db';
-import { DASHBOARD_CONFIG } from '../../config';
-
 import '../sheets-manager';
 import '../sheet-canvas';
 import '../sheet-editor';
+
+import { html, LitElement, nothing, type TemplateResult } from 'lit';
+
+import { AskDataEngine } from '../../ask-data';
+import { DASHBOARD_CONFIG } from '../../config';
+import { duckDBManager } from '../../db';
+import type { CellValue, Filters, Sheet, WidgetConfig } from '../../types';
 
 export class SheetsView extends LitElement {
   static override readonly properties = {
@@ -25,15 +26,27 @@ export class SheetsView extends LitElement {
   activeSheetId: string | null;
   editMode: boolean;
   selectedWidgetId: string | null;
-  sheetData: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }>;
+  sheetData: Record<
+    string,
+    { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
+  >;
   filters: Filters;
   crossFilters: Record<string, CellValue[]>;
   private _editingWidget: WidgetConfig | null = null;
   private _showEditor: boolean = false;
   private readonly _askEngine: AskDataEngine;
-  private _dataCache: Record<string, Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }>> = {};
-  private _cachedFilterResult: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> | null = null;
-  private _cachedFilterSheetData: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> | null = null;
+  private _dataCache: Record<
+    string,
+    Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }>
+  > = {};
+  private _cachedFilterResult: Record<
+    string,
+    { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
+  > | null = null;
+  private _cachedFilterSheetData: Record<
+    string,
+    { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
+  > | null = null;
   private _cachedFilterCrossFilters: Record<string, CellValue[]> | null = null;
 
   constructor() {
@@ -53,7 +66,7 @@ export class SheetsView extends LitElement {
   }
 
   private get _activeSheet(): Sheet | undefined {
-    return this.sheets.find(s => s.id === this.activeSheetId);
+    return this.sheets.find((s) => s.id === this.activeSheetId);
   }
 
   private _onSheetSelect(e: CustomEvent<{ id: string }>): void {
@@ -89,7 +102,7 @@ export class SheetsView extends LitElement {
 
   private _onSheetDelete(e: CustomEvent<{ id: string }>): void {
     delete this._dataCache[e.detail.id];
-    this.sheets = this.sheets.filter(s => s.id !== e.detail.id);
+    this.sheets = this.sheets.filter((s) => s.id !== e.detail.id);
     if (this.activeSheetId === e.detail.id) {
       this.activeSheetId = this.sheets[0]?.id ?? null;
       this._syncSheetData();
@@ -102,7 +115,7 @@ export class SheetsView extends LitElement {
       ...JSON.parse(JSON.stringify(e.detail.sheet)),
       id: crypto.randomUUID(),
       name: `${e.detail.sheet.name} (Copy)`,
-      widgets: e.detail.sheet.widgets.map(w => ({ ...w, id: crypto.randomUUID() })),
+      widgets: e.detail.sheet.widgets.map((w) => ({ ...w, id: crypto.randomUUID() })),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -123,9 +136,9 @@ export class SheetsView extends LitElement {
 
   private _onWidgetDelete(e: CustomEvent<{ id: string }>): void {
     if (!this._activeSheet) return;
-    const widgets = this._activeSheet.widgets.filter(w => w.id !== e.detail.id);
-    const layout = this._activeSheet.layout.filter((_, i) =>
-      this._activeSheet!.widgets[i].id !== e.detail.id
+    const widgets = this._activeSheet.widgets.filter((w) => w.id !== e.detail.id);
+    const layout = this._activeSheet.layout.filter(
+      (_, i) => this._activeSheet!.widgets[i].id !== e.detail.id,
     );
     this._updateActiveSheet({ widgets, layout });
     this.selectedWidgetId = null;
@@ -142,7 +155,7 @@ export class SheetsView extends LitElement {
 
   private _onEditWidget(): void {
     if (!this._activeSheet || !this.selectedWidgetId) return;
-    const widget = this._activeSheet.widgets.find(w => w.id === this.selectedWidgetId);
+    const widget = this._activeSheet.widgets.find((w) => w.id === this.selectedWidgetId);
     if (widget) {
       this._editingWidget = widget;
       this._showEditor = true;
@@ -156,13 +169,16 @@ export class SheetsView extends LitElement {
     if (mode === 'add') {
       const colWidth = 280;
       const rowHeight = 40;
-      const layout = [...this._activeSheet.layout, { x: 16, y: 16, w: colWidth * 3, h: rowHeight * 6 }];
+      const layout = [
+        ...this._activeSheet.layout,
+        { x: 16, y: 16, w: colWidth * 3, h: rowHeight * 6 },
+      ];
       this._updateActiveSheet({
         widgets: [...this._activeSheet.widgets, widget],
         layout,
       });
     } else {
-      const widgets = this._activeSheet.widgets.map(w => w.id === widget.id ? widget : w);
+      const widgets = this._activeSheet.widgets.map((w) => (w.id === widget.id ? widget : w));
       this._updateActiveSheet({ widgets });
     }
 
@@ -195,16 +211,24 @@ export class SheetsView extends LitElement {
   }
 
   private _onCrossFilterClear(field: string): void {
-    const { [field]: _, ...rest } = this.crossFilters;
+    const rest: Record<string, CellValue[]> = {};
+    for (const key of Object.keys(this.crossFilters)) {
+      if (key !== field) rest[key] = this.crossFilters[key];
+    }
     this.crossFilters = rest;
   }
 
-  private _onCrossFilterEvent(e: CustomEvent<{ widgetId: string; field: string; value: CellValue }>): void {
+  private _onCrossFilterEvent(
+    e: CustomEvent<{ widgetId: string; field: string; value: CellValue }>,
+  ): void {
     const { field, value } = e.detail;
     this._onCrossFilter(field, value);
   }
 
-  private _getFilteredData(): Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> {
+  private _getFilteredData(): Record<
+    string,
+    { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
+  > {
     if (
       this._cachedFilterSheetData === this.sheetData &&
       this._cachedFilterCrossFilters === this.crossFilters
@@ -212,25 +236,27 @@ export class SheetsView extends LitElement {
       return this._cachedFilterResult!;
     }
 
-    const result: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> = {};
+    const result: Record<
+      string,
+      { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
+    > = {};
 
     for (const [widgetId, data] of Object.entries(this.sheetData)) {
       let rows = data.rows ?? [];
 
       if (Object.keys(this.crossFilters).length) {
-        const filterField = this.crossFilters._field ?? 'label';
-        const filterValues = this.crossFilters._values ?? [];
+        const filterValues = Object.values(this.crossFilters).flat() as string[];
 
         if (filterValues.length) {
-          rows = rows.filter(row => {
+          rows = rows.filter((row) => {
             const label = (row.label ?? row.name) as string;
             return filterValues.includes(label);
           });
         }
       }
 
-      const filteredValues = rows.map(r => r.value as number);
-      const filteredLabels = rows.map(r => String(r.label ?? r.name ?? ''));
+      const filteredValues = rows.map((r) => r.value as number);
+      const filteredLabels = rows.map((r) => String(r.label ?? r.name ?? ''));
 
       result[widgetId] = {
         labels: filteredLabels,
@@ -246,10 +272,8 @@ export class SheetsView extends LitElement {
   }
 
   private _updateActiveSheet(update: Partial<Sheet>): void {
-    this.sheets = this.sheets.map(s =>
-      s.id === this.activeSheetId
-        ? { ...s, ...update, updatedAt: new Date().toISOString() }
-        : s
+    this.sheets = this.sheets.map((s) =>
+      s.id === this.activeSheetId ? { ...s, ...update, updatedAt: new Date().toISOString() } : s,
     );
   }
 
@@ -274,15 +298,18 @@ export class SheetsView extends LitElement {
     if (!this._activeSheet) return;
     const loadingSheetId = this.activeSheetId;
 
-    const newData: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }> = {};
+    const newData: Record<
+      string,
+      { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
+    > = {};
 
     for (const widget of this._activeSheet.widgets) {
       if (widget.query) {
         try {
           const result = await this._askEngine.ask(widget.query, {});
           if ('rows' in result && 'sql' in result) {
-            const labels = result.rows.map(r => String(r.label ?? r.name ?? ''));
-            const values = result.rows.map(r => Number(r.value ?? r.sales ?? r.count ?? 0));
+            const labels = result.rows.map((r) => String(r.label ?? r.name ?? ''));
+            const values = result.rows.map((r) => Number(r.value ?? r.sales ?? r.count ?? 0));
             newData[widget.id] = { labels, values, rows: result.rows };
           }
         } catch (err) {
@@ -293,7 +320,9 @@ export class SheetsView extends LitElement {
     }
 
     if (this.activeSheetId !== loadingSheetId) {
-      console.log(`[sheets] data load stale (sheet changed), discarding results for "${loadingSheetId}"`);
+      console.log(
+        `[sheets] data load stale (sheet changed), discarding results for "${loadingSheetId}"`,
+      );
       return;
     }
 
@@ -309,6 +338,28 @@ export class SheetsView extends LitElement {
       delete this._dataCache[this.activeSheetId];
     }
     await this._loadWidgetData();
+  }
+
+  private _renderToolbar(sheet: Sheet | undefined): TemplateResult | typeof nothing {
+    if (!this.editMode || !sheet) return nothing;
+    return html`
+      <button class="btn-add-widget" @click=${this._onAddWidget}>+ Add Widget</button>
+      ${this.selectedWidgetId
+        ? html` <button class="btn-edit-widget" @click=${this._onEditWidget}>Edit Widget</button> `
+        : nothing}
+    `;
+  }
+
+  private _renderEditor(): TemplateResult | typeof nothing {
+    if (!this._showEditor) return nothing;
+    return html`
+      <sheet-editor
+        .widget=${this._editingWidget}
+        .mode=${this._editingWidget ? 'edit' : 'add'}
+        @widget-save=${this._onWidgetSave}
+        @editor-cancel=${this._onEditorCancel}
+      ></sheet-editor>
+    `;
   }
 
   override connectedCallback(): void {
@@ -332,23 +383,22 @@ export class SheetsView extends LitElement {
       ></sheets-manager>
 
       <div class="sheets-toolbar-bar">
-        ${this.editMode && sheet ? html`
-          <button class="btn-add-widget" @click=${this._onAddWidget}>+ Add Widget</button>
-          ${this.selectedWidgetId ? html`
-            <button class="btn-edit-widget" @click=${this._onEditWidget}>Edit Widget</button>
-          ` : nothing}
-        ` : nothing}
-        ${Object.keys(this.crossFilters).length ? html`
-          <div class="cross-filters">
-            <span>Filters:</span>
-            ${Object.entries(this.crossFilters).map(([field, values]) => html`
-              <span class="cross-filter-tag">
-                ${field}: ${values.join(', ')}
-                <button @click=${() => this._onCrossFilterClear(field)}>✕</button>
-              </span>
-            `)}
-          </div>
-        ` : nothing}
+        ${this._renderToolbar(sheet)}
+        ${Object.keys(this.crossFilters).length
+          ? html`
+              <div class="cross-filters">
+                <span>Filters:</span>
+                ${Object.entries(this.crossFilters).map(
+                  ([field, values]) => html`
+                    <span class="cross-filter-tag">
+                      ${field}: ${values.join(', ')}
+                      <button @click=${() => this._onCrossFilterClear(field)}>✕</button>
+                    </span>
+                  `,
+                )}
+              </div>
+            `
+          : nothing}
       </div>
 
       <sheet-canvas
@@ -363,14 +413,7 @@ export class SheetsView extends LitElement {
         @cross-filter=${this._onCrossFilterEvent}
       ></sheet-canvas>
 
-      ${this._showEditor ? html`
-        <sheet-editor
-          .widget=${this._editingWidget}
-          .mode=${this._editingWidget ? 'edit' : 'add'}
-          @widget-save=${this._onWidgetSave}
-          @editor-cancel=${this._onEditorCancel}
-        ></sheet-editor>
-      ` : nothing}
+      ${this._renderEditor()}
     `;
   }
 }

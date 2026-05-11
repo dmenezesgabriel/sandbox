@@ -1,5 +1,5 @@
 import type { AskIntent, CatalogField, DataRow, ResultShape } from './types';
-import { formatValue, norm } from './utils';
+import { formatValue } from './utils';
 
 export interface NarrativeConfig {
   maxNarratives: number;
@@ -38,7 +38,7 @@ export class NarrativeGenerator {
     rows: DataRow[],
     intent: AskIntent,
     shape: ResultShape,
-    metricField?: CatalogField | null
+    metricField?: CatalogField | null,
   ): NarrativeResult {
     if (!rows?.length) {
       return {
@@ -98,51 +98,68 @@ export class NarrativeGenerator {
     );
   }
 
-private analyzeTimeSeries(rows: DataRow[], intent: AskIntent, metricField?: CatalogField | null): Narrative[] {
+  private analyzeTimeSeries(
+    rows: DataRow[],
+    _intent: AskIntent,
+    _metricField?: CatalogField | null,
+  ): Narrative[] {
     const narratives: Narrative[] = [];
     const valid = rows.filter((r) => this.hasNumericValue(r.value));
 
     if (valid.length < this.config.trendMinDataPoints) return narratives;
 
-    const metricFormat = metricField?.format;
-
     const changes = this.calculatePeriodChanges(valid);
-    if (changes.length > 0) {
-      const avgChange = changes.reduce((a, b) => a + b, 0) / changes.length;
-      const consistentDirection = changes.every((c) => (avgChange >= 0 ? c >= 0 : c <= 0));
+    if (changes.length === 0) return narratives;
 
-      if (consistentDirection && Math.abs(avgChange) > 0.05) {
-        const direction = avgChange >= 0 ? 'upward' : 'downward';
-        const pct = Math.abs(avgChange);
-        narratives.push({
-          type: 'trend',
-          title: `Consistent ${direction} movement`,
-          text: `The metric shows consistent ${direction} movement with an average change of ${formatValue(pct, 'percent')} between periods.`,
-          importance: 9,
-          details: { avgChange, direction, periodCount: valid.length },
-        });
-      }
-
-      if (changes.length >= 2) {
-        const recentTrend = this.calculateRecentTrend(valid);
-        if (recentTrend !== null) {
-          const trendDirection = recentTrend >= 0 ? 'accelerating' : 'decelerating';
-          narratives.push({
-            type: 'trend',
-            title: `Recent trend ${trendDirection}`,
-            text: `The recent data points suggest the trend is ${trendDirection}. ${
-              recentTrend >= 0
-                ? 'Each subsequent period shows higher values.'
-                : 'Each subsequent period shows lower values.'
-            }`,
-            importance: 8,
-            details: { recentTrend, trendDirection },
-          });
-        }
-      }
-    }
+    this.addConsistentTrendNarrative(narratives, changes, valid);
+    this.addRecentTrendNarrative(narratives, changes, valid);
 
     return narratives;
+  }
+
+  private addConsistentTrendNarrative(
+    narratives: Narrative[],
+    changes: number[],
+    valid: DataRow[],
+  ): void {
+    const avgChange = changes.reduce((a, b) => a + b, 0) / changes.length;
+    const consistentDirection = changes.every((c) => (avgChange >= 0 ? c >= 0 : c <= 0));
+
+    if (!consistentDirection || Math.abs(avgChange) <= 0.05) return;
+
+    const direction = avgChange >= 0 ? 'upward' : 'downward';
+    const pct = Math.abs(avgChange);
+    narratives.push({
+      type: 'trend',
+      title: `Consistent ${direction} movement`,
+      text: `The metric shows consistent ${direction} movement with an average change of ${formatValue(pct, 'percent')} between periods.`,
+      importance: 9,
+      details: { avgChange, direction, periodCount: valid.length },
+    });
+  }
+
+  private addRecentTrendNarrative(
+    narratives: Narrative[],
+    changes: number[],
+    valid: DataRow[],
+  ): void {
+    if (changes.length < 2) return;
+
+    const recentTrend = this.calculateRecentTrend(valid);
+    if (recentTrend === null) return;
+
+    const trendDirection = recentTrend >= 0 ? 'accelerating' : 'decelerating';
+    narratives.push({
+      type: 'trend',
+      title: `Recent trend ${trendDirection}`,
+      text: `The recent data points suggest the trend is ${trendDirection}. ${
+        recentTrend >= 0
+          ? 'Each subsequent period shows higher values.'
+          : 'Each subsequent period shows lower values.'
+      }`,
+      importance: 8,
+      details: { recentTrend, trendDirection },
+    });
   }
 
   private calculatePeriodChanges(rows: DataRow[]): number[] {
@@ -160,7 +177,7 @@ private analyzeTimeSeries(rows: DataRow[], intent: AskIntent, metricField?: Cata
   private calculateRecentTrend(rows: DataRow[]): number | null {
     if (rows.length < 3) return null;
 
-    const lastThird = rows.slice(Math.floor(rows.length * 2 / 3));
+    const lastThird = rows.slice(Math.floor((rows.length * 2) / 3));
     const firstThird = rows.slice(0, Math.floor(rows.length / 3));
 
     const avgLast = firstThird.reduce((s, r) => s + Number(r.value), 0) / firstThird.length;
@@ -171,7 +188,7 @@ private analyzeTimeSeries(rows: DataRow[], intent: AskIntent, metricField?: Cata
     return (avgLast - avgFirst) / Math.abs(avgFirst);
   }
 
-private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null): Narrative[] {
+  private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null): Narrative[] {
     const narratives: Narrative[] = [];
     const valid = rows.filter((r) => this.hasNumericValue(r.value));
     if (valid.length < 2) return narratives;
@@ -183,7 +200,8 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
     const pctChange = first !== 0 ? totalChange / Math.abs(first) : 0;
 
     const direction = totalChange >= 0 ? 'increase' : 'decrease';
-    const pctStr = Math.abs(pctChange) > 0.01 ? ` (${formatValue(Math.abs(pctChange), 'percent')})` : '';
+    const pctStr =
+      Math.abs(pctChange) > 0.01 ? ` (${formatValue(Math.abs(pctChange), 'percent')})` : '';
 
     narratives.push({
       type: 'trend',
@@ -196,7 +214,11 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
     return narratives;
   }
 
-  private analyzeDistribution(rows: DataRow[], intent: AskIntent, metricField?: CatalogField | null): Narrative[] {
+  private analyzeDistribution(
+    rows: DataRow[],
+    _intent: AskIntent,
+    _metricField?: CatalogField | null,
+  ): Narrative[] {
     const narratives: Narrative[] = [];
     const valid = rows.filter((r) => this.hasNumericValue(r.value));
     if (valid.length < 3) return narratives;
@@ -205,7 +227,8 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
     const total = values.reduce((a, b) => a + b, 0);
 
     const sorted = [...values].sort((a, b) => b - a);
-    const top3Share = sorted.slice(0, Math.min(3, sorted.length)).reduce((a, b) => a + b, 0) / total;
+    const top3Share =
+      sorted.slice(0, Math.min(3, sorted.length)).reduce((a, b) => a + b, 0) / total;
 
     if (top3Share > 0.6) {
       const labels = valid
@@ -237,7 +260,7 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
     return narratives;
   }
 
-  private detectOutliers(rows: DataRow[], metricField?: CatalogField | null): Narrative[] {
+  private detectOutliers(rows: DataRow[], _metricField?: CatalogField | null): Narrative[] {
     const narratives: Narrative[] = [];
     const valid = rows.filter((r) => this.hasNumericValue(r.value));
     if (valid.length < 4) return narratives;
@@ -256,26 +279,46 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
     });
 
     if (outliers.length > 0) {
-      const highOutliers = outliers.filter((o) => Number(o.value) > mean);
-      const lowOutliers = outliers.filter((o) => Number(o.value) < mean);
-      const outlierType = highOutliers.length > lowOutliers.length ? 'high' : 
-                         lowOutliers.length > highOutliers.length ? 'low' : 'mixed';
-      const outlierLabels = outliers.slice(0, 3).map((r) => String(r.label)).join(', ');
-      const metricFormat = metricField?.format;
-
-      narratives.push({
-        type: 'outlier',
-        title: `${outlierType === 'high' ? 'High' : outlierType === 'low' ? 'Low' : 'Mixed'} outliers detected`,
-        text: `${outliers.length} group(s) stand out as ${
-          outlierType === 'mixed' ? 'significantly different from' : 
-          outlierType === 'high' ? 'significantly above' : 'significantly below'
-        } the average: ${outlierLabels}.`,
-        importance: 9,
-        details: { outlierCount: outliers.length, outlierType, outlierLabels },
-      });
+      this.addOutlierNarrative(narratives, outliers, mean);
     }
 
     return narratives;
+  }
+
+  private addOutlierNarrative(narratives: Narrative[], outliers: DataRow[], mean: number): void {
+    const highOutliers = outliers.filter((o) => Number(o.value) > mean);
+    const lowOutliers = outliers.filter((o) => Number(o.value) < mean);
+    const outlierType = this.classifyOutlierType(highOutliers.length, lowOutliers.length);
+    const outlierLabels = outliers
+      .slice(0, 3)
+      .map((r) => String(r.label))
+      .join(', ');
+
+    narratives.push({
+      type: 'outlier',
+      title: `${this.outlierTitle(outlierType)} outliers detected`,
+      text: `${outliers.length} group(s) stand out as ${this.outlierDescription(outlierType)} the average: ${outlierLabels}.`,
+      importance: 9,
+      details: { outlierCount: outliers.length, outlierType, outlierLabels },
+    });
+  }
+
+  private classifyOutlierType(highCount: number, lowCount: number): string {
+    if (highCount > lowCount) return 'high';
+    if (lowCount > highCount) return 'low';
+    return 'mixed';
+  }
+
+  private outlierDescription(outlierType: string): string {
+    if (outlierType === 'mixed') return 'significantly different from';
+    if (outlierType === 'high') return 'significantly above';
+    return 'significantly below';
+  }
+
+  private outlierTitle(outlierType: string): string {
+    if (outlierType === 'high') return 'High';
+    if (outlierType === 'low') return 'Low';
+    return 'Mixed';
   }
 
   private analyzeExtremes(rows: DataRow[], metricField?: CatalogField | null): Narrative[] {
@@ -284,7 +327,7 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
     if (valid.length === 0) return narratives;
 
     const hasLabels = valid.some((r) => r.label !== undefined && r.label !== null);
-    
+
     const sorted = [...valid].sort((a, b) => Number(b.value) - Number(a.value));
     const top = sorted[0];
     const bottom = sorted[sorted.length - 1];
@@ -336,7 +379,11 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
     return intent.analysisType === 'comparison' || intent.shareValues?.length !== undefined;
   }
 
-  private analyzeComparisons(rows: DataRow[], intent: AskIntent, metricField?: CatalogField | null): Narrative[] {
+  private analyzeComparisons(
+    rows: DataRow[],
+    intent: AskIntent,
+    _metricField?: CatalogField | null,
+  ): Narrative[] {
     const narratives: Narrative[] = [];
 
     if (intent.analysisType === 'comparison' && rows.length >= 2) {
@@ -379,10 +426,8 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
     if (valid.length < 5) return narratives;
 
     const values = valid.map((r) => Number(r.value));
-    const sortedAsc = [...values].sort((a, b) => a - b);
     const sortedDesc = [...values].sort((a, b) => b - a);
 
-    const isSortedAsc = values.every((v, i) => i === 0 || v >= sortedAsc[i]);
     const isSortedDesc = values.every((v, i) => i === 0 || v <= sortedDesc[i]);
 
     if (isSortedDesc) {
@@ -421,7 +466,11 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
     return narratives;
   }
 
-  private generateSummary(narratives: Narrative[], intent: AskIntent, metricField?: CatalogField | null): string {
+  private generateSummary(
+    narratives: Narrative[],
+    intent: AskIntent,
+    metricField?: CatalogField | null,
+  ): string {
     if (narratives.length === 0) {
       return 'The data shows no particularly notable patterns or trends.';
     }
@@ -454,7 +503,9 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
       return 'No significant insights detected in this dataset.';
     }
 
-    const highPriority = narratives.filter((n) => n.importance >= 8 && n.text && !n.text.includes('undefined'));
+    const highPriority = narratives.filter(
+      (n) => n.importance >= 8 && n.text && !n.text.includes('undefined'),
+    );
     if (highPriority.length > 0) {
       return highPriority[0].text;
     }
@@ -473,7 +524,6 @@ private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null
 
   generateNaturalLanguageQuestion(summary: string, intent: AskIntent): string {
     const question = intent.question || '';
-    const dimensionLabel = intent.dimensions?.[0]?.label || 'breakdown';
 
     const verb = intent.analysisType === 'trend' ? 'over time' : 'by category';
 
@@ -494,7 +544,7 @@ export class QuestionNarrativeGenerator {
     rows: DataRow[],
     intent: AskIntent,
     shape: ResultShape,
-    metricField?: CatalogField | null
+    metricField?: CatalogField | null,
   ): Promise<NarrativeResult> {
     return this.narrativeGenerator.generateNarratives(rows, intent, shape, metricField);
   }
@@ -502,7 +552,7 @@ export class QuestionNarrativeGenerator {
   generateSimpleNarrative(
     rows: DataRow[],
     intent: AskIntent,
-    metricField?: CatalogField | null
+    metricField?: CatalogField | null,
   ): string {
     if (!rows?.length) return 'No data available.';
 

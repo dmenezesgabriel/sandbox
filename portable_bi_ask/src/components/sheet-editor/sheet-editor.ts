@@ -1,5 +1,6 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
-import type { WidgetConfig, ChartType2, WidgetType } from '../../types';
+
+import type { ChartType2, WidgetConfig, WidgetType } from '../../types';
 
 interface WidgetFormData {
   id: string;
@@ -62,7 +63,7 @@ export class SheetEditor extends LitElement {
   }
 
   private _updateForm(field: keyof WidgetFormData, value: string): void {
-    (this._form as any)[field] = value;
+    (this._form as unknown as Record<string, string>)[field] = value;
     this.requestUpdate();
   }
 
@@ -76,15 +77,53 @@ export class SheetEditor extends LitElement {
       textContent: this._form.type === 'text' ? this._form.textContent : undefined,
     };
 
-    this.dispatchEvent(new CustomEvent('widget-save', {
-      detail: { widget, mode: this.mode },
-      bubbles: true,
-      composed: true,
-    }));
+    this.dispatchEvent(
+      new CustomEvent('widget-save', {
+        detail: { widget, mode: this.mode },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private _onCancel(): void {
     this.dispatchEvent(new CustomEvent('editor-cancel', { bubbles: true, composed: true }));
+  }
+
+  private _renderChartTypeSelect(): TemplateResult | typeof nothing {
+    if (this._form.type !== 'chart') return nothing;
+    return html`
+      <div class="form-group">
+        <label>Chart Type</label>
+        <select
+          @change=${(e: Event) =>
+            this._updateForm('chartType', (e.target as HTMLSelectElement).value)}
+        >
+          <option value="bar" ?selected=${this._form.chartType === 'bar'}>Bar</option>
+          <option value="line" ?selected=${this._form.chartType === 'line'}>Line</option>
+          <option value="area" ?selected=${this._form.chartType === 'area'}>Area</option>
+          <option value="pie" ?selected=${this._form.chartType === 'pie'}>Pie</option>
+          <option value="donut" ?selected=${this._form.chartType === 'donut'}>Donut</option>
+          <option value="scatter" ?selected=${this._form.chartType === 'scatter'}>Scatter</option>
+        </select>
+      </div>
+    `;
+  }
+
+  private _renderTextContent(): TemplateResult | typeof nothing {
+    if (this._form.type !== 'text') return nothing;
+    return html`
+      <div class="form-group">
+        <label>Content</label>
+        <textarea
+          .value=${this._form.textContent}
+          @input=${(e: Event) =>
+            this._updateForm('textContent', (e.target as HTMLTextAreaElement).value)}
+          placeholder="Enter text content..."
+          rows="6"
+        ></textarea>
+      </div>
+    `;
   }
 
   override render(): TemplateResult {
@@ -95,74 +134,68 @@ export class SheetEditor extends LitElement {
         </div>
 
         <div class="editor-tabs">
-          <button class="${this._activeSection === 'general' ? 'active' : ''}" @click=${() => { this._activeSection = 'general'; }}>
+          <button
+            class="${this._activeSection === 'general' ? 'active' : ''}"
+            @click=${() => {
+              this._activeSection = 'general';
+            }}
+          >
             General
           </button>
-          <button class="${this._activeSection === 'data' ? 'active' : ''}" @click=${() => { this._activeSection = 'data'; }}>
+          <button
+            class="${this._activeSection === 'data' ? 'active' : ''}"
+            @click=${() => {
+              this._activeSection = 'data';
+            }}
+          >
             Data
           </button>
         </div>
 
         <div class="editor-body">
-          ${this._activeSection === 'general' ? html`
-            <div class="form-group">
-              <label>Widget Type</label>
-              <select @change=${(e: Event) => this._updateForm('type', (e.target as HTMLSelectElement).value)}>
-                <option value="chart" ?selected=${this._form.type === 'chart'}>Chart</option>
-                <option value="table" ?selected=${this._form.type === 'table'}>Table</option>
-                <option value="kpi" ?selected=${this._form.type === 'kpi'}>KPI Card</option>
-                <option value="text" ?selected=${this._form.type === 'text'}>Text Box</option>
-              </select>
-            </div>
+          ${this._activeSection === 'general'
+            ? html`
+                <div class="form-group">
+                  <label>Widget Type</label>
+                  <select
+                    @change=${(e: Event) =>
+                      this._updateForm('type', (e.target as HTMLSelectElement).value)}
+                  >
+                    <option value="chart" ?selected=${this._form.type === 'chart'}>Chart</option>
+                    <option value="table" ?selected=${this._form.type === 'table'}>Table</option>
+                    <option value="kpi" ?selected=${this._form.type === 'kpi'}>KPI Card</option>
+                    <option value="text" ?selected=${this._form.type === 'text'}>Text Box</option>
+                  </select>
+                </div>
 
-            <div class="form-group">
-              <label>Title</label>
-              <input
-                type="text"
-                .value=${this._form.title}
-                @input=${(e: Event) => this._updateForm('title', (e.target as HTMLInputElement).value)}
-                placeholder="Widget title"
-              />
-            </div>
+                <div class="form-group">
+                  <label>Title</label>
+                  <input
+                    type="text"
+                    .value=${this._form.title}
+                    @input=${(e: Event) =>
+                      this._updateForm('title', (e.target as HTMLInputElement).value)}
+                    placeholder="Widget title"
+                  />
+                </div>
 
-            ${this._form.type === 'chart' ? html`
-              <div class="form-group">
-                <label>Chart Type</label>
-                <select @change=${(e: Event) => this._updateForm('chartType', (e.target as HTMLSelectElement).value)}>
-                  <option value="bar" ?selected=${this._form.chartType === 'bar'}>Bar</option>
-                  <option value="line" ?selected=${this._form.chartType === 'line'}>Line</option>
-                  <option value="area" ?selected=${this._form.chartType === 'area'}>Area</option>
-                  <option value="pie" ?selected=${this._form.chartType === 'pie'}>Pie</option>
-                  <option value="donut" ?selected=${this._form.chartType === 'donut'}>Donut</option>
-                  <option value="scatter" ?selected=${this._form.chartType === 'scatter'}>Scatter</option>
-                </select>
-              </div>
-            ` : nothing}
-
-            ${this._form.type === 'text' ? html`
-              <div class="form-group">
-                <label>Content</label>
-                <textarea
-                  .value=${this._form.textContent}
-                  @input=${(e: Event) => this._updateForm('textContent', (e.target as HTMLTextAreaElement).value)}
-                  placeholder="Enter text content..."
-                  rows="6"
-                ></textarea>
-              </div>
-            ` : nothing}
-          ` : nothing}
-
-          ${this._activeSection === 'data' ? html`
-            <div class="form-group">
-              <label>Query (Natural Language or SQL)</label>
-              <textarea
-                .value=${this._form.query}
-                @input=${(e: Event) => this._updateForm('query', (e.target as HTMLTextAreaElement).value)}
-                placeholder="e.g., sales by region or SELECT region, SUM(sales)..."
-                rows="4"
-              ></textarea>
-            </div>
-          ` : nothing}
+                ${this._renderChartTypeSelect()} ${this._renderTextContent()}
+              `
+            : nothing}
+          ${this._activeSection === 'data'
+            ? html`
+                <div class="form-group">
+                  <label>Query (Natural Language or SQL)</label>
+                  <textarea
+                    .value=${this._form.query}
+                    @input=${(e: Event) =>
+                      this._updateForm('query', (e.target as HTMLTextAreaElement).value)}
+                    placeholder="e.g., sales by region or SELECT region, SUM(sales)..."
+                    rows="4"
+                  ></textarea>
+                </div>
+              `
+            : nothing}
         </div>
 
         <div class="editor-actions">

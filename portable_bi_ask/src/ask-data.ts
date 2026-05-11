@@ -3,6 +3,7 @@ import * as chronoPt from 'chrono-node/pt';
 import Fuse from 'fuse.js';
 import MiniSearch from 'minisearch';
 
+import { NarrativeGenerator, type NarrativeResult } from './narrative-generator';
 import {
   ChartDecisionTree,
   ConfidenceScorer,
@@ -10,6 +11,7 @@ import {
   ResultShapeAnalyzer,
   ResultValidator,
 } from './result-analysis';
+import { SemanticModelingEngine } from './semantic-modeling';
 import type {
   CatalogField,
   DateRange,
@@ -49,12 +51,13 @@ import {
   startOfYear,
   toRows,
 } from './utils';
-import { SemanticModelingEngine } from './semantic-modeling';
-import { NarrativeGenerator, type Narrative, type NarrativeResult } from './narrative-generator';
 
 export class SemanticFieldMatcher {
   config: SemanticMatchingConfig;
-  helpers: { displayLabel?: (field: CatalogField) => string; localizedTerms?: (field: CatalogField) => string[] };
+  helpers: {
+    displayLabel?: (field: CatalogField) => string;
+    localizedTerms?: (field: CatalogField) => string[];
+  };
   enabled: boolean;
   model: string;
   dtype: string;
@@ -67,7 +70,13 @@ export class SemanticFieldMatcher {
   loading: Promise<boolean> | null;
   queryCache: Map<string, unknown>;
 
-  constructor(config: SemanticMatchingConfig = {}, helpers: { displayLabel?: (field: CatalogField) => string; localizedTerms?: (field: CatalogField) => string[] } = {}) {
+  constructor(
+    config: SemanticMatchingConfig = {},
+    helpers: {
+      displayLabel?: (field: CatalogField) => string;
+      localizedTerms?: (field: CatalogField) => string[];
+    } = {},
+  ) {
     this.config = config;
     this.helpers = helpers;
     this.enabled = config.enabled !== false;
@@ -92,7 +101,13 @@ export class SemanticFieldMatcher {
     if (!embedding) return null;
     const scored = this.index
       .filter((item) => roles.includes(item.field.role))
-      .map((item) => ({ ...item, score: cosineSimilarity(embedding as ArrayLike<number>, item.embedding as ArrayLike<number>) }))
+      .map((item) => ({
+        ...item,
+        score: cosineSimilarity(
+          embedding as ArrayLike<number>,
+          item.embedding as ArrayLike<number>,
+        ),
+      }))
       .sort((a, b) => b.score - a.score);
     const best = scored[0];
     if (!best || best.score < this.minScore) return null;
@@ -119,7 +134,18 @@ export class SemanticFieldMatcher {
     try {
       const { pipeline, env, LogLevel } = await import('@huggingface/transformers');
       env.logLevel = LogLevel.ERROR;
-      this.extractor = await pipeline('feature-extraction', this.model, { dtype: this.dtype as 'q4' | 'auto' | 'fp32' | 'fp16' | 'q8' | 'int8' | 'uint8' | 'bnb4' | 'q4f16' });
+      this.extractor = await pipeline('feature-extraction', this.model, {
+        dtype: this.dtype as
+          | 'q4'
+          | 'auto'
+          | 'fp32'
+          | 'fp16'
+          | 'q8'
+          | 'int8'
+          | 'uint8'
+          | 'bnb4'
+          | 'q4f16',
+      });
       const texts = catalog.map((field) => this.fieldText(field));
       const embeddings = await this.embedBatch(texts);
       this.index = catalog
@@ -165,7 +191,9 @@ export class SemanticFieldMatcher {
     const vectors: unknown[] = [];
     for (let i = 0; i < texts.length; i += this.batchSize) {
       const batch = texts.slice(i, i + this.batchSize);
-      const output = await (this.extractor as (batch: string[], opts: Record<string, unknown>) => Promise<unknown>)(batch, { pooling: 'mean', normalize: true });
+      const output = await (
+        this.extractor as (batch: string[], opts: Record<string, unknown>) => Promise<unknown>
+      )(batch, { pooling: 'mean', normalize: true });
       vectors.push(...this.tensorRows(output));
     }
     return vectors;
@@ -387,13 +415,41 @@ export class NamedMonthDateParser {
 }
 
 export class ChronoDateParser {
-  primaryParser: { parse?: (text: string, ref: Date, opts: Record<string, unknown>) => Array<{ text: string; index: number; start?: { date?: () => Date }; end?: { date?: () => Date } }> } | null;
-  fallbackParser: { parse?: (text: string, ref: Date, opts: Record<string, unknown>) => Array<{ text: string; index: number; start?: { date?: () => Date }; end?: { date?: () => Date } }> } | null;
+  primaryParser: {
+    parse?: (
+      text: string,
+      ref: Date,
+      opts: Record<string, unknown>,
+    ) => Array<{
+      text: string;
+      index: number;
+      start?: { date?: () => Date };
+      end?: { date?: () => Date };
+    }>;
+  } | null;
+  fallbackParser: {
+    parse?: (
+      text: string,
+      ref: Date,
+      opts: Record<string, unknown>,
+    ) => Array<{
+      text: string;
+      index: number;
+      start?: { date?: () => Date };
+      end?: { date?: () => Date };
+    }>;
+  } | null;
   termMatcher: TermMatcher;
   monthCatalog: MonthCatalog;
   textTools: DateQuestionText;
 
-  constructor({ primaryParser, fallbackParser, termMatcher, monthCatalog, textTools }: {
+  constructor({
+    primaryParser,
+    fallbackParser,
+    termMatcher,
+    monthCatalog,
+    textTools,
+  }: {
     primaryParser: ChronoDateParser['primaryParser'];
     fallbackParser: ChronoDateParser['fallbackParser'];
     termMatcher: TermMatcher;
@@ -498,9 +554,19 @@ export class ExplicitYearDateParser {
 }
 
 export class DateRangeParser {
-  parsers: Array<{ parse: (question: string, field: CatalogField) => { dateRange: DateRange | null; questionWithoutDate: string } | null }>;
+  parsers: Array<{
+    parse: (
+      question: string,
+      field: CatalogField,
+    ) => { dateRange: DateRange | null; questionWithoutDate: string } | null;
+  }>;
 
-  constructor({ primaryParser, fallbackParser, termMatcher, locale }: {
+  constructor({
+    primaryParser,
+    fallbackParser,
+    termMatcher,
+    locale,
+  }: {
     primaryParser: ChronoDateParser['primaryParser'];
     fallbackParser: ChronoDateParser['fallbackParser'];
     termMatcher: TermMatcher;
@@ -623,7 +689,11 @@ export class FieldSearchIndex {
   fieldById: Map<string, CatalogField>;
   index: FieldSearchIndexType;
 
-  constructor({ catalog, displayLabel, localizedTerms }: {
+  constructor({
+    catalog,
+    displayLabel,
+    localizedTerms,
+  }: {
     catalog: () => CatalogField[];
     displayLabel: (field: CatalogField) => string;
     localizedTerms: (field: CatalogField) => string[];
@@ -708,7 +778,7 @@ export class TextSearchFieldMatchStrategy {
     const index = this.fieldSearchIndex();
     if (!index) return null;
     const result = index.search(text, [role])[0];
-    return result && result.score >= 1.1 ? result.field ?? null : null;
+    return result && result.score >= 1.1 ? (result.field ?? null) : null;
   }
 }
 
@@ -718,7 +788,12 @@ export class ExactFieldMatchStrategy {
   localizedTerms: (field: CatalogField) => string[];
   termMatcher: TermMatcher;
 
-  constructor({ catalog, displayLabel, localizedTerms, termMatcher }: {
+  constructor({
+    catalog,
+    displayLabel,
+    localizedTerms,
+    termMatcher,
+  }: {
     catalog: () => CatalogField[];
     displayLabel: (field: CatalogField) => string;
     localizedTerms: (field: CatalogField) => string[];
@@ -806,7 +881,10 @@ export class FuseFieldMatchStrategy {
       .slice(0, 4);
     if (!results.length || (results[0].score ?? 0) > 0.28) return null;
     if (results[1] && (results[1].score ?? 1) - (results[0].score ?? 0) < 0.04)
-      return { ambiguous: true, fields: results.map((result) => result.item.field).filter((f): f is CatalogField => !!f) };
+      return {
+        ambiguous: true,
+        fields: results.map((result) => result.item.field).filter((f): f is CatalogField => !!f),
+      };
     return { field: results[0].item.field };
   }
 }
@@ -815,7 +893,13 @@ export class SemanticFieldMatchStrategy {
   semanticMatcher: SemanticFieldMatcher;
   catalog: () => CatalogField[];
 
-  constructor({ semanticMatcher, catalog }: { semanticMatcher: SemanticFieldMatcher; catalog: () => CatalogField[] }) {
+  constructor({
+    semanticMatcher,
+    catalog,
+  }: {
+    semanticMatcher: SemanticFieldMatcher;
+    catalog: () => CatalogField[];
+  }) {
     this.semanticMatcher = semanticMatcher;
     this.catalog = catalog;
   }
@@ -831,13 +915,17 @@ export class SemanticFieldMatchStrategy {
 }
 
 export class FieldResolver {
-  strategies: Array<{ matchPhrase?: (phrase: string, roles: FieldRole[]) => Promise<unknown>; findInText?: (text: string, role: FieldRole) => Promise<CatalogField | null> }>;
-  clarify: (pending: Record<string, unknown>, message: string, fields: CatalogField[]) => { field?: CatalogField; clarification?: unknown };
+  strategies: Array<{
+    matchPhrase?: (phrase: string, roles: FieldRole[]) => Promise<unknown>;
+    findInText?: (text: string, role: FieldRole) => Promise<CatalogField | null>;
+  }>;
+  clarify: (
+    pending: Record<string, unknown>,
+    message: string,
+    fields: CatalogField[],
+  ) => { field?: CatalogField; clarification?: unknown };
 
-  constructor(
-    strategies: FieldResolver['strategies'],
-    clarify: FieldResolver['clarify'],
-  ) {
+  constructor(strategies: FieldResolver['strategies'], clarify: FieldResolver['clarify']) {
     this.strategies = strategies;
     this.clarify = clarify;
   }
@@ -847,7 +935,12 @@ export class FieldResolver {
     for (const strategy of this.strategies) {
       const raw = await strategy.matchPhrase?.(phrase, roles);
       if (!raw) continue;
-      const result = raw as { field?: CatalogField | null; ambiguous?: boolean; fields?: CatalogField[]; score?: number };
+      const result = raw as {
+        field?: CatalogField | null;
+        ambiguous?: boolean;
+        fields?: CatalogField[];
+        score?: number;
+      };
       if (result.ambiguous) {
         const fields = result.fields || [];
         const clarified =
@@ -877,11 +970,24 @@ export class FieldResolver {
 
 export class SqlPlanner {
   config: { dataSources?: Array<{ name: string }>; relationships?: Relationship[] };
-  askConfig: { maxRows?: number; maxDimensions?: number; validation?: { joinFanoutRatio?: number; joinFanoutMinExtraRows?: number; filterSelectivityRatio?: number } };
+  askConfig: {
+    maxRows?: number;
+    maxDimensions?: number;
+    validation?: {
+      joinFanoutRatio?: number;
+      joinFanoutMinExtraRows?: number;
+      filterSelectivityRatio?: number;
+    };
+  };
   relationships: () => Relationship[];
   getDefaultTimeField: () => CatalogField | undefined;
 
-  constructor({ config, askConfig, relationships, getDefaultTimeField }: {
+  constructor({
+    config,
+    askConfig,
+    relationships,
+    getDefaultTimeField,
+  }: {
     config: SqlPlanner['config'];
     askConfig?: SqlPlanner['askConfig'];
     relationships: SqlPlanner['relationships'];
@@ -915,7 +1021,11 @@ export class SqlPlanner {
       fields[0]?.table ||
       this.config.dataSources?.[0]?.name;
     const neededTables = [...new Set([baseTable, ...fields.map((f) => f.table)])];
-    const joinPlan = this.buildJoinPlan(baseTable, neededTables) as { error?: string; tables: string[]; joins: Relationship[] };
+    const joinPlan = this.buildJoinPlan(baseTable, neededTables) as {
+      error?: string;
+      tables: string[];
+      joins: Relationship[];
+    };
     if (joinPlan.error) return { error: joinPlan.error };
 
     const aliases = new Map(joinPlan.tables.map((table, i) => [table, safeAlias(table, i)]));
@@ -959,10 +1069,39 @@ export class SqlPlanner {
     if (intent.analysisType === 'yoy')
       return this.planYoY(intent, aliases, metricExpr, whereParts, from, joins, diagnostics);
     if (intent.analysisType === 'change')
-      return this.planChange(intent, aliases, metricExpr, metricFormat, whereParts, from, joins, diagnostics);
+      return this.planChange(
+        intent,
+        aliases,
+        metricExpr,
+        metricFormat,
+        whereParts,
+        from,
+        joins,
+        diagnostics,
+      );
     if (intent.analysisType === 'share')
-      return this.planShare(intent, selectParts, groupParts, metricExpr, metricFormat, whereParts, from, joins, diagnostics);
-    return this.planGrouped(intent, selectParts, groupParts, metricExpr, metricFormat, whereParts, from, joins, diagnostics);
+      return this.planShare(
+        intent,
+        selectParts,
+        groupParts,
+        metricExpr,
+        metricFormat,
+        whereParts,
+        from,
+        joins,
+        diagnostics,
+      );
+    return this.planGrouped(
+      intent,
+      selectParts,
+      groupParts,
+      metricExpr,
+      metricFormat,
+      whereParts,
+      from,
+      joins,
+      diagnostics,
+    );
   }
 
   buildMetricExpr(intent, aliases) {
@@ -985,7 +1124,9 @@ export class SqlPlanner {
     const whereParts = intent.filters.map((filter) => {
       const expr = `${aliases.get(filter.field.table)}.${quoteIdent(filter.field.column)}`;
       if (filter.operator === 'IN') {
-        const inList = (filter.values || []).map((value) => `'${escapeSqlString(value)}'`).join(', ');
+        const inList = (filter.values || [])
+          .map((value) => `'${escapeSqlString(value)}'`)
+          .join(', ');
         return `${expr} IN (${inList})`;
       }
       return `${expr} = '${escapeSqlString(filter.value)}'`;
@@ -1006,11 +1147,7 @@ export class SqlPlanner {
   planListValues(intent, aliases, whereParts, from, joins, diagnostics) {
     const dim = intent.dimensions[0];
     const expr = `${aliases.get(dim.table)}.${quoteIdent(dim.column)}`;
-    const listWhereParts = [
-      ...whereParts,
-      `${expr} IS NOT NULL`,
-      `CAST(${expr} AS VARCHAR) <> ''`,
-    ];
+    const listWhereParts = [...whereParts, `${expr} IS NOT NULL`, `CAST(${expr} AS VARCHAR) <> ''`];
     const sql = `SELECT DISTINCT ${expr} AS label\nFROM ${from}\n${joins.join('\n')}\nWHERE ${listWhereParts.join(' AND ')}\nORDER BY label ASC\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
     return { sql, columns: ['label'], diagnostics };
   }
@@ -1026,7 +1163,11 @@ export class SqlPlanner {
     const yoyJoins = joins.length ? `\n  ${joins.join('\n  ')}` : '';
     const yoyWhere = whereParts.length ? `\n  WHERE ${whereParts.join(' AND ')}` : '';
     const sql = `WITH yearly AS (\n  SELECT ${periodExpr} AS period, ${metricExpr} AS value\n  FROM ${from}${yoyJoins}${yoyWhere}\n  GROUP BY 1\n), yoy AS (\n  SELECT period, value, LAG(value) OVER (ORDER BY period) AS previous_value\n  FROM yearly\n)\nSELECT CAST(period AS VARCHAR) AS period, value, previous_value, value - previous_value AS change, CASE WHEN previous_value IS NULL OR previous_value = 0 THEN NULL ELSE (value - previous_value) / previous_value END AS change_percent\nFROM yoy\nORDER BY period ASC`;
-    return { sql, columns: ['period', 'value', 'previous_value', 'change', 'change_percent'], diagnostics };
+    return {
+      sql,
+      columns: ['period', 'value', 'previous_value', 'change', 'change_percent'],
+      diagnostics,
+    };
   }
 
   planChange(intent, aliases, metricExpr, metricFormat, whereParts, from, joins, diagnostics) {
@@ -1035,14 +1176,32 @@ export class SqlPlanner {
     const dateExpr = this.timeSqlExpression(timeField, aliases.get(timeField.table));
     const startYear = Number(intent.change.startYear);
     const endYear = Number(intent.change.endYear);
-    const changeWhere = [...whereParts, `EXTRACT(year FROM ${dateExpr}) IN (${startYear}, ${endYear})`];
+    const changeWhere = [
+      ...whereParts,
+      `EXTRACT(year FROM ${dateExpr}) IN (${startYear}, ${endYear})`,
+    ];
     const changeJoins = joins.length ? `\n  ${joins.join('\n  ')}` : '';
     const changeWhereClause = changeWhere.length ? `\n  WHERE ${changeWhere.join(' AND ')}` : '';
     const sql = `WITH yearly AS (\n  SELECT EXTRACT(year FROM ${dateExpr}) AS year, ${metricExpr} AS value\n  FROM ${from}${changeJoins}${changeWhereClause}\n  GROUP BY 1\n), picked AS (\n  SELECT SUM(CASE WHEN year = ${startYear} THEN value END) AS start_value, SUM(CASE WHEN year = ${endYear} THEN value END) AS end_value\n  FROM yearly\n)\nSELECT '${startYear} to ${endYear}' AS period, start_value, end_value, end_value - start_value AS change, CASE WHEN start_value IS NULL OR start_value = 0 THEN NULL ELSE (end_value - start_value) / start_value END AS change_percent\nFROM picked`;
-    return { sql, columns: ['period', 'start_value', 'end_value', 'change', 'change_percent'], diagnostics, metricFormat };
+    return {
+      sql,
+      columns: ['period', 'start_value', 'end_value', 'change', 'change_percent'],
+      diagnostics,
+      metricFormat,
+    };
   }
 
-  planShare(intent, selectParts, groupParts, metricExpr, metricFormat, whereParts, from, joins, diagnostics) {
+  planShare(
+    intent,
+    selectParts,
+    groupParts,
+    metricExpr,
+    metricFormat,
+    whereParts,
+    from,
+    joins,
+    diagnostics,
+  ) {
     if (!intent.dimensions.length)
       return { error: 'I need a dimension to calculate share of total.' };
     const shareInnerSelect = [...selectParts, `${metricExpr} AS value`].join(',\n  ');
@@ -1053,13 +1212,25 @@ export class SqlPlanner {
       intent.dimensions.length === 1
         ? `CAST(d1 AS VARCHAR)`
         : intent.dimensions.map((_, i) => `CAST(d${i + 1} AS VARCHAR)`).join(` || ' / ' || `);
-    const shareValues = (intent.shareValues || []).map((value) => `'${escapeSqlString(value)}'`).join(', ');
+    const shareValues = (intent.shareValues || [])
+      .map((value) => `'${escapeSqlString(value)}'`)
+      .join(', ');
     const shareFilterClause = shareValues ? `\nWHERE label IN (${shareValues})` : '';
     const sql = `WITH grouped AS (\n${shareInner}\n), shares AS (\n  SELECT ${shareLabelExpr} AS label, value, CASE WHEN SUM(value) OVER () = 0 THEN NULL ELSE value / SUM(value) OVER () END AS share\n  FROM grouped\n)\nSELECT label, value, share\nFROM shares${shareFilterClause}\nORDER BY value ${intent.sort?.direction || 'DESC'}\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
     return { sql, columns: ['label', 'value', 'share'], metricFormat, diagnostics };
   }
 
-  planGrouped(intent, selectParts, groupParts, metricExpr, metricFormat, whereParts, from, joins, diagnostics) {
+  planGrouped(
+    intent,
+    selectParts,
+    groupParts,
+    metricExpr,
+    metricFormat,
+    whereParts,
+    from,
+    joins,
+    diagnostics,
+  ) {
     let sql: string;
     if (intent.dimensions.length) {
       const groupedInnerSelect = [...selectParts, `${metricExpr} AS value`].join(',\n  ');
@@ -1095,7 +1266,9 @@ export class SqlPlanner {
     if (joinSqls.length) {
       const baseAlias = aliases.get(baseTable);
       const baseWhereParts = whereParts.filter((part) => part.includes(`${baseAlias}.`));
-      const baseWhereClause = baseWhereParts.length ? `\nWHERE ${baseWhereParts.join(' AND ')}` : '';
+      const baseWhereClause = baseWhereParts.length
+        ? `\nWHERE ${baseWhereParts.join(' AND ')}`
+        : '';
       const joinedWhereClause = whereParts.length ? `\nWHERE ${whereParts.join(' AND ')}` : '';
       const baseSql = `SELECT COUNT(*) AS row_count FROM ${from}${baseWhereClause}`;
       const joinedSql = `SELECT COUNT(*) AS row_count FROM ${joinedFrom}${joinedWhereClause}`;
@@ -1167,7 +1340,10 @@ export class SqlPlanner {
   }
 
   findRelationshipPath(startTables: string[], targetTable: string) {
-    const queue: { table: string; path: Relationship[] }[] = startTables.map((table) => ({ table, path: [] }));
+    const queue: { table: string; path: Relationship[] }[] = startTables.map((table) => ({
+      table,
+      path: [],
+    }));
     const visited = new Set(startTables);
     while (queue.length) {
       const current = queue.shift()!;
@@ -1192,7 +1368,13 @@ export class ValueFilterResolver {
   displayLabel: (field: CatalogField) => string;
   localizedTerms: (field: CatalogField) => string[];
 
-  constructor({ valueItems, valueFuse, valuePhraseMaxWords, displayLabel, localizedTerms }: {
+  constructor({
+    valueItems,
+    valueFuse,
+    valuePhraseMaxWords,
+    displayLabel,
+    localizedTerms,
+  }: {
     valueItems: () => ValueItem[];
     valueFuse: () => ValueFuse | null;
     valuePhraseMaxWords: () => number;
@@ -1230,9 +1412,10 @@ export class ValueFilterResolver {
         seen.add(key);
         matches.push(enriched);
       } else {
-        const existing = matches.find((m) => `${m.field.id}::${m.normalizedValue}` === key) as ValueItem & { matchScore?: number };
-        if (existing && matchScore > (existing.matchScore || 0))
-          Object.assign(existing, enriched);
+        const existing = matches.find(
+          (m) => `${m.field.id}::${m.normalizedValue}` === key,
+        ) as ValueItem & { matchScore?: number };
+        if (existing && matchScore > (existing.matchScore || 0)) Object.assign(existing, enriched);
       }
     };
     for (const item of this.valueItems()) {
@@ -1246,7 +1429,12 @@ export class ValueFilterResolver {
     return matches;
   }
 
-  addFusePhrase(phrase: string, size: number, fuse: ValueFuse, addMatch: (item: ValueItem, score: number, source: string) => void) {
+  addFusePhrase(
+    phrase: string,
+    size: number,
+    fuse: ValueFuse,
+    addMatch: (item: ValueItem, score: number, source: string) => void,
+  ) {
     if (phrase.length < 4) return;
     for (const result of fuse.search(phrase, { limit: 3 })) {
       const itemWordCount = result.item.normalizedValue.split(/\s+/).length;
@@ -1257,7 +1445,11 @@ export class ValueFilterResolver {
     }
   }
 
-  addFuseMatches(q: string, fuse: ValueFuse, addMatch: (item: ValueItem, score: number, source: string) => void) {
+  addFuseMatches(
+    q: string,
+    fuse: ValueFuse,
+    addMatch: (item: ValueItem, score: number, source: string) => void,
+  ) {
     const words = q.split(/\s+/).filter(Boolean);
     const maxWindow = Math.min(this.valuePhraseMaxWords() || 1, 8, words.length);
     for (let size = 1; size <= maxWindow; size++) {
@@ -1284,14 +1476,21 @@ export class ValueFilterResolver {
     return { clarified, cueHasFieldName };
   }
 
-  toFilters(q, byValue: Map<string, ValueItem[]>, clarification: Record<string, unknown> | null = null) {
+  toFilters(
+    q,
+    byValue: Map<string, ValueItem[]>,
+    clarification: Record<string, unknown> | null = null,
+  ) {
     const filters: IntentFilter[] = [];
     for (const [, items] of byValue) {
-      const uniqueFields = [
-        ...new Map(items.map((i) => [i.field.id, i])).values(),
-      ];
+      const uniqueFields = [...new Map(items.map((i) => [i.field.id, i])).values()];
       if (uniqueFields.length > 1) {
-        const { clarified, cueHasFieldName } = this.resolveAmbiguousField(q, items, uniqueFields, clarification);
+        const { clarified, cueHasFieldName } = this.resolveAmbiguousField(
+          q,
+          items,
+          uniqueFields,
+          clarification,
+        );
         if (cueHasFieldName) {
           filters.push({
             field: cueHasFieldName.field,
@@ -1348,7 +1547,11 @@ export class QuestionParser {
   filterResolver: ValueFilterResolver;
   dateRangeParser: DateRangeParser;
   localizedTerms: (field: CatalogField) => string[];
-  resolveFieldPhrase: (phrase: string, roles: FieldRole[], clarification: unknown) => Promise<{ field?: CatalogField; clarification?: unknown }>;
+  resolveFieldPhrase: (
+    phrase: string,
+    roles: FieldRole[],
+    clarification: unknown,
+  ) => Promise<{ field?: CatalogField; clarification?: unknown }>;
   findBestFieldInText: (text: string, role: FieldRole) => Promise<CatalogField | null>;
   getDefaultMetric: () => IntentMetric;
   getDefaultTimeField: () => CatalogField | undefined;
@@ -1449,16 +1652,43 @@ export class QuestionParser {
       };
     }
     return this.buildIntentResult(question, q, fullQ, dateInfo, warnings, options, {
-      metric, limit, sortDirection, isRanking, isYoY, timeGrain, isCount, superlative,
+      metric,
+      limit,
+      sortDirection,
+      isRanking,
+      isYoY,
+      timeGrain,
+      isCount,
+      superlative,
     });
   }
 
-  async buildIntentResult(question, q, fullQ, dateInfo, warnings, options: Record<string, unknown>, resolved) {
-    const { metric, limit, sortDirection, isRanking, isYoY, timeGrain, isCount, superlative } = resolved;
-    const dimensionsResult = await this.resolveDimensions(q, superlative, timeGrain, isCount, warnings, options);
-    if (!Array.isArray(dimensionsResult)) return this.withOriginalQuestion(dimensionsResult, question);
+  async buildIntentResult(
+    question,
+    q,
+    fullQ,
+    dateInfo,
+    warnings,
+    options: Record<string, unknown>,
+    resolved,
+  ) {
+    const { metric, limit, sortDirection, isRanking, isYoY, timeGrain, isCount, superlative } =
+      resolved;
+    const dimensionsResult = await this.resolveDimensions(
+      q,
+      superlative,
+      timeGrain,
+      isCount,
+      warnings,
+      options,
+    );
+    if (!Array.isArray(dimensionsResult))
+      return this.withOriginalQuestion(dimensionsResult, question);
     const dimensions = dimensionsResult as CatalogField[];
-    const filters = this.filterResolver.resolve(q, (options.clarification as Record<string, unknown> | null) ?? null);
+    const filters = this.filterResolver.resolve(
+      q,
+      (options.clarification as Record<string, unknown> | null) ?? null,
+    );
     if (filters.clarification) return this.withOriginalQuestion(filters, question);
     const share = this.buildShare(fullQ, filters.filters, dimensions);
     const comparison = share ? null : this.buildComparison(q, filters.filters, dimensions);
@@ -1484,7 +1714,8 @@ export class QuestionParser {
         shareValues: share?.values,
         sort: { by: 'value', direction: sortDirection },
         limit: comparison ? Math.max(limit, comparison.values.length) : limit,
-        timeGrain: timeGrain || (finalDimensions.some((d) => d.role === 'time') ? 'month' : undefined),
+        timeGrain:
+          timeGrain || (finalDimensions.some((d) => d.role === 'time') ? 'month' : undefined),
       },
       warnings,
     };
@@ -1502,7 +1733,10 @@ export class QuestionParser {
   }
 
   listIntent(question, q, dateInfo, listField, warnings, options: Record<string, unknown> = {}) {
-    const filters = this.filterResolver.resolve(q, (options.clarification as Record<string, unknown> | null) ?? null);
+    const filters = this.filterResolver.resolve(
+      q,
+      (options.clarification as Record<string, unknown> | null) ?? null,
+    );
     if (filters.clarification) return this.withOriginalQuestion(filters, question);
     return {
       intent: {
@@ -1611,12 +1845,21 @@ export class QuestionParser {
     }
   }
 
-  async resolveByPhrases(q: string, byPhrases: string[], dimensions: CatalogField[], options: Record<string, unknown>): Promise<{ field?: CatalogField; clarification?: unknown } | null> {
+  async resolveByPhrases(
+    q: string,
+    byPhrases: string[],
+    dimensions: CatalogField[],
+    options: Record<string, unknown>,
+  ): Promise<{ field?: CatalogField; clarification?: unknown } | null> {
     for (const phrase of byPhrases) {
       if (dimensions.length >= (this.askConfig.maxDimensions || 2)) break;
       if (['month', 'year', 'day', 'date', 'time'].includes(phrase) || /over time/.test(q))
         continue;
-      const field = await this.resolveFieldPhrase(phrase, ['dimension', 'time'], options.clarification);
+      const field = await this.resolveFieldPhrase(
+        phrase,
+        ['dimension', 'time'],
+        options.clarification,
+      );
       if (field.clarification) return field;
       if (field.field && !dimensions.some((d) => d.id === (field.field as CatalogField).id))
         dimensions.push(field.field as CatalogField);
@@ -1624,13 +1867,24 @@ export class QuestionParser {
     return null;
   }
 
-  async resolveDimensions(q: string, superlative: { field?: CatalogField } | null, timeGrain: string | null, isCount: boolean, warnings: string[], options: Record<string, unknown> = {}): Promise<CatalogField[] | { field?: CatalogField; clarification?: unknown }> {
+  async resolveDimensions(
+    q: string,
+    superlative: { field?: CatalogField } | null,
+    timeGrain: string | null,
+    isCount: boolean,
+    warnings: string[],
+    options: Record<string, unknown> = {},
+  ): Promise<CatalogField[] | { field?: CatalogField; clarification?: unknown }> {
     const dimensions: CatalogField[] = [];
     const topDimensionPhrase = superlative?.field ? null : this.extractTopDimensionPhrase(q);
     if (superlative?.field) dimensions.push(superlative.field);
     const byPhrases = this.extractByPhrases(q);
     if (topDimensionPhrase) {
-      const field = await this.resolveFieldPhrase(topDimensionPhrase, ['dimension', 'time'], options.clarification);
+      const field = await this.resolveFieldPhrase(
+        topDimensionPhrase,
+        ['dimension', 'time'],
+        options.clarification,
+      );
       if (field.clarification) return field;
       if (field.field) dimensions.push(field.field);
     }
@@ -1640,7 +1894,11 @@ export class QuestionParser {
     if (!dimensions.length && isCount) {
       const byAfterCount = byPhrases[0];
       if (byAfterCount) {
-        const field = await this.resolveFieldPhrase(byAfterCount, ['dimension', 'time'], options.clarification);
+        const field = await this.resolveFieldPhrase(
+          byAfterCount,
+          ['dimension', 'time'],
+          options.clarification,
+        );
         if (field.field) dimensions.push(field.field);
       }
     }
@@ -1747,7 +2005,14 @@ export class QuestionParser {
 
 export class CatalogBuilder {
   config: { dataSources?: Array<{ name: string }>; relationships?: Relationship[] };
-  askConfig: { fields?: import('./types').FieldConfig[]; entities?: import('./types').EntityConfig[]; relationships?: Relationship[]; inferRelationships?: boolean; profiling?: { maxDistinctValuesPerField?: number; maxSampleRows?: number }; relationshipInference?: { autoAcceptThreshold?: number; ambiguousThreshold?: number } };
+  askConfig: {
+    fields?: import('./types').FieldConfig[];
+    entities?: import('./types').EntityConfig[];
+    relationships?: Relationship[];
+    inferRelationships?: boolean;
+    profiling?: { maxDistinctValuesPerField?: number; maxSampleRows?: number };
+    relationshipInference?: { autoAcceptThreshold?: number; ambiguousThreshold?: number };
+  };
   duckDBManager: { query: (sql: string) => Promise<unknown> };
   fieldByKey: Map<string, CatalogField>;
   displayLabel: (item: CatalogField | import('./types').EntityConfig) => string;
@@ -1914,7 +2179,9 @@ export class CatalogBuilder {
           if (!rel) continue;
           if (rel.confidence >= (this.askConfig.relationshipInference?.autoAcceptThreshold || 0.85))
             accepted.push(rel);
-          else if (rel.confidence >= (this.askConfig.relationshipInference?.ambiguousThreshold || 0.6))
+          else if (
+            rel.confidence >= (this.askConfig.relationshipInference?.ambiguousThreshold || 0.6)
+          )
             ambiguous.push(rel);
         }
       }
@@ -2016,7 +2283,11 @@ export class CatalogBuilder {
 }
 
 export class AskDataEngine {
-  config: { dataSources?: Array<{ name: string }>; relationships?: Relationship[]; askData?: Partial<import('./types').AskDataConfig> };
+  config: {
+    dataSources?: Array<{ name: string }>;
+    relationships?: Relationship[];
+    askData?: Partial<import('./types').AskDataConfig>;
+  };
   askConfig: Partial<import('./types').AskDataConfig>;
   duckDBManager: { query: (sql: string) => Promise<unknown> };
   catalog: CatalogField[];
@@ -2150,7 +2421,11 @@ export class AskDataEngine {
       dateRangeParser: this.dateRangeParser,
       localizedTerms: (field) => this.localizedTerms(field),
       resolveFieldPhrase: (phrase, roles, clarification) =>
-        this.fieldResolver.resolvePhrase(phrase, roles, clarification as Record<string, unknown> | null),
+        this.fieldResolver.resolvePhrase(
+          phrase,
+          roles,
+          clarification as Record<string, unknown> | null,
+        ),
       findBestFieldInText: (q, role) => this.fieldResolver.findInText(q, role),
       getDefaultMetric: () => this.getDefaultMetric(),
       getDefaultTimeField: () => this.getDefaultTimeField(),
@@ -2469,8 +2744,14 @@ export class AskDataEngine {
     let narratives: NarrativeResult | null = null;
     if (this.autoNarrativesEnabled && rows.length > 0) {
       try {
-        const metricField = parsed.intent.metric && 'table' in parsed.intent.metric ? parsed.intent.metric : null;
-        narratives = this.narrativeGenerator.generateNarratives(rows, parsed.intent, shape, metricField);
+        const metricField =
+          parsed.intent.metric && 'table' in parsed.intent.metric ? parsed.intent.metric : null;
+        narratives = this.narrativeGenerator.generateNarratives(
+          rows,
+          parsed.intent,
+          shape,
+          metricField,
+        );
       } catch (err) {
         console.warn('[AskData] Narrative generation failed', err);
       }
@@ -2546,7 +2827,11 @@ export class AskDataEngine {
         (toRows(await this.duckDBManager.query(selectivity.filteredCountSql))[0] || {}).row_count,
       );
       const ratio = unfiltered > 0 ? filtered / unfiltered : 1;
-      Object.assign(selectivity, { unfilteredCount: unfiltered, filteredCount: filtered, ratio: Number(ratio.toFixed(3)) });
+      Object.assign(selectivity, {
+        unfilteredCount: unfiltered,
+        filteredCount: filtered,
+        ratio: Number(ratio.toFixed(3)),
+      });
       if (unfiltered && ratio < selectivity.threshold)
         selectivity.warning = `Filters keep only ${(ratio * 100).toFixed(1)}% of rows (${filtered.toLocaleString()} of ${unfiltered.toLocaleString()}). Results may be sparse.`;
     } catch (err) {
@@ -2756,9 +3041,7 @@ export class AskDataEngine {
       ? ` (${intent.timeGrain || 'month'})`
       : '';
     const sortLabel = intent.sort?.direction === 'ASC' ? 'ascending' : 'descending';
-    const limit = intent.dimensions.length
-      ? `, sorted ${sortLabel}, limit ${intent.limit}`
-      : '';
+    const limit = intent.dimensions.length ? `, sorted ${sortLabel}, limit ${intent.limit}` : '';
     return `${metric}${dims}${grain}${filters}${dates}${limit}`;
   }
 }

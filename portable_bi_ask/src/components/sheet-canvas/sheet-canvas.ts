@@ -1,7 +1,8 @@
-import { html, LitElement, nothing as renderNothing, type TemplateResult } from 'lit';
-import type { Sheet, WidgetConfig, CellValue, Filters } from '../../types';
-
 import '../widget';
+
+import { html, LitElement, nothing as renderNothing, type TemplateResult } from 'lit';
+
+import type { CellValue, Filters, Sheet, WidgetConfig } from '../../types';
 
 const GRID_COLS = 12;
 const ROW_HEIGHT = 40;
@@ -24,8 +25,23 @@ export class SheetCanvas extends LitElement {
   filters: Filters;
   selectedWidgetId: string | null;
   editMode: boolean;
-  private _dragState: { id: string; startX: number; startY: number; startLeft: number; startTop: number } | null = null;
-  private _resizeState: { id: string; handle: string; startX: number; startY: number; startW: number; startH: number; startLeft: number; startTop: number } | null = null;
+  private _dragState: {
+    id: string;
+    startX: number;
+    startY: number;
+    startLeft: number;
+    startTop: number;
+  } | null = null;
+  private _resizeState: {
+    id: string;
+    handle: string;
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+    startLeft: number;
+    startTop: number;
+  } | null = null;
   private _dragOffset: { x: number; y: number } = { x: 0, y: 0 };
   private _previewLayout: { id: string; x: number; y: number; w: number; h: number } | null = null;
   private _boundMouseMove: ((e: MouseEvent) => void) | null = null;
@@ -58,7 +74,12 @@ export class SheetCanvas extends LitElement {
     return Math.round(px / ROW_HEIGHT) * ROW_HEIGHT;
   }
 
-  private _getWidgetPosition(index: number): { left: string; top: string; width: string; height: string } {
+  private _getWidgetPosition(index: number): {
+    left: string;
+    top: string;
+    width: string;
+    height: string;
+  } {
     const layout = this.sheet.layout?.[index];
     if (layout && layout.x !== undefined) {
       return {
@@ -85,7 +106,7 @@ export class SheetCanvas extends LitElement {
     if (this._previewLayout && this._previewLayout.id === widget.id) {
       return `position: absolute; left: ${this._previewLayout.x}px; top: ${this._previewLayout.y}px; width: ${this._previewLayout.w}px; height: ${this._previewLayout.h}px;`;
     }
-    const idx = this.sheet.widgets.findIndex(w => w.id === widget.id);
+    const idx = this.sheet.widgets.findIndex((w) => w.id === widget.id);
     const pos = this._getWidgetPosition(idx);
     return `position: absolute; left: ${pos.left}; top: ${pos.top}; width: ${pos.width}; height: ${pos.height};`;
   }
@@ -117,22 +138,35 @@ export class SheetCanvas extends LitElement {
     const widget = (e.target as HTMLElement).closest('app-widget');
     if (!widget) return;
     const shadowRoot = widget.shadowRoot;
-    const id = shadowRoot?.querySelector('.widget')?.getAttribute('data-widget-id') ?? (widget as any).config?.id;
+    const id =
+      shadowRoot?.querySelector('.widget')?.getAttribute('data-widget-id') ??
+      (widget as unknown as { config?: { id?: string } }).config?.id ??
+      null;
     console.log(`[canvas] widget selected: ${id}`);
     this.selectedWidgetId = id;
-    this.dispatchEvent(new CustomEvent('widget-select', { detail: { id }, bubbles: true, composed: true }));
+    this.dispatchEvent(
+      new CustomEvent('widget-select', { detail: { id }, bubbles: true, composed: true }),
+    );
   }
 
   private _onWidgetDelete(e: Event): void {
     const widget = (e.target as HTMLElement).closest('app-widget');
     if (!widget) return;
     const shadowRoot = widget.shadowRoot;
-    const id = shadowRoot?.querySelector('.widget')?.getAttribute('data-widget-id') ?? (widget as any).config?.id;
-    this.dispatchEvent(new CustomEvent('widget-delete', { detail: { id }, bubbles: true, composed: true }));
+    const id =
+      shadowRoot?.querySelector('.widget')?.getAttribute('data-widget-id') ??
+      (widget as unknown as { config?: { id?: string } }).config?.id;
+    this.dispatchEvent(
+      new CustomEvent('widget-delete', { detail: { id }, bubbles: true, composed: true }),
+    );
   }
 
-  private _onCrossFilter(e: CustomEvent<{ widgetId: string; field: string; value: CellValue }>): void {
-    this.dispatchEvent(new CustomEvent('cross-filter', { detail: e.detail, bubbles: true, composed: true }));
+  private _onCrossFilter(
+    e: CustomEvent<{ widgetId: string; field: string; value: CellValue }>,
+  ): void {
+    this.dispatchEvent(
+      new CustomEvent('cross-filter', { detail: e.detail, bubbles: true, composed: true }),
+    );
   }
 
   private _onMouseDown(e: MouseEvent): void {
@@ -185,59 +219,65 @@ export class SheetCanvas extends LitElement {
 
   private _onMouseMove(e: MouseEvent): void {
     if (!this.editMode) return;
+    this._handleDrag(e);
+    this._handleResize(e);
+  }
 
-    if (this._dragState) {
-      const widgetEl = this.querySelector(`[data-widget-id="${this._dragState.id}"]`) as HTMLElement;
-      if (widgetEl) {
-        const canvasRect = this.getBoundingClientRect();
-        const newX = e.clientX - canvasRect.left - this._dragOffset.x;
-        const newY = e.clientY - canvasRect.top - this._dragOffset.y;
-        widgetEl.style.left = `${Math.max(0, newX)}px`;
-        widgetEl.style.top = `${Math.max(0, newY)}px`;
-        this._scheduleUpdate();
-      }
+  private _handleDrag(e: MouseEvent): void {
+    if (!this._dragState) return;
+    const widgetEl = this.querySelector(`[data-widget-id="${this._dragState.id}"]`) as HTMLElement;
+    if (!widgetEl) return;
+    const canvasRect = this.getBoundingClientRect();
+    const newX = e.clientX - canvasRect.left - this._dragOffset.x;
+    const newY = e.clientY - canvasRect.top - this._dragOffset.y;
+    widgetEl.style.left = `${Math.max(0, newX)}px`;
+    widgetEl.style.top = `${Math.max(0, newY)}px`;
+    this._scheduleUpdate();
+  }
+
+  private _handleResize(e: MouseEvent): void {
+    if (!this._resizeState) return;
+    const widgetEl = this.querySelector(
+      `[data-widget-id="${this._resizeState.id}"]`,
+    ) as HTMLElement;
+    if (!widgetEl) return;
+    const dx = e.clientX - this._resizeState.startX;
+    const dy = e.clientY - this._resizeState.startY;
+    const handle = this._resizeState.handle;
+    const colW = this._getColWidth();
+
+    let newW = this._resizeState.startW;
+    let newH = this._resizeState.startH;
+    let newX = this._resizeState.startLeft;
+    let newY = this._resizeState.startTop;
+
+    if (handle.includes('e')) {
+      newW = Math.max(colW * 2, this._resizeState.startW + dx);
+    }
+    if (handle.includes('s')) {
+      newH = Math.max(ROW_HEIGHT * 2, this._resizeState.startH + dy);
+    }
+    if (handle.includes('w')) {
+      newW = Math.max(colW * 2, this._resizeState.startW - dx);
+      newX = this._resizeState.startLeft + this._resizeState.startW - newW;
+    }
+    if (handle.includes('n')) {
+      newH = Math.max(ROW_HEIGHT * 2, this._resizeState.startH - dy);
+      newY = this._resizeState.startTop + this._resizeState.startH - newH;
     }
 
-    if (this._resizeState) {
-      const widgetEl = this.querySelector(`[data-widget-id="${this._resizeState.id}"]`) as HTMLElement;
-      if (widgetEl) {
-        const dx = e.clientX - this._resizeState.startX;
-        const dy = e.clientY - this._resizeState.startY;
-        const handle = this._resizeState.handle;
-        const colW = this._getColWidth();
-
-        let newW = this._resizeState.startW;
-        let newH = this._resizeState.startH;
-        let newX = this._resizeState.startLeft;
-        let newY = this._resizeState.startTop;
-
-        if (handle.includes('e')) {
-          newW = Math.max(colW * 2, this._resizeState.startW + dx);
-        }
-        if (handle.includes('s')) {
-          newH = Math.max(ROW_HEIGHT * 2, this._resizeState.startH + dy);
-        }
-        if (handle.includes('w')) {
-          newW = Math.max(colW * 2, this._resizeState.startW - dx);
-          newX = this._resizeState.startLeft + this._resizeState.startW - newW;
-        }
-        if (handle.includes('n')) {
-          newH = Math.max(ROW_HEIGHT * 2, this._resizeState.startH - dy);
-          newY = this._resizeState.startTop + this._resizeState.startH - newH;
-        }
-
-        widgetEl.style.left = `${newX - this.getBoundingClientRect().left}px`;
-        widgetEl.style.top = `${newY - this.getBoundingClientRect().top}px`;
-        widgetEl.style.width = `${newW}px`;
-        widgetEl.style.height = `${newH}px`;
-        this._scheduleUpdate();
-      }
-    }
+    widgetEl.style.left = `${newX - this.getBoundingClientRect().left}px`;
+    widgetEl.style.top = `${newY - this.getBoundingClientRect().top}px`;
+    widgetEl.style.width = `${newW}px`;
+    widgetEl.style.height = `${newH}px`;
+    this._scheduleUpdate();
   }
 
   private _onMouseUp(): void {
     if (this._dragState) {
-      const widgetEl = this.querySelector(`[data-widget-id="${this._dragState.id}"]`) as HTMLElement;
+      const widgetEl = this.querySelector(
+        `[data-widget-id="${this._dragState.id}"]`,
+      ) as HTMLElement;
       if (widgetEl) {
         widgetEl.classList.remove('dragging');
         const rawX = parseFloat(widgetEl.style.left) || 0;
@@ -256,7 +296,9 @@ export class SheetCanvas extends LitElement {
     }
 
     if (this._resizeState) {
-      const widgetEl = this.querySelector(`[data-widget-id="${this._resizeState.id}"]`) as HTMLElement;
+      const widgetEl = this.querySelector(
+        `[data-widget-id="${this._resizeState.id}"]`,
+      ) as HTMLElement;
       if (widgetEl) {
         const colW = this._getColWidth();
         const rawW = parseFloat(widgetEl.style.width) || this._resizeState.startW;
@@ -278,8 +320,11 @@ export class SheetCanvas extends LitElement {
     this._emitLayoutChange();
   }
 
-  private _updateLayout(id: string, update: { x?: number; y?: number; w?: number; h?: number }): void {
-    const idx = this.sheet.widgets.findIndex(w => w.id === id);
+  private _updateLayout(
+    id: string,
+    update: { x?: number; y?: number; w?: number; h?: number },
+  ): void {
+    const idx = this.sheet.widgets.findIndex((w) => w.id === id);
     if (idx === -1) return;
     if (!this.sheet.layout[idx]) {
       this.sheet.layout[idx] = { x: 0, y: 0, w: 400, h: 300 };
@@ -292,11 +337,13 @@ export class SheetCanvas extends LitElement {
   }
 
   private _emitLayoutChange(): void {
-    this.dispatchEvent(new CustomEvent('layout-change', {
-      detail: { sheet: this.sheet },
-      bubbles: true,
-      composed: true,
-    }));
+    this.dispatchEvent(
+      new CustomEvent('layout-change', {
+        detail: { sheet: this.sheet },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   override connectedCallback(): void {
@@ -328,7 +375,10 @@ export class SheetCanvas extends LitElement {
           const widgetData = this.data[widget.id];
           return html`
             <div
-              class="widget-wrapper ${this.editMode ? 'edit-mode' : ''} ${this.selectedWidgetId === widget.id ? 'selected' : ''}"
+              class="widget-wrapper ${this.editMode ? 'edit-mode' : ''} ${this.selectedWidgetId ===
+              widget.id
+                ? 'selected'
+                : ''}"
               data-widget-id=${widget.id}
               style=${this._getWidgetStyle(widget)}
             >
@@ -342,16 +392,20 @@ export class SheetCanvas extends LitElement {
                 @widget-delete=${this._onWidgetDelete}
                 @cross-filter=${this._onCrossFilter}
               ></app-widget>
-              ${this.editMode ? html`
-                <div class="resize-handle resize-se" data-handle="se"></div>
-                <div class="resize-handle resize-sw" data-handle="sw"></div>
-                <div class="resize-handle resize-ne" data-handle="ne"></div>
-                <div class="resize-handle resize-nw" data-handle="nw"></div>
-              ` : renderNothing}
+              ${this.editMode
+                ? html`
+                    <div class="resize-handle resize-se" data-handle="se"></div>
+                    <div class="resize-handle resize-sw" data-handle="sw"></div>
+                    <div class="resize-handle resize-ne" data-handle="ne"></div>
+                    <div class="resize-handle resize-nw" data-handle="nw"></div>
+                  `
+                : renderNothing}
             </div>
           `;
         })}
-        ${!this.sheet.widgets.length ? html`<div class="sheet-empty">Add widgets to this sheet</div>` : renderNothing}
+        ${!this.sheet.widgets.length
+          ? html`<div class="sheet-empty">Add widgets to this sheet</div>`
+          : renderNothing}
       </div>
     `;
   }

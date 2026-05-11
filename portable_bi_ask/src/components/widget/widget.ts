@@ -1,6 +1,7 @@
-import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { Chart, registerables } from 'chart.js';
-import type { WidgetConfig, CellValue, Filters } from '../../types';
+import { html, LitElement, nothing, type TemplateResult } from 'lit';
+
+import type { CellValue, Filters, WidgetConfig } from '../../types';
 
 Chart.register(...registerables);
 
@@ -52,42 +53,52 @@ export class Widget extends LitElement {
       return;
     }
     console.log(`[widget] click on "${this.config.title}" — edit mode, selecting widget`);
-    this.dispatchEvent(new CustomEvent('widget-select', {
-      detail: { id: this.config.id },
-      bubbles: true,
-      composed: true,
-    }));
+    this.dispatchEvent(
+      new CustomEvent('widget-select', {
+        detail: { id: this.config.id },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private _onChartClick(element: { index: number }): void {
     if (!this.data?.labels) return;
     const label = this.data.labels[element.index];
     console.log(`[widget] chart click on "${this.config.title}" — cross-filter label="${label}"`);
-    this.dispatchEvent(new CustomEvent('cross-filter', {
-      detail: { widgetId: this.config.id, field: 'label', value: label },
-      bubbles: true,
-      composed: true,
-    }));
+    this.dispatchEvent(
+      new CustomEvent('cross-filter', {
+        detail: { widgetId: this.config.id, field: 'label', value: label },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private _onTableRowClick(e: Event, row: Record<string, CellValue>): void {
     e.stopPropagation();
     const label = String(row.label ?? row.name ?? '');
-    console.log(`[widget] table row click on "${this.config.title}" — cross-filter label="${label}"`);
-    this.dispatchEvent(new CustomEvent('cross-filter', {
-      detail: { widgetId: this.config.id, field: 'label', value: label },
-      bubbles: true,
-      composed: true,
-    }));
+    console.log(
+      `[widget] table row click on "${this.config.title}" — cross-filter label="${label}"`,
+    );
+    this.dispatchEvent(
+      new CustomEvent('cross-filter', {
+        detail: { widgetId: this.config.id, field: 'label', value: label },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private _handleDelete(e: MouseEvent): void {
     e.stopPropagation();
-    this.dispatchEvent(new CustomEvent('widget-delete', {
-      detail: { id: this.config.id },
-      bubbles: true,
-      composed: true,
-    }));
+    this.dispatchEvent(
+      new CustomEvent('widget-delete', {
+        detail: { id: this.config.id },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   private _renderKpi(): TemplateResult {
@@ -118,14 +129,18 @@ export class Widget extends LitElement {
       <div class="widget-table-wrap">
         <table class="widget-table">
           <thead>
-            <tr>${cols.map(c => html`<th>${c}</th>`)}</tr>
+            <tr>
+              ${cols.map((c) => html`<th>${c}</th>`)}
+            </tr>
           </thead>
           <tbody>
-            ${rows.slice(0, 50).map(row => html`
-              <tr class="clickable-row" @click=${(e: Event) => this._onTableRowClick(e, row)}>
-                ${cols.map(c => html`<td>${this._formatCell(row[c])}</td>`)}
-              </tr>
-            `)}
+            ${rows.slice(0, 50).map(
+              (row) => html`
+                <tr class="clickable-row" @click=${(e: Event) => this._onTableRowClick(e, row)}>
+                  ${cols.map((c) => html`<td>${this._formatCell(row[c])}</td>`)}
+                </tr>
+              `,
+            )}
           </tbody>
         </table>
       </div>
@@ -185,8 +200,16 @@ export class Widget extends LitElement {
     this._destroyChart();
     const chartType = this._getChartJsType();
     const colorSet = [
-      '#c9613f', '#4a8c6f', '#2d6a8f', '#c8963e', '#8b6f9e',
-      '#d9756a', '#6bb5a0', '#b89b6b', '#d48466', '#5a9e82',
+      '#c9613f',
+      '#4a8c6f',
+      '#2d6a8f',
+      '#c8963e',
+      '#8b6f9e',
+      '#d9756a',
+      '#6bb5a0',
+      '#b89b6b',
+      '#d48466',
+      '#5a9e82',
     ];
 
     const isLineChart = chartType === 'line' || this.config.chartType === 'area';
@@ -195,15 +218,17 @@ export class Widget extends LitElement {
       type: chartType,
       data: {
         labels: this.data.labels,
-        datasets: [{
-          label: this.config.title,
-          data: this.data.values,
-          backgroundColor: isLineChart ? 'rgba(201, 97, 63, 0.1)' : colorSet,
-          borderColor: '#c9613f',
-          borderWidth: isLineChart ? 2 : 1,
-          fill: this.config.chartType === 'area' || isLineChart,
-          tension: 0.4,
-        }],
+        datasets: [
+          {
+            label: this.config.title,
+            data: this.data.values,
+            backgroundColor: isLineChart ? 'rgba(201, 97, 63, 0.1)' : colorSet,
+            borderColor: '#c9613f',
+            borderWidth: isLineChart ? 2 : 1,
+            fill: this.config.chartType === 'area' || isLineChart,
+            tension: 0.4,
+          },
+        ],
       },
       options: {
         responsive: true,
@@ -211,43 +236,59 @@ export class Widget extends LitElement {
         plugins: {
           legend: { display: false },
         },
-        onClick: (_event: any, elements: any[]) => {
+        onClick: (_event: unknown, elements: { index: number }[]) => {
           if (elements.length > 0) {
             this._onChartClick({ index: elements[0].index });
           }
         },
       },
-});
+    });
   }
 
   private _getChartJsType(): 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'bubble' {
     const map: Record<string, string> = {
-      bar: 'bar', line: 'line', pie: 'pie',
-      donut: 'doughnut', scatter: 'scatter', bubble: 'bubble', area: 'line',
+      bar: 'bar',
+      line: 'line',
+      pie: 'pie',
+      donut: 'doughnut',
+      scatter: 'scatter',
+      bubble: 'bubble',
+      area: 'line',
     };
-    return (map[this.config.chartType ?? 'bar'] ?? 'bar') as 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'bubble';
+    return (map[this.config.chartType ?? 'bar'] ?? 'bar') as
+      | 'bar'
+      | 'line'
+      | 'pie'
+      | 'doughnut'
+      | 'scatter'
+      | 'bubble';
   }
 
   override render(): TemplateResult {
-    const showContent = this.config.type === 'chart' ? !!this.data :
-                        this.config.type === 'table' ? !!this.data?.rows?.length :
-                        this.config.type === 'kpi' ? !!this.data :
-                        true;
-
     return html`
       <div class="widget-header">
         <span class="widget-title">${this.config.title}</span>
-        ${this.editMode ? html`
-          <button class="widget-delete" @click=${this._handleDelete} title="Delete widget">✕</button>
-        ` : nothing}
+        ${this.editMode
+          ? html`
+              <button class="widget-delete" @click=${this._handleDelete} title="Delete widget">
+                ✕
+              </button>
+            `
+          : nothing}
       </div>
-      <div class="widget-content" @click=${this._handleClick}>
-        ${this.config.type === 'kpi' ? this._renderKpi() :
-          this.config.type === 'chart' ? (this.data ? this._renderChart() : this._renderEmpty()) :
-          this.config.type === 'table' ? (this.data?.rows?.length ? this._renderTable() : this._renderEmpty()) :
-          this._renderText()}
-      </div>
+      <div class="widget-content" @click=${this._handleClick}>${this._renderWidgetContent()}</div>
     `;
+  }
+
+  private _renderWidgetContent(): TemplateResult {
+    if (this.config.type === 'kpi') return this._renderKpi();
+    if (this.config.type === 'chart') {
+      return this.data ? this._renderChart() : this._renderEmpty();
+    }
+    if (this.config.type === 'table') {
+      return this.data?.rows?.length ? this._renderTable() : this._renderEmpty();
+    }
+    return this._renderText();
   }
 }
 

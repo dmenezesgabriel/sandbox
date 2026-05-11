@@ -1,6 +1,7 @@
 import { html, LitElement, type TemplateResult } from 'lit';
-import { icon } from '../../icons';
 import { Sparkles } from 'lucide';
+
+import { icon } from '../../icons';
 
 export class AskInput extends LitElement {
   static override readonly properties = {
@@ -59,8 +60,8 @@ export class AskInput extends LitElement {
           ${this.examples.map(
             (example, i) =>
               html`${i ? ' · ' : ''}<button @click=${() => this._selectExample(example)}>
-                ${example}
-              </button>`,
+                  ${example}
+                </button>`,
           )}
         </div>
       </section>

@@ -2,16 +2,40 @@ import type { ChartConfiguration, ChartType } from 'chart.js';
 import Chart from 'chart.js/auto';
 import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from 'lit';
 
-import type { AskSuccessResult, CatalogField, CellValue, DataRow, NarrativeResult } from '../../types';
+import type { AskSuccessResult, CatalogField, CellValue, DataRow } from '../../types';
 import { formatValue, numberValue } from '../../utils';
 
-type RenderableChartType = 'bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter' | 'bubble' | 'histogram';
+type RenderableChartType =
+  | 'bar'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'donut'
+  | 'scatter'
+  | 'bubble'
+  | 'histogram';
 
 const RENDERABLE_CHARTS: RenderableChartType[] = [
-  'bar', 'line', 'area', 'pie', 'donut', 'scatter', 'bubble', 'histogram',
+  'bar',
+  'line',
+  'area',
+  'pie',
+  'donut',
+  'scatter',
+  'bubble',
+  'histogram',
 ];
 
-const CHART_COLORS = ['#c9613f', '#4a8c6f', '#2d6a8f', '#c8963e', '#8b6f9e', '#d9756a', '#6bb5a0', '#b89b6b'];
+const CHART_COLORS = [
+  '#c9613f',
+  '#4a8c6f',
+  '#2d6a8f',
+  '#c8963e',
+  '#8b6f9e',
+  '#d9756a',
+  '#6bb5a0',
+  '#b89b6b',
+];
 
 function isRenderable(value: string | undefined): value is RenderableChartType {
   return value !== undefined && RENDERABLE_CHARTS.includes(value as RenderableChartType);
@@ -66,25 +90,35 @@ export class AskResult extends LitElement {
     if (config) this._chart = new Chart(ctx, config);
   }
 
-  private _buildConfig(result: AskSuccessResult, chartType: RenderableChartType): ChartConfiguration | null {
+  private _buildConfig(
+    result: AskSuccessResult,
+    chartType: RenderableChartType,
+  ): ChartConfiguration | null {
     const rows = result.rows || [];
-    if (chartType === 'scatter' || chartType === 'bubble') return this._scatterConfig(result, chartType, rows);
+    if (chartType === 'scatter' || chartType === 'bubble')
+      return this._scatterConfig(result, chartType, rows);
     if (chartType === 'histogram') return this._histogramConfig(result, rows);
     return this._defaultConfig(result, chartType, rows);
   }
 
-  private _defaultConfig(result: AskSuccessResult, chartType: RenderableChartType, rows: DataRow[]): ChartConfiguration {
+  private _defaultConfig(
+    result: AskSuccessResult,
+    chartType: RenderableChartType,
+    rows: DataRow[],
+  ): ChartConfiguration {
     return {
       type: toChartJsType(chartType),
       data: {
         labels: rows.map((row) => String(row.label)),
-        datasets: [{
-          label: result.interpretation,
-          data: rows.map((row) => numberValue(row.value)),
-          fill: chartType === 'area',
-          borderColor: '#c9613f',
-          backgroundColor: chartType === 'area' ? '#c9613f33' : CHART_COLORS,
-        }],
+        datasets: [
+          {
+            label: result.interpretation,
+            data: rows.map((row) => numberValue(row.value)),
+            fill: chartType === 'area',
+            borderColor: '#c9613f',
+            backgroundColor: chartType === 'area' ? '#c9613f33' : CHART_COLORS,
+          },
+        ],
       },
       options: {
         responsive: true,
@@ -94,22 +128,28 @@ export class AskResult extends LitElement {
     };
   }
 
-  private _scatterConfig(result: AskSuccessResult, chartType: 'scatter' | 'bubble', rows: DataRow[]): ChartConfiguration | null {
+  private _scatterConfig(
+    result: AskSuccessResult,
+    chartType: 'scatter' | 'bubble',
+    rows: DataRow[],
+  ): ChartConfiguration | null {
     const [xKey, yKey, rKey] = result.shape?.numeric || [];
     if (!xKey || !yKey) return null;
     return {
       type: chartType,
       data: {
-        datasets: [{
-          label: result.interpretation,
-          data: rows.map((row) => ({
-            x: numberValue(row[xKey]),
-            y: numberValue(row[yKey]),
-            r: Math.max(3, Math.sqrt(Math.abs(numberValue(row[rKey])) || 9)),
-          })),
-          backgroundColor: '#c9613f88',
-          borderColor: '#c9613f',
-        }],
+        datasets: [
+          {
+            label: result.interpretation,
+            data: rows.map((row) => ({
+              x: numberValue(row[xKey]),
+              y: numberValue(row[yKey]),
+              r: Math.max(3, Math.sqrt(Math.abs(numberValue(row[rKey])) || 9)),
+            })),
+            backgroundColor: '#c9613f88',
+            borderColor: '#c9613f',
+          },
+        ],
       },
       options: {
         responsive: true,
@@ -187,12 +227,16 @@ export class AskResult extends LitElement {
       <div class="ask-table-wrap">
         <table>
           <thead>
-            <tr>${columns.map((col) => html`<th>${col}</th>`)}</tr>
+            <tr>
+              ${columns.map((col) => html`<th>${col}</th>`)}
+            </tr>
           </thead>
           <tbody>
             ${(result.rows || []).map(
               (row) => html`
-                <tr>${columns.map((col) => html`<td>${this._formatCell(col, row[col], metric)}</td>`)}</tr>
+                <tr>
+                  ${columns.map((col) => html`<td>${this._formatCell(col, row[col], metric)}</td>`)}
+                </tr>
               `,
             )}
           </tbody>
@@ -260,19 +304,23 @@ export class AskResult extends LitElement {
         <strong>AI Narrative Summary:</strong>
         <p class="narrative-summary">${narratives.summary}</p>
         <div class="narratives-list">
-          ${narratives.narratives.map((n) => html`
-            <div class="narrative-item narrative-${n.type}" data-importance="${n.importance}">
-              <span class="narrative-type">${n.type}</span>
-              <span class="narrative-title">${n.title}</span>
-              <p class="narrative-text">${n.text}</p>
-            </div>
-          `)}
+          ${narratives.narratives.map(
+            (n) => html`
+              <div class="narrative-item narrative-${n.type}" data-importance="${n.importance}">
+                <span class="narrative-type">${n.type}</span>
+                <span class="narrative-title">${n.title}</span>
+                <p class="narrative-text">${n.text}</p>
+              </div>
+            `,
+          )}
         </div>
-        ${narratives.keyTakeaway ? html`
-          <div class="narrative-takeaway">
-            <strong>Key Takeaway:</strong> ${narratives.keyTakeaway}
-          </div>
-        ` : nothing}
+        ${narratives.keyTakeaway
+          ? html`
+              <div class="narrative-takeaway">
+                <strong>Key Takeaway:</strong> ${narratives.keyTakeaway}
+              </div>
+            `
+          : nothing}
       </div>
     `;
   }
@@ -282,7 +330,10 @@ export class AskResult extends LitElement {
       <div class="interpretation" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;">
         <strong>Export:</strong>
         <button class="choice-button" @click=${() => this._copyText(result.sql)}>Copy SQL</button>
-        <button class="choice-button" @click=${() => this._download('ask-result.csv', this._toCsv(result), 'text/csv')}>
+        <button
+          class="choice-button"
+          @click=${() => this._download('ask-result.csv', this._toCsv(result), 'text/csv')}
+        >
           Download CSV
         </button>
         <button
@@ -291,7 +342,12 @@ export class AskResult extends LitElement {
             this._download(
               'ask-result.json',
               JSON.stringify(
-                { interpretation: result.interpretation, sql: result.sql, columns: result.columns, rows: result.rows },
+                {
+                  interpretation: result.interpretation,
+                  sql: result.sql,
+                  columns: result.columns,
+                  rows: result.rows,
+                },
                 null,
                 2,
               ),
@@ -329,8 +385,8 @@ export class AskResult extends LitElement {
           ? html`<p>
               <strong>Join fanout check:</strong>
               ${joinFanout.baseCount?.toLocaleString?.() || joinFanout.baseCount} base rows →
-              ${joinFanout.joinedCount?.toLocaleString?.() || joinFanout.joinedCount}
-              joined rows (${joinFanout.ratio}x).
+              ${joinFanout.joinedCount?.toLocaleString?.() || joinFanout.joinedCount} joined rows
+              (${joinFanout.ratio}x).
             </p>`
           : nothing}
         ${result.evidence?.length
@@ -353,16 +409,11 @@ export class AskResult extends LitElement {
     if (!result) return nothing;
     return html`
       <section class="ask-card">
-        <div class="interpretation">
-          <strong>Interpreted as:</strong> ${result.interpretation}
-        </div>
+        <div class="interpretation"><strong>Interpreted as:</strong> ${result.interpretation}</div>
         ${(result.warnings || []).map((w) => html`<div class="warning">${w}</div>`)}
-        ${this._renderDecision(result)}
-        ${this._renderInsights(result)}
-        ${this._renderNarratives(result)}
-        ${this._renderExports(result)}
-        ${this._renderVisualization(result)}
-        ${this._renderDetails(result)}
+        ${this._renderDecision(result)} ${this._renderInsights(result)}
+        ${this._renderNarratives(result)} ${this._renderExports(result)}
+        ${this._renderVisualization(result)} ${this._renderDetails(result)}
       </section>
     `;
   }

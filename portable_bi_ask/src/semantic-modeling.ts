@@ -1,5 +1,5 @@
 import type { CatalogField, FieldRole, Relationship } from './types';
-import { compact, norm } from './utils';
+import { norm } from './utils';
 
 export interface FieldSignature {
   table: string;
@@ -37,25 +37,69 @@ export interface SemanticModelingResult {
 }
 
 const DATE_PATTERNS = [
-  /date/i, /time/i, /timestamp/i, /dt$/i, /_dt$/i, /_at$/i, /_date/i,
-  /ano/i, /mes/i, /dia/i, /hora/i, /data/i,
+  /date/i,
+  /time/i,
+  /timestamp/i,
+  /dt$/i,
+  /_dt$/i,
+  /_at$/i,
+  /_date/i,
+  /ano/i,
+  /mes/i,
+  /dia/i,
+  /hora/i,
+  /data/i,
 ];
 
 const ID_PATTERNS = [
-  /_?id$/i, /_?key$/i, /_?code$/i, /^id_/i, /^pk_/i, /^fk_/i,
-  /_?codigo/i, /_?cod/i,
+  /_?id$/i,
+  /_?key$/i,
+  /_?code$/i,
+  /^id_/i,
+  /^pk_/i,
+  /^fk_/i,
+  /_?codigo/i,
+  /_?cod/i,
 ];
 
 const MEASURE_PATTERNS = [
-  /amount/i, /total/i, /sum/i, /count/i, /qty/i, /quantity/i, /price/i,
-  /cost/i, /revenue/i, /profit/i, /sales/i, /value/i, /volume/i,
-  /valor/i, /quantidade/i, /preco/i, /custo/i, /venda/i,
+  /amount/i,
+  /total/i,
+  /sum/i,
+  /count/i,
+  /qty/i,
+  /quantity/i,
+  /price/i,
+  /cost/i,
+  /revenue/i,
+  /profit/i,
+  /sales/i,
+  /value/i,
+  /volume/i,
+  /valor/i,
+  /quantidade/i,
+  /preco/i,
+  /custo/i,
+  /venda/i,
 ];
 
 const DIMENSION_PATTERNS = [
-  /name/i, /type/i, /category/i, /status/i, /region/i, /city/i,
-  /state/i, /country/i, /segment/i, /class/i, /zone/i,
-  /nome/i, /tipo/i, /categoria/i, /estado/i, /cidade/i,
+  /name/i,
+  /type/i,
+  /category/i,
+  /status/i,
+  /region/i,
+  /city/i,
+  /state/i,
+  /country/i,
+  /segment/i,
+  /class/i,
+  /zone/i,
+  /nome/i,
+  /tipo/i,
+  /categoria/i,
+  /estado/i,
+  /cidade/i,
 ];
 
 export class AutoFieldRoleDetector {
@@ -71,7 +115,11 @@ export class AutoFieldRoleDetector {
     this.dimensionPatterns = DIMENSION_PATTERNS.map((p) => p);
   }
 
-  detectRole(signature: FieldSignature): { role: FieldRole; confidence: number; reasoning: string } {
+  detectRole(signature: FieldSignature): {
+    role: FieldRole;
+    confidence: number;
+    reasoning: string;
+  } {
     const normalizedColumn = norm(signature.column);
 
     if (this.matchesPatterns(normalizedColumn, this.idPatterns)) {
@@ -79,41 +127,79 @@ export class AutoFieldRoleDetector {
     }
 
     if (this.matchesDatePatterns(signature)) {
-      return { role: 'time', confidence: 0.9, reasoning: 'Column name or samples match date patterns' };
+      return {
+        role: 'time',
+        confidence: 0.9,
+        reasoning: 'Column name or samples match date patterns',
+      };
     }
 
-    if (signature.type && /^(int|bigint|float|double|decimal)/i.test(signature.type)) {
-      const cardinalityRatio = signature.cardinality / Math.max(1, signature.rowCount);
-
-      if (cardinalityRatio < 0.01 && signature.cardinality <= 10) {
-        return { role: 'dimension', confidence: 0.85, reasoning: 'Low cardinality numeric field' };
-      }
-
-      if (this.matchesPatterns(normalizedColumn, this.measurePatterns)) {
-        return { role: 'measure', confidence: 0.88, reasoning: 'Numeric field with measure-like name' };
-      }
-
-      if (cardinalityRatio > 0.5 || signature.cardinality > signature.rowCount * 0.1) {
-        return { role: 'measure', confidence: 0.8, reasoning: 'High cardinality numeric suggests continuous measure' };
-      }
-
-      return { role: 'measure', confidence: 0.75, reasoning: 'Default for numeric fields' };
+    if (signature.type && /^(?:int|bigint|float|double|decimal)/i.test(signature.type)) {
+      return this.detectNumericRole(signature, normalizedColumn);
     }
 
-    if (signature.type && /^varchar|text|string|char/i.test(signature.type)) {
-      const cardinalityRatio = signature.cardinality / Math.max(1, signature.rowCount);
-
-      if (cardinalityRatio < 0.05 || signature.cardinality <= 50) {
-        if (this.matchesPatterns(normalizedColumn, this.dimensionPatterns)) {
-          return { role: 'dimension', confidence: 0.9, reasoning: 'Low cardinality string field with dimension-like name' };
-        }
-        return { role: 'dimension', confidence: 0.85, reasoning: 'Low cardinality string field' };
-      }
-
-      return { role: 'dimension', confidence: 0.7, reasoning: 'High cardinality string field treated as dimension' };
+    if (signature.type && /^(?:varchar|text|string|char)/i.test(signature.type)) {
+      return this.detectStringRole(signature, normalizedColumn);
     }
 
     return { role: 'dimension', confidence: 0.6, reasoning: 'Default role for unknown types' };
+  }
+
+  private isNumericType(type: string): boolean {
+    return /^(?:int|bigint|float|double|decimal)/i.test(type);
+  }
+
+  private detectNumericRole(
+    signature: FieldSignature,
+    normalizedColumn: string,
+  ): { role: FieldRole; confidence: number; reasoning: string } {
+    const cardinalityRatio = signature.cardinality / Math.max(1, signature.rowCount);
+
+    if (cardinalityRatio < 0.01 && signature.cardinality <= 10) {
+      return { role: 'dimension', confidence: 0.85, reasoning: 'Low cardinality numeric field' };
+    }
+
+    if (this.matchesPatterns(normalizedColumn, this.measurePatterns)) {
+      return {
+        role: 'measure',
+        confidence: 0.88,
+        reasoning: 'Numeric field with measure-like name',
+      };
+    }
+
+    if (cardinalityRatio > 0.5 || signature.cardinality > signature.rowCount * 0.1) {
+      return {
+        role: 'measure',
+        confidence: 0.8,
+        reasoning: 'High cardinality numeric suggests continuous measure',
+      };
+    }
+
+    return { role: 'measure', confidence: 0.75, reasoning: 'Default for numeric fields' };
+  }
+
+  private detectStringRole(
+    signature: FieldSignature,
+    normalizedColumn: string,
+  ): { role: FieldRole; confidence: number; reasoning: string } {
+    const cardinalityRatio = signature.cardinality / Math.max(1, signature.rowCount);
+
+    if (cardinalityRatio < 0.05 || signature.cardinality <= 50) {
+      if (this.matchesPatterns(normalizedColumn, this.dimensionPatterns)) {
+        return {
+          role: 'dimension',
+          confidence: 0.9,
+          reasoning: 'Low cardinality string field with dimension-like name',
+        };
+      }
+      return { role: 'dimension', confidence: 0.85, reasoning: 'Low cardinality string field' };
+    }
+
+    return {
+      role: 'dimension',
+      confidence: 0.7,
+      reasoning: 'High cardinality string field treated as dimension',
+    };
   }
 
   private matchesPatterns(text: string, patterns: RegExp[]): boolean {
@@ -160,7 +246,7 @@ export class AutoFieldRoleDetector {
     return [...new Set(synonyms)];
   }
 
-  private measureSynonyms(label: string, column: string): string[] {
+  private measureSynonyms(label: string, _column: string): string[] {
     const synonyms: string[] = [];
 
     if (/sales|revenue|amount|value/i.test(label)) {
@@ -179,7 +265,7 @@ export class AutoFieldRoleDetector {
     return synonyms;
   }
 
-  private dimensionSynonyms(label: string, column: string, table: string): string[] {
+  private dimensionSynonyms(label: string, _column: string, _table: string): string[] {
     const synonyms: string[] = [];
 
     if (/region|territory|area|zone/i.test(label)) {
@@ -207,7 +293,7 @@ export class AutoFieldRoleDetector {
     return synonyms;
   }
 
-  private timeSynonyms(label: string, column: string): string[] {
+  private timeSynonyms(label: string, _column: string): string[] {
     const synonyms: string[] = [];
 
     if (/order|ship|delivery|purchase/i.test(label)) {
@@ -291,7 +377,10 @@ export class AutoRelationshipInferrer {
     };
   }
 
-  inferRelationships(fields: CatalogField[]): { relationships: AutoRelationship[]; ambiguous: AutoRelationship[] } {
+  inferRelationships(fields: CatalogField[]): {
+    relationships: AutoRelationship[];
+    ambiguous: AutoRelationship[];
+  } {
     const keyFields = fields.filter((f) => f.role === 'key' || this.looksLikeKey(f));
     const candidatePairs = this.findCandidatePairs(keyFields);
 
@@ -301,7 +390,9 @@ export class AutoRelationshipInferrer {
 
     const relationships = scored.filter((r) => r.confidence >= this.config.autoAcceptThreshold);
     const ambiguous = scored.filter(
-      (r) => r.confidence >= this.config.ambiguousThreshold && r.confidence < this.config.autoAcceptThreshold
+      (r) =>
+        r.confidence >= this.config.ambiguousThreshold &&
+        r.confidence < this.config.autoAcceptThreshold,
     );
 
     return { relationships, ambiguous };
@@ -343,7 +434,7 @@ export class AutoRelationshipInferrer {
   }
 
   private extractBaseName(column: string): string | null {
-    const match = column.match(/^(.+?)[_]?(?:id|key)$/i);
+    const match = column.match(/^(.+?)_?(?:id|key)$/i);
     return match ? norm(match[1]) : null;
   }
 
@@ -383,12 +474,12 @@ export class AutoRelationshipInferrer {
       reasoning.push('Column names match');
     }
 
-    const left: { table: string; column: string } = aUniqueness >= bUniqueness
-      ? { table: a.table, column: a.column }
-      : { table: b.table, column: b.column };
-    const right: { table: string; column: string } = left === a
-      ? { table: b.table, column: b.column }
-      : { table: a.table, column: a.column };
+    const left: { table: string; column: string } =
+      aUniqueness >= bUniqueness
+        ? { table: a.table, column: a.column }
+        : { table: b.table, column: b.column };
+    const right: { table: string; column: string } =
+      left === a ? { table: b.table, column: b.column } : { table: a.table, column: a.column };
 
     return {
       left,
@@ -422,7 +513,9 @@ export class AutoRelationshipInferrer {
       connectedTables.add(rel.right.table);
     }
 
-    const orphanTables = [...entityTables].filter((t) => !connectedTables.has(t) && connectedTables.size > 0);
+    const orphanTables = [...entityTables].filter(
+      (t) => !connectedTables.has(t) && connectedTables.size > 0,
+    );
 
     if (orphanTables.length === 0) return [];
 
@@ -434,7 +527,11 @@ export class AutoRelationshipInferrer {
         const orphanKey = keyFields.find((f) => f.table === orphan && this.looksLikeKey(f));
         const connectedKey = keyFields.find((f) => f.table === connected && this.looksLikeKey(f));
 
-        if (orphanKey && connectedKey && this.columnNamesMatch(orphanKey.column, connectedKey.column)) {
+        if (
+          orphanKey &&
+          connectedKey &&
+          this.columnNamesMatch(orphanKey.column, connectedKey.column)
+        ) {
           candidates.push({
             left: { table: orphan, column: orphanKey.column },
             right: { table: connected, column: connectedKey.column },
@@ -462,7 +559,7 @@ export class SemanticModelingEngine {
   async buildSemanticModel(
     fields: CatalogField[],
     existingOverrides?: Map<string, Partial<AutoFieldConfig>>,
-    existingRelationships?: Relationship[]
+    existingRelationships?: Relationship[],
   ): Promise<SemanticModelingResult> {
     const autoFields = new Map<string, AutoFieldConfig>();
 
@@ -498,7 +595,10 @@ export class SemanticModelingEngine {
 
     const { relationships, ambiguous } = this.relationshipInferrer.inferRelationships(fields);
 
-    const suggestions = this.relationshipInferrer.findMissingRelationships(fields, existingRelationships || []);
+    const suggestions = this.relationshipInferrer.findMissingRelationships(
+      fields,
+      existingRelationships || [],
+    );
 
     return {
       autoFields,
@@ -509,7 +609,7 @@ export class SemanticModelingEngine {
 
   mergeWithOverrides(
     autoFields: Map<string, AutoFieldConfig>,
-    overrides: Map<string, AutoFieldConfig>
+    overrides: Map<string, AutoFieldConfig>,
   ): Map<string, AutoFieldConfig> {
     const merged = new Map(autoFields);
 

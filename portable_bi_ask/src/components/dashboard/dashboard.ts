@@ -1,3 +1,16 @@
+import '../ask-clarification';
+import '../ask-input';
+import '../ask-result';
+import '../chart-section';
+import '../data-table';
+import '../filter-bar';
+import '../header';
+import '../kpi-cards';
+import '../loading-state';
+import '../sheet-editor';
+import '../sheets-view';
+import '../tab-nav';
+
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
 import { AskDataEngine } from '../../ask-data';
@@ -13,19 +26,6 @@ import type {
   FilterOptions,
   Filters,
 } from '../../types';
-
-import '../ask-clarification';
-import '../ask-input';
-import '../ask-result';
-import '../chart-section';
-import '../data-table';
-import '../filter-bar';
-import '../header';
-import '../kpi-cards';
-import '../loading-state';
-import '../sheet-editor';
-import '../sheets-view';
-import '../tab-nav';
 import type { ActiveTab } from '../tab-nav';
 
 function isAskSuccess(result: AskResult): result is AskSuccessResult {
@@ -127,7 +127,9 @@ export class Dashboard extends LitElement {
     this._initDashboard().catch(console.error);
   }
 
-  private async _runAsk(appliedClarification: Clarification['pending'] | null = null): Promise<void> {
+  private async _runAsk(
+    appliedClarification: Clarification['pending'] | null = null,
+  ): Promise<void> {
     this._askLoading = true;
     this._askError = '';
     this._askClarification = null;
@@ -195,8 +197,12 @@ export class Dashboard extends LitElement {
           .question=${this._askQuestion}
           .examples=${c.askData.examples || []}
           .loading=${this._askLoading}
-          @question-change=${(e: CustomEvent<string>) => { this._askQuestion = e.detail; }}
-          @ask=${() => { this._runAsk().catch(console.error); }}
+          @question-change=${(e: CustomEvent<string>) => {
+            this._askQuestion = e.detail;
+          }}
+          @ask=${() => {
+            this._runAsk().catch(console.error);
+          }}
           @example-select=${(e: CustomEvent<string>) => {
             this._askQuestion = e.detail;
             this._askError = '';
@@ -209,12 +215,19 @@ export class Dashboard extends LitElement {
 
         <ask-clarification
           .clarification=${this._askClarification}
-          @choice-select=${(e: CustomEvent<ClarificationChoice>) => this._chooseClarification(e.detail)}
+          @choice-select=${(e: CustomEvent<ClarificationChoice>) =>
+            this._chooseClarification(e.detail)}
         ></ask-clarification>
 
         <ask-result .result=${this._askResult}></ask-result>
       </main>
     `;
+  }
+
+  private _renderTabContent(): TemplateResult {
+    if (this._activeTab === 'dashboard') return this._renderDashboard();
+    if (this._activeTab === 'askData') return this._renderAskData();
+    return html`<sheets-view></sheets-view>`;
   }
 
   override render(): TemplateResult {
@@ -224,12 +237,12 @@ export class Dashboard extends LitElement {
 
       <tab-nav
         .activeTab=${this._activeTab}
-        @tab-change=${(e: CustomEvent<ActiveTab>) => { this._activeTab = e.detail; }}
+        @tab-change=${(e: CustomEvent<ActiveTab>) => {
+          this._activeTab = e.detail;
+        }}
       ></tab-nav>
 
-      ${this._activeTab === 'dashboard' ? this._renderDashboard() :
-        this._activeTab === 'askData' ? this._renderAskData() :
-        html`<sheets-view></sheets-view>`}
+      ${this._renderTabContent()}
 
       <loading-state
         .loading=${this.loading}
