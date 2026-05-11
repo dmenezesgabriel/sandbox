@@ -1,3 +1,6 @@
+import '../skeleton-loader';
+import '../spinner';
+
 import { Chart, registerables } from 'chart.js';
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
@@ -122,7 +125,10 @@ export class Widget extends LitElement {
 
   private _renderKpi(): TemplateResult {
     const kpi = this.config.kpiConfig;
-    const value = this.data?.values?.[0] ?? this.data?.rows?.[0]?.value ?? 'N/A';
+    if (!this.data) {
+      return html`<skeleton-loader variant="kpi"></skeleton-loader>`;
+    }
+    const value = this.data.values?.[0] ?? this.data.rows?.[0]?.value ?? 'N/A';
     const formatted = this._formatValue(value, kpi?.format);
     return html`
       <div class="widget-kpi">
@@ -328,10 +334,21 @@ export class Widget extends LitElement {
   private _renderWidgetContent(): TemplateResult {
     if (this.config.type === 'kpi') return this._renderKpi();
     if (this.config.type === 'chart') {
-      return this.data ? this._renderChart() : this._renderEmpty();
+      if (this.data) return this._renderChart();
+      return html`<app-spinner size="lg"></app-spinner>`;
     }
     if (this.config.type === 'table') {
-      return this.data?.rows?.length ? this._renderTable() : this._renderEmpty();
+      if (this.data?.rows?.length) return this._renderTable();
+      if (!this.data) {
+        return html`
+          <skeleton-loader
+            variant="table"
+            .columns=${this.config.columns?.length || 3}
+            .rows=${4}
+          ></skeleton-loader>
+        `;
+      }
+      return this._renderEmpty();
     }
     return this._renderText();
   }
