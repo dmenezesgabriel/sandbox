@@ -101,7 +101,7 @@ Given('a sheet exists with chart widgets', async function (this: BrowserWorld) {
     window.location.hash = '#/dashboard/portable-bi-dashboard';
   });
   await this.waitForWidgets();
-  await this.waitForDataCache('sheet-a');
+  await this.installAskSpy();
   await this.page.waitForTimeout(500);
 });
 
