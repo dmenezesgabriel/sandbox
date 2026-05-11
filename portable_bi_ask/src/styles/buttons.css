@@ -1,0 +1,246 @@
+/* ==========================================================================
+   Buttons
+   Shared button styles across the application.
+   ========================================================================== */
+
+.primary-button,
+.choice-button {
+  display: inline-flex;
+  gap: 0.4em;
+  align-items: center;
+  padding: 0.75em 1.15em;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.choice-button {
+  padding: 0.5em 0.9em;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--text-base);
+}
+
+.choice-button:hover {
+  border-color: var(--color-accent-subtle);
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+.primary-button:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.primary-button:active,
+.choice-button:active {
+  transform: translateY(0);
+}
+
+/* ── Sheet action buttons ──────────────────────────────────────────── */
+
+.btn-new-sheet,
+.btn-edit-mode,
+.btn-add-widget,
+.btn-edit-widget {
+  padding: 0.45rem var(--space-base);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-new-sheet {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.btn-new-sheet:hover {
+  background: var(--color-accent-hover);
+  box-shadow: 0 2px 8px rgb(201 97 63 / 30%);
+}
+
+.btn-edit-mode {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+}
+
+.btn-edit-mode:hover {
+  border-color: var(--color-accent-subtle);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.btn-edit-mode.active {
+  border-color: var(--color-warning);
+  background: var(--color-warning);
+  color: var(--color-text-on-accent);
+  box-shadow: 0 2px 8px rgb(200 150 62 / 30%);
+}
+
+.btn-add-widget {
+  background: var(--color-success);
+  color: var(--color-text-on-accent);
+}
+
+.btn-add-widget:hover {
+  background: var(--color-success-hover);
+  box-shadow: 0 2px 8px rgb(74 140 111 / 30%);
+}
+
+.btn-edit-widget {
+  background: var(--color-info);
+  color: var(--color-text-on-accent);
+}
+
+.btn-edit-widget:hover {
+  background: var(--color-info-hover);
+  box-shadow: 0 2px 8px rgb(45 106 143 / 30%);
+}
+
+.btn-import,
+.btn-export-yaml,
+.btn-export-json {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-import:hover,
+.btn-export-yaml:hover,
+.btn-export-json:hover {
+  border-color: var(--color-accent-subtle);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Modal/editor buttons ──────────────────────────────────────────── */
+
+.btn-cancel {
+  padding: 0.6rem var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-cancel:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.btn-save {
+  padding: 0.6rem var(--space-lg);
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-save:hover {
+  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Dashboard list buttons ────────────────────────────────────────── */
+
+.btn-new-dashboard {
+  display: inline-flex;
+  gap: 0.5em;
+  align-items: center;
+  padding: 0.7em 1.4em;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.btn-new-dashboard:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-new-dashboard:active {
+  transform: translateY(0);
+}
+
+/* ── Filter-tag dismiss button ─────────────────────────────────────── */
+
+.cross-filter-tag button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.cross-filter-tag button:hover {
+  color: var(--color-danger);
+}
+
+/* ── Widget delete button ──────────────────────────────────────────── */
+
+.widget-delete {
+  flex-shrink: 0;
+  padding: 0.2rem 0.4rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-base);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.widget-delete:hover {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}

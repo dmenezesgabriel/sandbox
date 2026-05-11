@@ -1,0 +1,28 @@
+/* ==========================================================================
+   CSS Reset
+   Minimal reset for consistent cross-browser defaults.
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+}
+
+tr:last-child td {
+  border-bottom: none;
+}
+
+details > summary {
+  cursor: pointer;
+}

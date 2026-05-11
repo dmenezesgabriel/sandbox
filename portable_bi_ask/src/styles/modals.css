@@ -1,0 +1,89 @@
+/* ==========================================================================
+   Modals & Editors
+   ========================================================================== */
+
+/* ── Sheet editor modal ────────────────────────────────────────────── */
+
+.sheet-editor {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: var(--z-modal);
+  width: 450px;
+  max-width: 90vw;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
+  animation: fade-in 0.2s ease;
+  transform: translate(-50%, -50%);
+}
+
+.editor-header {
+  padding: var(--space-lg) var(--space-xl);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.editor-header h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.editor-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.editor-body {
+  max-height: 400px;
+  padding: var(--space-xl);
+  overflow-y: auto;
+}
+
+.editor-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  padding: var(--space-base) var(--space-xl);
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* ── Generic modal ─────────────────────────────────────────────────── */
+
+.modal-overlay {
+  position: fixed;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(26 35 46 / 50%);
+  inset: 0;
+  animation: fade-in 0.15s ease;
+}
+
+.modal-content {
+  width: 380px;
+  max-width: 90vw;
+  padding: var(--space-xl);
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
+  animation: fade-in-up 0.25s ease;
+}
+
+.modal-content h3 {
+  margin: 0 0 var(--space-lg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  margin-top: var(--space-lg);
+}

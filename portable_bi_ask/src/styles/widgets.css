@@ -1,0 +1,223 @@
+/* ==========================================================================
+   Widgets
+   ========================================================================== */
+
+.widget-wrapper {
+  position: absolute;
+  overflow: visible;
+  border: 2px solid transparent;
+  animation: fade-in-up 0.3s ease-out both;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    opacity var(--transition-fast);
+}
+
+.widget-wrapper:nth-child(2) {
+  animation-delay: 0.04s;
+}
+
+.widget-wrapper:nth-child(3) {
+  animation-delay: 0.08s;
+}
+
+.widget-wrapper:nth-child(4) {
+  animation-delay: 0.12s;
+}
+
+.widget-wrapper:nth-child(5) {
+  animation-delay: 0.16s;
+}
+
+.widget-wrapper:nth-child(6) {
+  animation-delay: 0.2s;
+}
+
+.widget-wrapper.edit-mode {
+  border: 2px dashed var(--color-border);
+  cursor: move;
+}
+
+.widget-wrapper.edit-mode:hover {
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 20px rgb(201 97 63 / 10%);
+}
+
+.widget-wrapper.selected {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 4px 24px rgb(201 97 63 / 15%);
+}
+
+.widget-wrapper.dragging {
+  z-index: 100;
+  opacity: 0.88;
+  box-shadow: 0 12px 40px rgb(30 32 40 / 18%);
+}
+
+.widget-wrapper .resize-handle {
+  position: absolute;
+  z-index: 10;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--color-surface);
+  border-radius: 50%;
+  background: var(--color-accent);
+  opacity: 0;
+  box-shadow: 0 1px 4px rgb(201 97 63 / 20%);
+  transition:
+    opacity var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.widget-wrapper.selected .resize-handle,
+.widget-wrapper.edit-mode:hover .resize-handle {
+  opacity: 1;
+}
+
+.resize-se {
+  right: -6px;
+  bottom: -6px;
+  cursor: se-resize;
+}
+
+.resize-sw {
+  bottom: -6px;
+  left: -6px;
+  cursor: sw-resize;
+}
+
+.resize-ne {
+  top: -6px;
+  right: -6px;
+  cursor: ne-resize;
+}
+
+.resize-nw {
+  top: -6px;
+  left: -6px;
+  cursor: nw-resize;
+}
+
+app-widget {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  transition:
+    box-shadow var(--transition-base),
+    transform var(--transition-fast);
+}
+
+.widget-wrapper.selected app-widget {
+  box-shadow: 0 4px 24px rgb(201 97 63 / 12%);
+}
+
+.widget-header {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.5rem;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid var(--color-border-light);
+  background: var(--color-bg);
+}
+
+.widget-title {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.widget-color-picker {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding: 0 0.3rem;
+  cursor: pointer;
+}
+
+.widget-content {
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+  justify-content: stretch;
+  min-height: 0;
+  padding: var(--space-sm);
+  overflow: hidden;
+}
+
+.widget-chart-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 150px;
+}
+
+/* ── Widget KPI ───────────────────────────────────────────────────── */
+
+.widget-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  text-align: center;
+}
+
+.widget-kpi .kpi-label {
+  margin-bottom: 0.35rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.widget-kpi .kpi-value {
+  margin-bottom: 0;
+  color: var(--color-text);
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ── Widget text & empty ──────────────────────────────────────────── */
+
+.widget-text {
+  width: 100%;
+  padding: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+.widget-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.widget-empty .empty-icon {
+  margin-bottom: 0.25rem;
+  font-size: 1.75rem;
+}
+
+.widget-empty .empty-hint {
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}

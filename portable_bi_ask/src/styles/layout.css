@@ -1,0 +1,134 @@
+/* ==========================================================================
+   Layout & Structural
+   Header, tabs, responsive page-level layout.
+   ========================================================================== */
+
+/* ── Header ────────────────────────────────────────────────────────── */
+
+header {
+  position: relative;
+  padding: var(--space-2xl) var(--page-padding) var(--space-xl);
+  border-bottom: 2px solid var(--color-header-accent);
+  background: var(--color-header);
+  color: var(--color-header-text);
+}
+
+header::after {
+  position: absolute;
+  right: var(--page-padding);
+  bottom: -2px;
+  left: var(--page-padding);
+  height: 1px;
+  background: rgb(201 97 63 / 30%);
+  content: '';
+}
+
+header h1 {
+  margin: 0 0 0.15em;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  animation: fade-in-up 0.6s ease both;
+}
+
+.subtitle {
+  margin-left: 0.15rem;
+  color: var(--color-header-subtle);
+  font-family: var(--font-body);
+  font-size: clamp(0.9rem, 1.2vw, var(--text-xl));
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  animation: fade-in-up 0.6s 0.1s ease both;
+}
+
+/* ── Tab navigation ──────────────────────────────────────────────── */
+
+.tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 var(--page-padding);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.tab-button {
+  padding: 0.9em var(--space-lg);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.tab-button:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.tab-button.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* ── Responsive layouts ───────────────────────────────────────────── */
+
+@media (width <= 900px) {
+  #viz-section {
+    flex-direction: column;
+  }
+
+  .ask-result-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (width <= 600px) {
+  header {
+    padding: var(--space-lg) var(--page-padding-sm);
+  }
+
+  header::after {
+    right: var(--page-padding-sm);
+    left: var(--page-padding-sm);
+  }
+
+  #kpi-cards,
+  #viz-section,
+  #table-section,
+  .ask-page,
+  #filter-bar,
+  .tabs {
+    margin-right: var(--page-padding-sm);
+    margin-left: var(--page-padding-sm);
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .tabs {
+    padding: 0 var(--page-padding-sm);
+  }
+
+  sheets-view {
+    margin: var(--space-base) var(--page-padding-sm) var(--space-xl);
+  }
+
+  .chart-card {
+    min-width: unset;
+  }
+
+  .ask-input-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

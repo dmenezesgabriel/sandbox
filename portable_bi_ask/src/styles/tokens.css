@@ -1,0 +1,112 @@
+/* ==========================================================================
+   Design Tokens
+   All custom properties (design tokens) are defined here.
+   No structural styles — only variables.
+   ========================================================================== */
+
+:root {
+  /* ── Typography ────────────────────────────────────────────────────── */
+  --font-display: 'Playfair Display', georgia, 'Times New Roman', serif;
+  --font-body: 'Plus Jakarta Sans', -apple-system, blinkmacsystemfont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', consolas, monospace;
+
+  /* ── Font sizes ────────────────────────────────────────────────────── */
+  --text-xs: 0.7rem;
+  --text-sm: 0.78rem;
+  --text-base: 0.85rem;
+  --text-md: 0.9rem;
+  --text-lg: 1rem;
+  --text-xl: 1.1rem;
+  --text-2xl: 1.25rem;
+  --text-3xl: 2.4rem;
+  --text-4xl: 3rem;
+
+  /* ── Spacing scale ─────────────────────────────────────────────────── */
+  --space-2xs: 0.15rem;
+  --space-xs: 0.3rem;
+  --space-sm: 0.5rem;
+  --space-md: 0.75rem;
+  --space-base: 1rem;
+  --space-lg: 1.25rem;
+  --space-xl: 1.5rem;
+  --space-2xl: 2rem;
+  --space-3xl: 2.5rem;
+  --space-4xl: 3rem;
+
+  /* ── Colors ───────────────────────────────────────────────────────── */
+  --color-bg: #f4f1ec;
+  --color-surface: #fff;
+  --color-surface-hover: #faf8f5;
+  --color-header: #1a232e;
+  --color-header-text: #f0ede8;
+  --color-header-subtle: rgb(240 237 232 / 70%);
+  --color-header-accent: #c9613f;
+  --color-accent: #c9613f;
+  --color-accent-hover: #d97a58;
+  --color-accent-subtle: #eccfc4;
+  --color-accent-light: #f5e8e2;
+  --color-text: #1e2028;
+  --color-text-secondary: #7c808a;
+  --color-text-muted: #a0a4ae;
+  --color-text-on-accent: #fff;
+  --color-success: #4a8c6f;
+  --color-success-hover: #3d7d62;
+  --color-success-bg: #edf7f1;
+  --color-success-border: #b8d9c5;
+  --color-warning: #c8963e;
+  --color-warning-hover: #b3812e;
+  --color-warning-bg: #fef7e6;
+  --color-warning-border: #f0ca75;
+  --color-warning-text: #735111;
+  --color-danger: #d9534f;
+  --color-danger-hover: #c9433f;
+  --color-danger-bg: #fef6f5;
+  --color-info: #2d6a8f;
+  --color-info-hover: #235a78;
+  --color-border: #e3ddd6;
+  --color-border-light: #efebe6;
+  --color-border-focus: #c9613f;
+
+  /* ── Shadows ───────────────────────────────────────────────────────── */
+  --shadow-sm: 0 1px 3px rgb(30 32 40 / 6%);
+  --shadow-md: 0 4px 12px rgb(30 32 40 / 8%);
+  --shadow-lg: 0 8px 30px rgb(30 32 40 / 12%);
+  --shadow-xl: 0 12px 40px rgb(30 32 40 / 16%);
+
+  /* ── Border radii ─────────────────────────────────────────────────── */
+  --radius-sm: 0.375em;
+  --radius-md: 0.625em;
+  --radius-lg: 0.875em;
+  --radius-xl: 1.125em;
+
+  /* ── Transitions ───────────────────────────────────────────────────── */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Z-index scale ────────────────────────────────────────────────── */
+  --z-base: 1;
+  --z-sticky: 100;
+  --z-overlay: 999;
+  --z-modal: 1000;
+
+  /* ── Top navigation ───────────────────────────────────────────────── */
+  --topnav-height: 56px;
+  --topnav-bg: #0f1419;
+  --topnav-bg-fade: #161b22;
+  --topnav-brand-color: #ff6b3d;
+  --topnav-brand-glow: rgb(255 107 61 / 18%);
+  --topnav-text: #c9d1d9;
+  --topnav-text-muted: #6e7681;
+  --topnav-text-active: #f0f6fc;
+  --topnav-tab-indicator: var(--color-accent);
+  --topnav-border: rgb(240 246 252 / 8%);
+  --topnav-underline-height: 2px;
+
+  /* ── Page layout ──────────────────────────────────────────────────── */
+  --page-padding: 2.5rem;
+  --page-padding-sm: 0.75rem;
+
+  /* ── Focus ring ────────────────────────────────────────────────────── */
+  --focus-ring: 0 0 0 3px rgb(201 97 63 / 12%);
+}

@@ -1,0 +1,212 @@
+/* ==========================================================================
+   Top Navigation
+   ========================================================================== */
+
+.topnav {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  flex-direction: column;
+  height: var(--topnav-height);
+  border-bottom: 1px solid var(--topnav-border);
+  background: var(--topnav-bg);
+  animation: topnav-reveal 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.topnav-inner {
+  position: relative;
+  display: flex;
+  gap: var(--space-2xl);
+  align-items: center;
+  height: var(--topnav-height);
+  padding: 0 var(--space-3xl);
+}
+
+/* Brand */
+
+.topnav-brand {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.65rem;
+  align-items: center;
+  cursor: default;
+  user-select: none;
+  animation: brand-glow 4s ease-in-out infinite alternate;
+}
+
+.topnav-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--topnav-brand-color) 0%, #e04e1a 100%);
+  box-shadow:
+    0 0 0 1px rgb(255 107 61 / 30%),
+    0 2px 8px rgb(255 107 61 / 20%);
+}
+
+.topnav-mark::after {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--topnav-bg);
+  border-radius: 50%;
+  background: rgb(240 246 252 / 12%);
+  content: '';
+}
+
+.topnav-wordmark {
+  display: flex;
+  align-items: baseline;
+  color: var(--topnav-text-active);
+  font-family: Fraunces, var(--font-display), georgia, serif;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.topnav-wordmark:hover {
+  color: var(--topnav-brand-color);
+}
+
+.topnav-subtitle {
+  margin-left: 0.4rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--topnav-border);
+  color: var(--topnav-text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* Tabs */
+
+.topnav-tabs {
+  display: flex;
+  gap: 0;
+  align-items: stretch;
+  height: 100%;
+  margin-left: auto;
+}
+
+.topnav-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--space-lg);
+  border: none;
+  background: none;
+  color: var(--topnav-text-muted);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    color 200ms ease,
+    background 200ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.topnav-tab:hover {
+  background: rgb(240 246 252 / 4%);
+  color: var(--topnav-text);
+}
+
+.topnav-tab-active {
+  color: var(--topnav-text-active);
+}
+
+.topnav-tab-active::after {
+  position: absolute;
+  right: var(--space-base);
+  bottom: 0;
+  left: var(--space-base);
+  height: var(--topnav-underline-height);
+  border-radius: var(--topnav-underline-height) var(--topnav-underline-height) 0 0;
+  background: var(--topnav-tab-indicator);
+  content: '';
+  animation: tab-underline-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.topnav-tab:focus-visible {
+  border-radius: 2px;
+  outline-offset: -2px;
+  outline: 2px solid var(--color-accent);
+}
+
+.topnav-tab-text {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Glow accent line */
+
+.topnav-glow {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--topnav-brand-color) 15%,
+    rgb(255 107 61 / 60%) 40%,
+    rgb(255 107 61 / 60%) 60%,
+    var(--topnav-brand-color) 85%,
+    transparent 100%
+  );
+  opacity: 0.4;
+}
+
+/* Back button */
+
+.topnav-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.3rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--topnav-text-muted);
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.topnav-back:hover {
+  background: rgb(240 246 252 / 8%);
+  color: var(--topnav-text-active);
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+
+@media (width <= 640px) {
+  .topnav-inner {
+    gap: var(--space-base);
+    padding: 0 var(--space-base);
+  }
+
+  .topnav-subtitle {
+    display: none;
+  }
+
+  .topnav-tab {
+    padding: 0 0.85rem;
+    font-size: var(--text-base);
+  }
+
+  .topnav-wordmark {
+    font-size: var(--text-xl);
+  }
+}

@@ -1,0 +1,165 @@
+/* ==========================================================================
+   Forms
+   Shared form element styles across the application.
+   ========================================================================== */
+
+.form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.65rem var(--space-sm);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+/* ── Filter bar ───────────────────────────────────────────────────── */
+
+#filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-base);
+  align-items: center;
+  margin: var(--space-xl) var(--page-padding) 0;
+}
+
+#filter-bar label {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+#filter-bar select {
+  padding: 0.35em 1.2em 0.35em 0.7em;
+  padding-right: 2em;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237c808a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 0.5em center;
+  background-repeat: no-repeat;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  cursor: pointer;
+  appearance: none;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+#filter-bar select:hover {
+  border-color: var(--color-accent-subtle);
+}
+
+#filter-bar select:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+/* ── Ask input ─────────────────────────────────────────────────────── */
+
+.ask-input-row input {
+  flex: 1;
+  padding: 0.75em var(--space-base);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-lg);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.ask-input-row input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.ask-input-row input:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+/* ── Editor tabs ──────────────────────────────────────────────────── */
+
+.editor-tabs button {
+  flex: 1;
+  padding: 0.6em var(--space-base);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.editor-tabs button:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.editor-tabs button.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* ── Widget color picker ────────────────────────────────────────────── */
+
+.widget-color-picker input[type='color'] {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
