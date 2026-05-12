@@ -4,16 +4,10 @@ import '../spinner';
 import { Chart, registerables } from 'chart.js';
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
-import type { CellValue, Filters, WidgetConfig } from '../../types';
+import type { CellValue, Filters, ValueFormat, WidgetConfig } from '../../types';
+import { formatValue } from '../../utils';
 
 Chart.register(...registerables);
-
-const FORMATTERS: Record<string, (v: CellValue) => string> = {
-  currency: (v: CellValue): string => {
-    const n = Number(v || 0);
-    return '$' + (Number.isNaN(n) ? '0' : Math.round(n).toLocaleString());
-  },
-};
 
 export class Widget extends LitElement {
   static override readonly properties = {
@@ -59,8 +53,7 @@ export class Widget extends LitElement {
   }
 
   private _formatValue(v: CellValue, format?: string): string {
-    if (format && FORMATTERS[format]) return FORMATTERS[format](v);
-    return String(v ?? '');
+    return formatValue(v, format as ValueFormat);
   }
 
   private _handleClick(_e: MouseEvent): void {

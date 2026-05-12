@@ -191,6 +191,7 @@ kpis:
   - id: total-sales
     title: Total Sales
     query: 'SELECT SUM(Sales) AS value FROM sales JOIN customer USING("Customer ID") WHERE --filter:Region--'
+    format: currency
   - id: total-customers
     title: Total Customers
     query: 'SELECT COUNT(DISTINCT "Customer ID") AS value FROM customer WHERE --filter:Region--'
@@ -239,6 +240,8 @@ tables:
       - Region
       - Category
       - Sales
+    columnFormats:
+      Sales: currency
 
 layout:
   - id: total-sales

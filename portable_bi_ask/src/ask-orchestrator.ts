@@ -1,9 +1,9 @@
 import type { DataSourceManager } from './data-source-manager';
-import type { AskResult, Clarification, DashboardConfig } from './types';
+import type { AskResult, Clarification, DashboardConfig, ParseOptions } from './types';
 
 export interface AskEngine {
   initialize(): Promise<void>;
-  ask(question: string, options?: Record<string, unknown>): Promise<AskResult>;
+  ask(question: string, options?: ParseOptions): Promise<AskResult>;
 }
 
 export interface AskOrchestratorConfig {

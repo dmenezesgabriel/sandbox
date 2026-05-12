@@ -99,6 +99,15 @@ describe('formatValue()', () => {
     expect(formatValue(null)).toBe('0');
     expect(formatValue(undefined)).toBe('0');
   });
+
+  it('returns $0 for non-numeric string with currency format', () => {
+    expect(formatValue('abc', 'currency')).toBe('$0');
+  });
+
+  it('returns $0 for null and undefined with currency format', () => {
+    expect(formatValue(null, 'currency')).toBe('$0');
+    expect(formatValue(undefined, 'currency')).toBe('$0');
+  });
 });
 
 describe('fieldKey()', () => {

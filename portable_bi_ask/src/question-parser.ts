@@ -1,7 +1,15 @@
 import { DateRangeParser } from './date-range-parser';
 import { IntentCueDetector } from './intent-cue-detector';
 import { TermMatcher } from './term-matcher';
-import type { AnalysisType, CatalogField, Entity, FieldRole, IntentMetric } from './types';
+import type {
+  AnalysisType,
+  CatalogField,
+  ClarificationPending,
+  Entity,
+  FieldRole,
+  IntentMetric,
+  ParseOptions,
+} from './types';
 import { norm, singularize } from './utils';
 import { ValueFilterResolver } from './value-filter-resolver';
 
@@ -17,7 +25,7 @@ export class QuestionParser {
   resolveFieldPhrase: (
     phrase: string,
     roles: FieldRole[],
-    clarification: unknown,
+    clarification: ClarificationPending | undefined,
   ) => Promise<{ field?: CatalogField; clarification?: unknown }>;
   findBestFieldInText: (text: string, role: FieldRole) => Promise<CatalogField | null>;
   getDefaultMetric: () => IntentMetric;
@@ -64,7 +72,7 @@ export class QuestionParser {
     this.getDefaultTimeField = getDefaultTimeField;
   }
 
-  async parse(question, options: Record<string, unknown> = {}) {
+  async parse(question, options: ParseOptions = {}) {
     const dateInfo = this.dateRangeParser.parse(question, this.getDefaultTimeField());
     const fullQ = norm(question);
     const q = norm(dateInfo.questionWithoutDate || question);
@@ -130,15 +138,7 @@ export class QuestionParser {
     });
   }
 
-  async buildIntentResult(
-    question,
-    q,
-    fullQ,
-    dateInfo,
-    warnings,
-    options: Record<string, unknown>,
-    resolved,
-  ) {
+  async buildIntentResult(question, q, fullQ, dateInfo, warnings, options: ParseOptions, resolved) {
     const { metric, limit, sortDirection, isRanking, isYoY, timeGrain, isCount, superlative } =
       resolved;
     const dimensionsResult = await this.resolveDimensions(
@@ -152,10 +152,7 @@ export class QuestionParser {
     if (!Array.isArray(dimensionsResult))
       return this.withOriginalQuestion(dimensionsResult, question);
     const dimensions = dimensionsResult as CatalogField[];
-    const filters = this.filterResolver.resolve(
-      q,
-      (options.clarification as Record<string, unknown> | null) ?? null,
-    );
+    const filters = this.filterResolver.resolve(q, options.clarification);
     if (filters.clarification) return this.withOriginalQuestion(filters, question);
     const share = this.buildShare(fullQ, filters.filters, dimensions);
     const comparison = share ? null : this.buildComparison(q, filters.filters, dimensions);
@@ -199,11 +196,8 @@ export class QuestionParser {
     };
   }
 
-  listIntent(question, q, dateInfo, listField, warnings, options: Record<string, unknown> = {}) {
-    const filters = this.filterResolver.resolve(
-      q,
-      (options.clarification as Record<string, unknown> | null) ?? null,
-    );
+  listIntent(question, q, dateInfo, listField, warnings, options: ParseOptions = {}) {
+    const filters = this.filterResolver.resolve(q, options.clarification);
     if (filters.clarification) return this.withOriginalQuestion(filters, question);
     return {
       intent: {
@@ -316,7 +310,7 @@ export class QuestionParser {
     q: string,
     byPhrases: string[],
     dimensions: CatalogField[],
-    options: Record<string, unknown>,
+    options: ParseOptions,
   ): Promise<{ field?: CatalogField; clarification?: unknown } | null> {
     for (const phrase of byPhrases) {
       if (dimensions.length >= (this.askConfig.maxDimensions || 2)) break;
@@ -340,7 +334,7 @@ export class QuestionParser {
     timeGrain: string | null,
     isCount: boolean,
     warnings: string[],
-    options: Record<string, unknown> = {},
+    options: ParseOptions = {},
   ): Promise<CatalogField[] | { field?: CatalogField; clarification?: unknown }> {
     const dimensions: CatalogField[] = [];
     const topDimensionPhrase = superlative?.field ? null : this.extractTopDimensionPhrase(q);
@@ -372,7 +366,7 @@ export class QuestionParser {
     return dimensions;
   }
 
-  async detectListField(q, options: Record<string, unknown> = {}) {
+  async detectListField(q, options: ParseOptions = {}) {
     if (!this.intentCues.isListRequest(q)) return null;
     if (await this.findBestFieldInText(q, 'measure')) return null;
     const hintedField = this.intentCues.listFieldHint(q);
@@ -395,7 +389,7 @@ export class QuestionParser {
       : null;
   }
 
-  async detectSuperlative(q, options: Record<string, unknown> = {}) {
+  async detectSuperlative(q, options: ParseOptions = {}) {
     const direction = this.intentCues.superlativeDirection(q);
     if (!direction) return null;
     const phrase = this.intentCues.extractSuperlativeSubject(q);

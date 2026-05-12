@@ -1037,4 +1037,118 @@ describe('SqlPlanner', () => {
       expect(result[1]).toContain("'A', 'B'");
     });
   });
+
+  // ───────────────────────────────────────────────
+  // buildWhereConditions()
+  // ───────────────────────────────────────────────
+
+  describe('buildWhereConditions()', () => {
+    it('returns empty array when no filters and no date range', () => {
+      const planner = makePlanner();
+      const aliases = new Map([['sales', 't0_sales']]);
+      const result = planner.buildWhereConditions(makeIntent({ filters: [] }), aliases);
+      expect(result).toEqual([]);
+    });
+
+    it('returns structured eq condition for equality filter', () => {
+      const planner = makePlanner({ relationships: () => twoTableRelationships });
+      const aliases = new Map([
+        ['sales', 't0_sales'],
+        ['customer', 't1_customer'],
+      ]);
+      const result = planner.buildWhereConditions(
+        makeIntent({ filters: [{ field: regionField, operator: '=', value: 'East' }] }),
+        aliases,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        kind: 'eq',
+        tableAlias: 't1_customer',
+        column: 'Region',
+        value: 'East',
+      });
+    });
+
+    it('returns structured in condition for IN filter', () => {
+      const planner = makePlanner({ relationships: () => twoTableRelationships });
+      const aliases = new Map([
+        ['sales', 't0_sales'],
+        ['customer', 't1_customer'],
+      ]);
+      const result = planner.buildWhereConditions(
+        makeIntent({ filters: [{ field: regionField, operator: 'IN', values: ['East', 'West'] }] }),
+        aliases,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({
+        kind: 'in',
+        tableAlias: 't1_customer',
+        column: 'Region',
+        values: ['East', 'West'],
+      });
+    });
+
+    it('preserves all IN values including those with special characters', () => {
+      const planner = makePlanner({ relationships: () => twoTableRelationships });
+      const aliases = new Map([
+        ['sales', 't0_sales'],
+        ['customer', 't1_customer'],
+      ]);
+      const result = planner.buildWhereConditions(
+        makeIntent({
+          filters: [{ field: regionField, operator: 'IN', values: ["O'Brien's", 'East'] }],
+        }),
+        aliases,
+      );
+      expect(result[0]).toMatchObject({ kind: 'in', values: ["O'Brien's", 'East'] });
+    });
+
+    it('returns date_range condition for start/end date range', () => {
+      const planner = makePlanner();
+      const aliases = new Map([['sales', 't0_sales']]);
+      const result = planner.buildWhereConditions(
+        makeIntent({
+          dateRange: { field: timeField, start: '2024-01-01', end: '2024-12-31', text: 'in 2024' },
+        }),
+        aliases,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        kind: 'date_range',
+        start: '2024-01-01',
+        end: '2024-12-31',
+      });
+    });
+
+    it('returns month_of_year condition for monthOfYear date range', () => {
+      const planner = makePlanner();
+      const aliases = new Map([['sales', 't0_sales']]);
+      const result = planner.buildWhereConditions(
+        makeIntent({
+          dateRange: { field: timeField, kind: 'monthOfYear', month: 3, text: 'in March' },
+        }),
+        aliases,
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ kind: 'month_of_year', month: 3 });
+    });
+
+    it('combines filter conditions and date range', () => {
+      const planner = makePlanner({ relationships: () => twoTableRelationships });
+      const aliases = new Map([
+        ['sales', 't0_sales'],
+        ['customer', 't1_customer'],
+      ]);
+      const result = planner.buildWhereConditions(
+        makeIntent({
+          filters: [{ field: regionField, operator: '=', value: 'East' }],
+          dateRange: { field: timeField, start: '2024-01-01', end: '2024-12-31', text: 'in 2024' },
+        }),
+        aliases,
+      );
+      expect(result).toHaveLength(2);
+      expect(result[0]).toMatchObject({ kind: 'eq' });
+      expect(result[1]).toMatchObject({ kind: 'date_range' });
+    });
+  });
 });

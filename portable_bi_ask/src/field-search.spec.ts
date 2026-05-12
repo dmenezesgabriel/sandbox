@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ExactFieldMatchStrategy, FieldResolver, FieldSearchIndex } from './field-search';
 import { TermMatcher } from './term-matcher';
-import type { CatalogField, FieldRole } from './types';
+import type { CatalogField, ClarificationPending, FieldRole } from './types';
 
 const makeField = (overrides: Partial<CatalogField> & { id: string }): CatalogField => ({
   table: 'sales',
@@ -185,11 +185,9 @@ describe('ExactFieldMatchStrategy', () => {
 // ───────────────────────────────────────────────
 
 describe('FieldResolver', () => {
-  const clarify = (
-    _pending: Record<string, unknown>,
-    message: string,
-    _fields: CatalogField[],
-  ) => ({ clarification: { message, pending: _pending } });
+  const clarify = (_pending: ClarificationPending, message: string, _fields: CatalogField[]) => ({
+    clarification: { message, pending: _pending },
+  });
 
   describe('resolvePhrase', () => {
     it('returns field from first matching strategy', async () => {
@@ -244,7 +242,7 @@ describe('FieldResolver', () => {
     it('calls clarify when result is ambiguous', async () => {
       let clarifyCalled = false;
       const clarifyFn = (
-        pending: Record<string, unknown>,
+        pending: ClarificationPending,
         message: string,
         fields: CatalogField[],
       ) => {
@@ -281,6 +279,7 @@ describe('FieldResolver', () => {
       );
       const result = await resolver.resolvePhrase('field', ['dimension'], {
         slot: 'field',
+        originalQuestion: null,
         phrase: 'field',
         fieldId: 'customer::Region',
       });
@@ -301,6 +300,7 @@ describe('FieldResolver', () => {
       );
       const result = await resolver.resolvePhrase('field', ['dimension'], {
         slot: 'field',
+        originalQuestion: null,
         phrase: 'different phrase',
         fieldId: 'customer::Region',
       });

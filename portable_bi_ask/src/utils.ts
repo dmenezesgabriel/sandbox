@@ -69,7 +69,7 @@ export const startOfYear = (date: Date): Date => new Date(Date.UTC(date.getUTCFu
 
 export function formatValue(value: CellValue, format?: ValueFormat): string {
   const n = numberValue(value);
-  if (format === 'currency') return '$' + Math.round(n).toLocaleString();
+  if (format === 'currency') return '$' + (Number.isNaN(n) ? '0' : Math.round(n).toLocaleString());
   if (format === 'percent') return (n * 100).toFixed(1) + '%';
   if (Number.isFinite(n)) return n.toLocaleString();
   return String(value ?? '');

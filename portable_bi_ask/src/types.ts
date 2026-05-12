@@ -354,6 +354,10 @@ export interface ClarificationPending {
   candidates?: ClarificationChoice[];
 }
 
+export interface ParseOptions {
+  clarification?: ClarificationPending;
+}
+
 export interface Clarification {
   message: string;
   pending: ClarificationPending;
@@ -413,6 +417,21 @@ export interface PlannedSql {
   diagnostics?: Diagnostics | null;
   error?: string;
 }
+
+export interface JoinPlanResult {
+  error?: string;
+  joins?: Relationship[];
+}
+
+export interface JoinPlanProvider {
+  buildJoinPlan(baseTable: string, neededTables: string[]): JoinPlanResult;
+}
+
+export type WhereCondition =
+  | { kind: 'eq'; tableAlias: string; column: string; value: CellValue }
+  | { kind: 'in'; tableAlias: string; column: string; values: CellValue[] }
+  | { kind: 'date_range'; dateExpr: string; start: string; end: string }
+  | { kind: 'month_of_year'; dateExpr: string; month: number };
 
 export interface FieldSearchItem {
   field: CatalogField;

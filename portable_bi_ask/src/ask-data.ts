@@ -23,6 +23,7 @@ import type {
   CatalogField,
   Entity,
   FieldFuse,
+  ParseOptions,
   Relationship,
   ValueFuse,
   ValueItem,
@@ -161,8 +162,7 @@ export class AskDataEngine {
       termMatcher: this.termMatcher,
       displayLabel: (field) => this.displayLabel(field),
       localizedTerms: (field) => this.localizedTerms(field),
-      buildJoinPlan: (baseTable, neededTables) =>
-        this.sqlPlanner.buildJoinPlan(baseTable, neededTables),
+      joinPlanProvider: this.sqlPlanner,
     });
     this.insightGenerator = new InsightGenerator();
     this.semanticMatcher = new SemanticFieldMatcher(this.askConfig.semanticMatching || {}, {
@@ -210,11 +210,7 @@ export class AskDataEngine {
       dateRangeParser: this.dateRangeParser,
       localizedTerms: (field) => this.localizedTerms(field),
       resolveFieldPhrase: (phrase, roles, clarification) =>
-        this.fieldResolver.resolvePhrase(
-          phrase,
-          roles,
-          clarification as Record<string, unknown> | null,
-        ),
+        this.fieldResolver.resolvePhrase(phrase, roles, clarification),
       findBestFieldInText: (q, role) => this.fieldResolver.findInText(q, role),
       getDefaultMetric: () => this.getDefaultMetric(),
       getDefaultTimeField: () => this.getDefaultTimeField(),
@@ -351,7 +347,7 @@ export class AskDataEngine {
     });
   }
 
-  async ask(question, options: Record<string, unknown> = {}) {
+  async ask(question, options: ParseOptions = {}) {
     const totalStarted = performance.now();
     await this.initialize();
     const parseStarted = performance.now();
@@ -457,7 +453,7 @@ export class AskDataEngine {
     };
   }
 
-  parseQuestion(question, options: Record<string, unknown> = {}) {
+  parseQuestion(question, options: ParseOptions = {}) {
     return this.questionParser.parse(question, options);
   }
 

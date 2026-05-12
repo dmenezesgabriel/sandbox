@@ -12,6 +12,7 @@ import type {
   CatalogField,
   DataRow,
   Diagnostics,
+  JoinPlanProvider,
   Relationship,
   ResultShape,
 } from './types';
@@ -239,7 +240,7 @@ describe('ConfidenceScorer', () => {
       termMatcher: { patternFromTerm },
       displayLabel,
       localizedTerms,
-      buildJoinPlan,
+      joinPlanProvider: { buildJoinPlan },
     });
     return { scorer, displayLabel, localizedTerms, buildJoinPlan, patternFromTerm };
   }
@@ -263,6 +264,51 @@ describe('ConfidenceScorer', () => {
       scorer.estimate(baseIntent());
       expect(buildJoinPlan).toHaveBeenCalledTimes(1);
       expect(buildJoinPlan).toHaveBeenCalledWith('sales', expect.arrayContaining(['sales']));
+    });
+  });
+
+  describe('JoinPlanProvider port', () => {
+    it('accepts a JoinPlanProvider object and returns a finite score', () => {
+      const provider: JoinPlanProvider = { buildJoinPlan: vi.fn(() => ({ joins: [] })) };
+      const scorer = new ConfidenceScorer({
+        config: { dataSources: [{ name: 'sales' }] },
+        termMatcher: { patternFromTerm: vi.fn(() => null) },
+        displayLabel: vi.fn((f) => (f as Partial<CatalogField>).label ?? ''),
+        localizedTerms: vi.fn(() => [] as string[]),
+        joinPlanProvider: provider,
+      });
+      const score = scorer.estimate(baseIntent());
+      expect(Number.isFinite(score)).toBe(true);
+    });
+
+    it('delegates to joinPlanProvider.buildJoinPlan with the metric table as base', () => {
+      const buildJoinPlan = vi.fn(() => ({ joins: [] }));
+      const provider: JoinPlanProvider = { buildJoinPlan };
+      const scorer = new ConfidenceScorer({
+        config: { dataSources: [{ name: 'sales' }] },
+        termMatcher: { patternFromTerm: vi.fn(() => null) },
+        displayLabel: vi.fn((f) => (f as Partial<CatalogField>).label ?? ''),
+        localizedTerms: vi.fn(() => [] as string[]),
+        joinPlanProvider: provider,
+      });
+      scorer.estimate(baseIntent());
+      expect(buildJoinPlan).toHaveBeenCalledTimes(1);
+      expect(buildJoinPlan).toHaveBeenCalledWith('sales', expect.arrayContaining(['sales']));
+    });
+
+    it('reduces score when joinPlanProvider.buildJoinPlan returns an error', () => {
+      const provider: JoinPlanProvider = {
+        buildJoinPlan: vi.fn(() => ({ error: 'No path found' })),
+      };
+      const scorer = new ConfidenceScorer({
+        config: { dataSources: [{ name: 'sales' }] },
+        termMatcher: { patternFromTerm: vi.fn(() => null) },
+        displayLabel: vi.fn((f) => (f as Partial<CatalogField>).label ?? ''),
+        localizedTerms: vi.fn(() => [] as string[]),
+        joinPlanProvider: provider,
+      });
+      const score = scorer.estimate(baseIntent());
+      expect(score).toBeLessThan(0.6);
     });
   });
 

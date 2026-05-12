@@ -1,3 +1,4 @@
+import { type AnalysisFacts,ResultAnalyzer } from './result-analyzer';
 import type {
   AskChartType,
   AskIntent,
@@ -5,7 +6,7 @@ import type {
   ChartDecision,
   DataRow,
   Diagnostics,
-  Relationship,
+  JoinPlanProvider,
   ResultShape,
 } from './types';
 import { formatValue, norm } from './utils';
@@ -245,36 +246,31 @@ interface TermMatcherLike {
   patternFromTerm(term: string, flags?: string): RegExp | null;
 }
 
-interface JoinPlanLike {
-  error?: string;
-  joins?: Relationship[];
-}
-
 export class ConfidenceScorer {
   private readonly config: { dataSources?: { name: string }[] };
   private readonly termMatcher: TermMatcherLike;
   private readonly displayLabel: (field: Partial<CatalogField> | { label?: string }) => string;
   private readonly localizedTerms: (field: Partial<CatalogField>) => string[];
-  private readonly buildJoinPlan: (baseTable: string, neededTables: string[]) => JoinPlanLike;
+  private readonly joinPlanProvider: JoinPlanProvider;
 
   constructor({
     config,
     termMatcher,
     displayLabel,
     localizedTerms,
-    buildJoinPlan,
+    joinPlanProvider,
   }: {
     config: { dataSources?: { name: string }[] };
     termMatcher: TermMatcherLike;
     displayLabel: (field: Partial<CatalogField> | { label?: string }) => string;
     localizedTerms: (field: Partial<CatalogField>) => string[];
-    buildJoinPlan: (baseTable: string, neededTables: string[]) => JoinPlanLike;
+    joinPlanProvider: JoinPlanProvider;
   }) {
     this.config = config;
     this.termMatcher = termMatcher;
     this.displayLabel = displayLabel;
     this.localizedTerms = localizedTerms;
-    this.buildJoinPlan = buildJoinPlan;
+    this.joinPlanProvider = joinPlanProvider;
   }
 
   estimate(intent: AskIntent): number {
@@ -329,7 +325,7 @@ export class ConfidenceScorer {
     const baseTable = metric?.table || fields[0]?.table || this.config.dataSources?.[0]?.name;
     if (!baseTable) return 0.4;
     const neededTables = [...new Set([baseTable, ...fields.map((f) => f.table)])];
-    const joinPlan = this.buildJoinPlan(baseTable, neededTables);
+    const joinPlan = this.joinPlanProvider.buildJoinPlan(baseTable, neededTables);
     if (joinPlan.error) return 0.4;
     if (!joinPlan.joins?.length) return 0.95;
     return Math.min(...joinPlan.joins.map((rel) => rel.confidence ?? 0.85));
@@ -337,7 +333,9 @@ export class ConfidenceScorer {
 }
 
 export class InsightGenerator {
-  generate(rows: DataRow[], intent: AskIntent, _shape: ResultShape): string[] {
+  private readonly analyzer = new ResultAnalyzer();
+
+  generate(rows: DataRow[], intent: AskIntent, shape: ResultShape): string[] {
     if (!rows?.length) return ['No rows matched this question.'];
     if (intent.analysisType === 'list_values')
       return [
@@ -349,7 +347,7 @@ export class InsightGenerator {
       return [
         `Total ${metricLabel(intent)} is ${formatValue(rows[0].value, metricField(intent.metric)?.format)}.`,
       ];
-    if (rows[0]?.value !== undefined) return this.groupedMetricInsights(rows, intent);
+    if (rows[0]?.value !== undefined) return this.groupedMetricInsights(rows, intent, shape);
     return [];
   }
 
@@ -372,29 +370,42 @@ export class InsightGenerator {
     return metricLabel(intent);
   }
 
-  groupedMetricInsights(rows: DataRow[], intent: AskIntent): string[] {
-    const metricFormat = metricField(intent.metric)?.format;
-    const valid = rows.filter((r) => Number.isFinite(Number(r.value)));
-    if (!valid.length) return [];
-    const total = valid.reduce((sum, r) => sum + Number(r.value), 0);
-    const sorted = [...valid].sort((a, b) => Number(b.value) - Number(a.value));
-    const top = sorted[0];
-    const bottom = sorted[sorted.length - 1];
+  groupedMetricInsights(
+    rows: DataRow[],
+    intent: AskIntent,
+    shape: ResultShape = {
+      columns: [],
+      rowCount: 0,
+      numeric: [],
+      categoric: [],
+      time: [],
+      numericCount: 0,
+      categoricCount: 0,
+      timeCount: 0,
+      seriesCount: 1,
+      groupCount: 0,
+      hasMetric: false,
+      oneObservationPerGroup: true,
+    },
+  ): string[] {
+    const facts = this.analyzer.analyze(rows, intent, shape);
+    if (!facts.valid.length) return [];
+    const mf = metricField(intent.metric);
+    const fmt = mf?.format;
     const insights: string[] = [];
-    this.addExtremeInsights(insights, top, bottom, total, metricFormat);
-    this.addTopNShareInsight(insights, valid, total, intent);
-    this.addTrendInsight(insights, valid, intent, metricFormat);
-    this.addOutlierInsight(insights, valid, total, intent);
+    this.addExtremeInsights(insights, facts, fmt);
+    this.addTopNShareInsight(insights, facts, intent);
+    this.addTrendInsight(insights, facts, intent, fmt);
+    this.addOutlierInsight(insights, facts, intent);
     return insights;
   }
 
   private addExtremeInsights(
     insights: string[],
-    top: DataRow | undefined,
-    bottom: DataRow | undefined,
-    total: number,
+    facts: AnalysisFacts,
     metricFormat: string | undefined,
   ): void {
+    const { top, bottom, total } = facts;
     if (!top) return;
     const shareStr = total
       ? ` (${formatValue(Number(top.value) / total, 'percent')} of total)`
@@ -404,51 +415,36 @@ export class InsightGenerator {
       insights.push(`${bottom.label} is lowest at ${formatValue(bottom.value, metricFormat)}.`);
   }
 
-  private addTopNShareInsight(
-    insights: string[],
-    valid: DataRow[],
-    total: number,
-    intent: AskIntent,
-  ): void {
-    if (valid.length < 3 || !total) return;
-    const topN = [...valid]
-      .sort((a, b) => Number(b.value) - Number(a.value))
-      .slice(0, Math.min(3, valid.length));
-    const share = topN.reduce((sum, row) => sum + Number(row.value), 0) / total;
+  private addTopNShareInsight(insights: string[], facts: AnalysisFacts, intent: AskIntent): void {
+    if (facts.topNShare === null) return;
+    const topCount = Math.min(3, facts.valid.length);
     const kind = intent.dimensions?.[0]?.role === 'time' ? 'periods' : 'groups';
     insights.push(
-      `Top ${topN.length} ${kind} account for ${formatValue(share, 'percent')} of total.`,
+      `Top ${topCount} ${kind} account for ${formatValue(facts.topNShare, 'percent')} of total.`,
     );
   }
 
   private addTrendInsight(
     insights: string[],
-    valid: DataRow[],
+    facts: AnalysisFacts,
     intent: AskIntent,
     metricFormat: string | undefined,
   ): void {
-    if (intent.dimensions?.[0]?.role !== 'time' || valid.length < 2) return;
+    if (intent.dimensions?.[0]?.role !== 'time' || facts.trendChange === null) return;
+    const { valid, trendChange, trendPct } = facts;
     const first = valid[0];
     const last = valid[valid.length - 1];
-    const change = Number(last.value) - Number(first.value);
-    const pct = Number(first.value) ? change / Number(first.value) : null;
-    const direction = change >= 0 ? 'up' : 'down';
-    const pctStr = pct !== null ? ` (${formatValue(Math.abs(pct), 'percent')})` : '';
+    const direction = trendChange >= 0 ? 'up' : 'down';
+    const pctStr = trendPct !== null ? ` (${formatValue(Math.abs(trendPct), 'percent')})` : '';
     insights.push(
-      `${last.label} is ${direction} ${formatValue(Math.abs(change), metricFormat)}${pctStr} versus ${first.label}.`,
+      `${last.label} is ${direction} ${formatValue(Math.abs(trendChange), metricFormat)}${pctStr} versus ${first.label}.`,
     );
   }
 
-  private addOutlierInsight(
-    insights: string[],
-    valid: DataRow[],
-    total: number,
-    intent: AskIntent,
-  ): void {
-    if (valid.length < 4) return;
-    const avg = total / valid.length;
-    const outliers = valid
-      .filter((r) => Number(r.value) > avg * 1.5)
+  private addOutlierInsight(insights: string[], facts: AnalysisFacts, intent: AskIntent): void {
+    if (facts.valid.length < 4) return;
+    const outliers = facts.valid
+      .filter((r) => Number(r.value) > facts.mean * 1.5)
       .map((r) => String(r.label))
       .slice(0, 3);
     if (!outliers.length) return;

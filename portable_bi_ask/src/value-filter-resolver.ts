@@ -1,4 +1,10 @@
-import type { CatalogField, IntentFilter, ValueFuse, ValueItem } from './types';
+import type {
+  CatalogField,
+  ClarificationPending,
+  IntentFilter,
+  ValueFuse,
+  ValueItem,
+} from './types';
 import { escapeRegExp, norm } from './utils';
 
 export class ValueFilterResolver {
@@ -28,7 +34,7 @@ export class ValueFilterResolver {
     this.localizedTerms = localizedTerms;
   }
 
-  resolve(q, clarification: Record<string, unknown> | null = null) {
+  resolve(q, clarification: ClarificationPending | null | undefined = null) {
     const matches = this.findMatches(q);
     const byValue = new Map<string, ValueItem[]>();
     for (const match of matches.sort(
@@ -119,7 +125,7 @@ export class ValueFilterResolver {
   toFilters(
     q,
     byValue: Map<string, ValueItem[]>,
-    clarification: Record<string, unknown> | null = null,
+    clarification: ClarificationPending | null | undefined = null,
   ) {
     const filters: IntentFilter[] = [];
     for (const [, items] of byValue) {

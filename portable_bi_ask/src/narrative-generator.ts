@@ -1,3 +1,4 @@
+import { type AnalysisFacts,ResultAnalyzer } from './result-analyzer';
 import type { AskIntent, CatalogField, DataRow, ResultShape } from './types';
 import { formatValue } from './utils';
 
@@ -24,6 +25,7 @@ export interface NarrativeResult {
 
 export class NarrativeGenerator {
   private readonly config: NarrativeConfig;
+  private readonly analyzer = new ResultAnalyzer();
 
   constructor(config?: Partial<NarrativeConfig>) {
     this.config = {
@@ -48,27 +50,28 @@ export class NarrativeGenerator {
       };
     }
 
+    const facts = this.analyzer.analyze(rows, intent, shape);
     const narratives: Narrative[] = [];
 
-    if (this.isTimeSeries(intent, shape)) {
-      narratives.push(...this.analyzeTimeSeries(rows, intent, metricField));
-      narratives.push(...this.analyzeTrendDirection(rows, metricField));
+    if (facts.isTimeSeries) {
+      narratives.push(...this.analyzeTimeSeries(facts));
+      narratives.push(...this.analyzeTrendDirection(facts, metricField));
     }
 
     if (shape.categoricCount > 0 && shape.numericCount > 0) {
-      narratives.push(...this.analyzeDistribution(rows, intent, metricField));
+      narratives.push(...this.analyzeDistribution(facts, rows));
     }
 
     if (shape.numericCount > 0) {
-      narratives.push(...this.detectOutliers(rows, metricField));
-      narratives.push(...this.analyzeExtremes(rows, metricField));
+      narratives.push(...this.detectOutliers(facts));
+      narratives.push(...this.analyzeExtremes(facts, metricField));
     }
 
     if (this.hasComparison(intent)) {
       narratives.push(...this.analyzeComparisons(rows, intent, metricField));
     }
 
-    narratives.push(...this.analyzePatterns(rows, intent, shape));
+    narratives.push(...this.analyzePatterns(rows, intent, shape, facts));
 
     const ranked = narratives
       .sort((a, b) => b.importance - a.importance)
@@ -81,30 +84,18 @@ export class NarrativeGenerator {
     };
   }
 
-  private isTimeSeries(intent: AskIntent, shape: ResultShape): boolean {
-    return (
-      intent.dimensions?.some((d) => d.role === 'time') ||
-      intent.analysisType === 'trend' ||
-      shape.timeCount > 0
-    );
-  }
-
-  private isGroupedMetric(intent: AskIntent, shape: ResultShape): boolean {
+  private isGroupedMetric(intent: AskIntent, shape: ResultShape, facts: AnalysisFacts): boolean {
     return (
       intent.dimensions?.length > 0 &&
       shape.numericCount > 0 &&
       shape.categoricCount > 0 &&
-      !this.isTimeSeries(intent, shape)
+      !facts.isTimeSeries
     );
   }
 
-  private analyzeTimeSeries(
-    rows: DataRow[],
-    _intent: AskIntent,
-    _metricField?: CatalogField | null,
-  ): Narrative[] {
+  private analyzeTimeSeries(facts: AnalysisFacts): Narrative[] {
     const narratives: Narrative[] = [];
-    const valid = rows.filter((r) => this.hasNumericValue(r.value));
+    const { valid } = facts;
 
     if (valid.length < this.config.trendMinDataPoints) return narratives;
 
@@ -180,24 +171,25 @@ export class NarrativeGenerator {
     const lastThird = rows.slice(Math.floor((rows.length * 2) / 3));
     const firstThird = rows.slice(0, Math.floor(rows.length / 3));
 
-    const avgLast = firstThird.reduce((s, r) => s + Number(r.value), 0) / firstThird.length;
-    const avgFirst = lastThird.reduce((s, r) => s + Number(r.value), 0) / lastThird.length;
+    const avgFirst = firstThird.reduce((s, r) => s + Number(r.value), 0) / firstThird.length;
+    const avgLast = lastThird.reduce((s, r) => s + Number(r.value), 0) / lastThird.length;
 
     if (avgFirst === 0) return null;
 
     return (avgLast - avgFirst) / Math.abs(avgFirst);
   }
 
-  private analyzeTrendDirection(rows: DataRow[], metricField?: CatalogField | null): Narrative[] {
+  private analyzeTrendDirection(
+    facts: AnalysisFacts,
+    metricField?: CatalogField | null,
+  ): Narrative[] {
     const narratives: Narrative[] = [];
-    const valid = rows.filter((r) => this.hasNumericValue(r.value));
-    if (valid.length < 2) return narratives;
+    if (facts.valid.length < 2 || facts.trendChange === null) return narratives;
 
     const metricFormat = metricField?.format;
-    const first = Number(valid[0].value);
-    const last = Number(valid[valid.length - 1].value);
-    const totalChange = last - first;
-    const pctChange = first !== 0 ? totalChange / Math.abs(first) : 0;
+    const first = Number(facts.valid[0].value);
+    const totalChange = facts.trendChange;
+    const pctChange = facts.trendPct ?? 0;
 
     const direction = totalChange >= 0 ? 'increase' : 'decrease';
     const pctStr =
@@ -208,30 +200,24 @@ export class NarrativeGenerator {
       title: `Overall ${direction}`,
       text: `From the first to the last period, the metric ${direction}d by ${formatValue(Math.abs(totalChange), metricFormat)}${pctStr}.`,
       importance: 7,
-      details: { first, last, totalChange, pctChange },
+      details: {
+        first,
+        last: Number(facts.valid[facts.valid.length - 1].value),
+        totalChange,
+        pctChange,
+      },
     });
 
     return narratives;
   }
 
-  private analyzeDistribution(
-    rows: DataRow[],
-    _intent: AskIntent,
-    _metricField?: CatalogField | null,
-  ): Narrative[] {
+  private analyzeDistribution(facts: AnalysisFacts, _rows: DataRow[]): Narrative[] {
     const narratives: Narrative[] = [];
-    const valid = rows.filter((r) => this.hasNumericValue(r.value));
+    const { valid, total, topNShare } = facts;
     if (valid.length < 3) return narratives;
 
-    const values = valid.map((r) => Number(r.value));
-    const total = values.reduce((a, b) => a + b, 0);
-
-    const sorted = [...values].sort((a, b) => b - a);
-    const top3Share =
-      sorted.slice(0, Math.min(3, sorted.length)).reduce((a, b) => a + b, 0) / total;
-
-    if (top3Share > 0.6) {
-      const labels = valid
+    if (topNShare !== null && topNShare > 0.6) {
+      const labels = [...valid]
         .sort((a, b) => Number(b.value) - Number(a.value))
         .slice(0, 3)
         .map((r) => String(r.label))
@@ -240,9 +226,9 @@ export class NarrativeGenerator {
       narratives.push({
         type: 'distribution',
         title: 'Concentrated distribution',
-        text: `The top 3 groups (${labels}) account for ${formatValue(top3Share, 'percent')} of the total, indicating a concentrated distribution.`,
+        text: `The top 3 groups (${labels}) account for ${formatValue(topNShare, 'percent')} of the total, indicating a concentrated distribution.`,
         importance: 8,
-        details: { top3Share, topGroups: labels },
+        details: { top3Share: topNShare, topGroups: labels },
       });
     }
 
@@ -260,23 +246,13 @@ export class NarrativeGenerator {
     return narratives;
   }
 
-  private detectOutliers(rows: DataRow[], _metricField?: CatalogField | null): Narrative[] {
+  private detectOutliers(facts: AnalysisFacts): Narrative[] {
     const narratives: Narrative[] = [];
-    const valid = rows.filter((r) => this.hasNumericValue(r.value));
-    if (valid.length < 4) return narratives;
-
-    const values = valid.map((r) => Number(r.value));
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const squaredDiffs = values.map((v) => Math.pow(v - mean, 2));
-    const stdDev = Math.sqrt(squaredDiffs.reduce((a, b) => a + b, 0) / values.length);
-
-    if (stdDev === 0) return narratives;
+    const { valid, mean, stdDev } = facts;
+    if (valid.length < 4 || stdDev === 0) return narratives;
 
     const threshold = this.config.outlierThreshold;
-    const outliers = valid.filter((r) => {
-      const val = Number(r.value);
-      return Math.abs(val - mean) > threshold * stdDev;
-    });
+    const outliers = valid.filter((r) => Math.abs(Number(r.value) - mean) > threshold * stdDev);
 
     if (outliers.length > 0) {
       this.addOutlierNarrative(narratives, outliers, mean);
@@ -321,23 +297,19 @@ export class NarrativeGenerator {
     return 'Mixed';
   }
 
-  private analyzeExtremes(rows: DataRow[], metricField?: CatalogField | null): Narrative[] {
+  private analyzeExtremes(facts: AnalysisFacts, metricField?: CatalogField | null): Narrative[] {
     const narratives: Narrative[] = [];
-    const valid = rows.filter((r) => this.hasNumericValue(r.value));
-    if (valid.length === 0) return narratives;
+    const { valid, sorted, total, top, bottom } = facts;
+    if (valid.length === 0 || !top) return narratives;
 
     const hasLabels = valid.some((r) => r.label !== undefined && r.label !== null);
 
-    const sorted = [...valid].sort((a, b) => Number(b.value) - Number(a.value));
-    const top = sorted[0];
-    const bottom = sorted[sorted.length - 1];
-    const total = valid.reduce((s, r) => s + Number(r.value), 0);
-
     const metricFormat = metricField?.format;
-    const metricLabel = metricField?.label || 'metric';
+    const metricLbl = metricField?.label || 'metric';
 
-    const topLabel = hasLabels ? String(top.label) : metricLabel;
-    const bottomLabel = hasLabels && bottom.label !== undefined ? String(bottom.label) : null;
+    const topLabel = hasLabels ? String(top.label) : metricLbl;
+    const bottomLabel =
+      hasLabels && bottom && bottom.label !== undefined ? String(bottom.label) : null;
 
     narratives.push({
       type: 'pattern',
@@ -353,9 +325,9 @@ export class NarrativeGenerator {
       narratives.push({
         type: 'pattern',
         title: 'Lowest performer',
-        text: `${bottomLabel} has the lowest value at ${formatValue(bottom.value, metricFormat)}.`,
+        text: `${bottomLabel} has the lowest value at ${formatValue(bottom!.value, metricFormat)}.`,
         importance: 5,
-        details: { bottomLabel, bottomValue: bottom.value },
+        details: { bottomLabel, bottomValue: bottom!.value },
       });
     }
 
@@ -408,21 +380,26 @@ export class NarrativeGenerator {
     return narratives;
   }
 
-  private analyzePatterns(rows: DataRow[], intent: AskIntent, shape: ResultShape): Narrative[] {
+  private analyzePatterns(
+    rows: DataRow[],
+    intent: AskIntent,
+    shape: ResultShape,
+    facts: AnalysisFacts,
+  ): Narrative[] {
     const narratives: Narrative[] = [];
 
     if (!this.config.patternDetectionEnabled || rows.length < 3) return narratives;
 
-    if (this.isGroupedMetric(intent, shape)) {
-      narratives.push(...this.analyzeGroupedPattern(rows));
+    if (this.isGroupedMetric(intent, shape, facts)) {
+      narratives.push(...this.analyzeGroupedPattern(facts));
     }
 
     return narratives;
   }
 
-  private analyzeGroupedPattern(rows: DataRow[]): Narrative[] {
+  private analyzeGroupedPattern(facts: AnalysisFacts): Narrative[] {
     const narratives: Narrative[] = [];
-    const valid = rows.filter((r) => this.hasNumericValue(r.value));
+    const { valid } = facts;
     if (valid.length < 5) return narratives;
 
     const values = valid.map((r) => Number(r.value));
@@ -516,10 +493,6 @@ export class NarrativeGenerator {
     }
 
     return 'Analysis complete. Check the narratives above for details.';
-  }
-
-  private hasNumericValue(val: unknown): boolean {
-    return val !== null && val !== undefined && Number.isFinite(Number(val));
   }
 
   generateNaturalLanguageQuestion(summary: string, intent: AskIntent): string {

@@ -1,5 +1,6 @@
-import type { CatalogField, Diagnostics, PlannedSql, Relationship } from './types';
-import { escapeSqlString, quoteIdent, safeAlias } from './utils';
+import { SqlRenderer } from './sql-renderer';
+import type { CatalogField, Diagnostics, PlannedSql, Relationship, WhereCondition } from './types';
+import { quoteIdent, safeAlias } from './utils';
 
 export class SqlPlanner {
   config: { dataSources?: Array<{ name: string }>; relationships?: Relationship[] };
@@ -153,28 +154,29 @@ export class SqlPlanner {
     return { metricExpr, metricFormat };
   }
 
-  buildWhereParts(intent, aliases) {
-    const whereParts = intent.filters.map((filter) => {
-      const expr = `${aliases.get(filter.field.table)}.${quoteIdent(filter.field.column)}`;
+  buildWhereConditions(intent, aliases): WhereCondition[] {
+    const conditions: WhereCondition[] = intent.filters.map((filter) => {
+      const tableAlias = aliases.get(filter.field.table);
+      const column = filter.field.column;
       if (filter.operator === 'IN') {
-        const inList = (filter.values || [])
-          .map((value) => `'${escapeSqlString(value)}'`)
-          .join(', ');
-        return `${expr} IN (${inList})`;
+        return { kind: 'in', tableAlias, column, values: filter.values || [] };
       }
-      return `${expr} = '${escapeSqlString(filter.value)}'`;
+      return { kind: 'eq', tableAlias, column, value: filter.value };
     });
     if (intent.dateRange?.field) {
       const field = intent.dateRange.field;
       const dateExpr = this.timeSqlExpression(field, aliases.get(field.table));
       if (intent.dateRange.kind === 'monthOfYear') {
-        whereParts.push(`EXTRACT(month FROM ${dateExpr}) = ${Number(intent.dateRange.month)}`);
+        conditions.push({ kind: 'month_of_year', dateExpr, month: intent.dateRange.month });
       } else {
-        whereParts.push(`${dateExpr} >= DATE '${intent.dateRange.start}'`);
-        whereParts.push(`${dateExpr} < DATE '${intent.dateRange.end}'`);
+        conditions.push({ kind: 'date_range', dateExpr, start: intent.dateRange.start, end: intent.dateRange.end });
       }
     }
-    return whereParts;
+    return conditions;
+  }
+
+  buildWhereParts(intent, aliases): string[] {
+    return new SqlRenderer().renderConditions(this.buildWhereConditions(intent, aliases));
   }
 
   planListValues(intent, aliases, whereParts, from, joins, diagnostics) {
@@ -245,10 +247,10 @@ export class SqlPlanner {
       intent.dimensions.length === 1
         ? `CAST(d1 AS VARCHAR)`
         : intent.dimensions.map((_, i) => `CAST(d${i + 1} AS VARCHAR)`).join(` || ' / ' || `);
-    const shareValues = (intent.shareValues || [])
-      .map((value) => `'${escapeSqlString(value)}'`)
-      .join(', ');
-    const shareFilterClause = shareValues ? `\nWHERE label IN (${shareValues})` : '';
+    const escapedShareValues = (intent.shareValues || []).length
+      ? new SqlRenderer().renderEscapedList(intent.shareValues || [])
+      : '';
+    const shareFilterClause = escapedShareValues ? `\nWHERE label IN (${escapedShareValues})` : '';
     const sql = `WITH grouped AS (\n${shareInner}\n), shares AS (\n  SELECT ${shareLabelExpr} AS label, value, CASE WHEN SUM(value) OVER () = 0 THEN NULL ELSE value / SUM(value) OVER () END AS share\n  FROM grouped\n)\nSELECT label, value, share\nFROM shares${shareFilterClause}\nORDER BY value ${intent.sort?.direction || 'DESC'}\nLIMIT ${Number(intent.limit) || this.askConfig.maxRows || 25}`;
     return { sql, columns: ['label', 'value', 'share'], metricFormat, diagnostics };
   }

@@ -519,7 +519,8 @@ describe('ValueFilterResolver', () => {
         ],
       ]);
       const clarification = {
-        slot: 'filterField',
+        slot: 'filterField' as const,
+        originalQuestion: null,
         valueNormalized: 'north',
         fieldId: 'sales::Region',
       };

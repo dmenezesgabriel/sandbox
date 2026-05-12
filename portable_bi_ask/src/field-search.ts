@@ -2,7 +2,13 @@ import MiniSearch from 'minisearch';
 
 import { SemanticFieldMatcher } from './semantic-field-matcher';
 import { TermMatcher } from './term-matcher';
-import type { CatalogField, FieldFuse, FieldRole, FieldSearchIndexType } from './types';
+import type {
+  CatalogField,
+  ClarificationPending,
+  FieldFuse,
+  FieldRole,
+  FieldSearchIndexType,
+} from './types';
 import { norm, singularize } from './utils';
 
 export class FieldSearchIndex {
@@ -243,7 +249,7 @@ export class FieldResolver {
     findInText?: (text: string, role: FieldRole) => Promise<CatalogField | null>;
   }>;
   clarify: (
-    pending: Record<string, unknown>,
+    pending: ClarificationPending,
     message: string,
     fields: CatalogField[],
   ) => { field?: CatalogField; clarification?: unknown };
@@ -253,7 +259,11 @@ export class FieldResolver {
     this.clarify = clarify;
   }
 
-  async resolvePhrase(phrase, roles, clarification: Record<string, unknown> | null = null) {
+  async resolvePhrase(
+    phrase,
+    roles,
+    clarification: ClarificationPending | null | undefined = null,
+  ) {
     if (!norm(phrase)) return { field: undefined };
     for (const strategy of this.strategies) {
       const raw = await strategy.matchPhrase?.(phrase, roles);
@@ -272,7 +282,7 @@ export class FieldResolver {
             : null;
         if (clarified) return { field: clarified };
         return this.clarify(
-          { slot: 'field', phrase, roles },
+          { slot: 'field', originalQuestion: null, phrase, roles },
           `Which field did you mean by "${phrase}"?`,
           fields,
         );

@@ -10,16 +10,6 @@ export function titleToSlug(title: string): string {
     .replace(/^-|-$/g, '');
 }
 
-function processConfig(raw: DashboardConfig): DashboardConfig {
-  return {
-    ...raw,
-    kpis: raw.kpis.map((kpi, i) => (i === 0 ? { ...kpi, format: 'currency' as const } : kpi)),
-    tables: raw.tables.map((table, i) =>
-      i === 0 ? { ...table, columnFormats: { Sales: 'currency' as const } } : table,
-    ),
-  };
-}
-
 interface DashboardEntry {
   slug: string;
   config: DashboardConfig;
@@ -28,8 +18,7 @@ interface DashboardEntry {
 const yamlModules: string[] = [portableBiDashboardYaml];
 
 const staticEntries: DashboardEntry[] = yamlModules.map((yaml) => {
-  const raw = parseYaml(yaml) as DashboardConfig;
-  const config = processConfig(raw);
+  const config = parseYaml(yaml) as DashboardConfig;
   const slug = titleToSlug(config.title);
   return { slug, config };
 });
@@ -41,7 +30,7 @@ function loadPersistedDashboards(): DashboardEntry[] {
     const raw = localStorage.getItem(PERSIST_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Array<{ slug: string; config: DashboardConfig }>;
-    return parsed.map((p) => ({ slug: p.slug, config: processConfig(p.config) }));
+    return parsed.map((p) => ({ slug: p.slug, config: p.config }));
   } catch {
     return [];
   }
@@ -81,7 +70,7 @@ export function addDashboard(config: DashboardConfig): string {
     slug = `${base}-${i++}`;
   }
 
-  const entry: DashboardEntry = { slug, config: processConfig(config) };
+  const entry: DashboardEntry = { slug, config };
 
   dashboardList.push(entry);
   dashboardRegistry[slug] = entry.config;

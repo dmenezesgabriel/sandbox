@@ -133,6 +133,26 @@ describe('buildVocabulary', () => {
     const vocab2 = buildVocabulary({});
     expect(vocab2.en.by).not.toContain('per');
   });
+
+  it('returns defaults when called with undefined (engine path when askConfig.vocabulary is absent)', () => {
+    const vocab = buildVocabulary(undefined as unknown as Vocabulary);
+    expect(vocab.en).toBeDefined();
+    expect(vocab.pt).toBeDefined();
+    expect(vocab.en.by).toContain('by');
+    expect(vocab.pt.by).toContain('por');
+  });
+
+  it('adds a new group to an existing locale without affecting other groups', () => {
+    const vocab = buildVocabulary({ en: { customGroup: ['alpha', 'beta'] } });
+    expect(vocab.en.customGroup).toEqual(expect.arrayContaining(['alpha', 'beta']));
+    expect(vocab.en.by).toContain('by');
+  });
+
+  it('user config only extends default groups, never removes existing default terms', () => {
+    const vocab = buildVocabulary({ en: { by: ['custom_by'] } });
+    expect(vocab.en.by).toContain('by');
+    expect(vocab.en.by).toContain('custom_by');
+  });
 });
 
 describe('defaultVocabulary', () => {
