@@ -68,6 +68,10 @@ Run all tests
 - Integration
 - E2E
 
+## May Help
+
+- export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1 on ubuntu 26
+
 ## References
 
 - https://medium.com/@alexbunardzic/mutation-testing-for-javascript-e5e5ef7b5b
