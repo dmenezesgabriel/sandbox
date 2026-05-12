@@ -635,19 +635,3 @@ export class SemanticModelingEngine {
       .join(' ');
   }
 }
-
-export function createDefaultAutoModelingConfig() {
-  return {
-    fieldDetection: {
-      datePatterns: DATE_PATTERNS,
-      idPatterns: ID_PATTERNS,
-      measurePatterns: MEASURE_PATTERNS,
-      dimensionPatterns: DIMENSION_PATTERNS,
-    },
-    relationshipInference: {
-      autoAcceptThreshold: 0.75,
-      ambiguousThreshold: 0.5,
-      minOverlap: 0.15,
-    },
-  };
-}

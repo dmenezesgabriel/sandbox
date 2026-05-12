@@ -2,14 +2,10 @@ import type { ChartConfiguration, ChartType } from 'chart.js';
 import type Fuse from 'fuse.js';
 import type MiniSearch from 'minisearch';
 
-import type { AskDataEngine } from './ask-data';
-import type { DuckDBManager } from './db';
-
 export type PrimitiveCell = string | number | bigint | boolean | Date | null | undefined;
 export type CellValue = PrimitiveCell | Record<string, unknown> | unknown[];
 export type DataRow = Record<string, CellValue>;
 export type Filters = Record<string, string>;
-export type FilterOptions = Record<string, string[]>;
 export type ValueFormat = 'currency' | 'percent' | string | undefined;
 export type FieldRole = 'measure' | 'time' | 'dimension' | 'key';
 export type SortDirection = 'ASC' | 'DESC';
@@ -418,24 +414,6 @@ export interface PlannedSql {
   error?: string;
 }
 
-export interface ChartDataResult {
-  chartDef: ChartConfig;
-  labels: string[];
-  data: number[];
-}
-
-export interface DashboardRefreshResult {
-  kpiResults: CellValue[];
-  chartData: ChartDataResult[];
-  tableRows: DataRow[][];
-}
-
-export interface DashboardDataLoaderOptions {
-  config: DashboardConfig;
-  duckDBManager: DuckDBManager;
-  askEngine: AskDataEngine;
-}
-
 export interface FieldSearchItem {
   field: CatalogField;
   text: string;
@@ -506,12 +484,4 @@ export interface Sheet {
   filters?: DashboardFilterConfig[];
   createdAt?: string;
   updatedAt?: string;
-}
-
-export interface SheetState {
-  sheets: Sheet[];
-  activeSheetId: string | null;
-  editMode: boolean;
-  selectedWidgetId: string | null;
-  crossFilters: Record<string, CellValue[]>;
 }

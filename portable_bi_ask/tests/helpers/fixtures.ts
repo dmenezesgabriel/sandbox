@@ -65,13 +65,3 @@ const SETUP_SQL = [
 export async function setupTestDatabase(db: NodeDuckDBManager): Promise<void> {
   for (const sql of SETUP_SQL) await db.exec(sql);
 }
-
-// Precomputed expected values for the test dataset.
-export const EXPECTED = {
-  totalSales: 5760,
-  sales2017: 2950,
-  sales2018: 2810,
-  regionOrder: ['West', 'East', 'Central', 'South'],
-  salesByRegion: { West: 2160, East: 1400, Central: 1180, South: 1020 },
-  categoryOrder: ['Technology', 'Furniture', 'Office Supplies'],
-} as const;

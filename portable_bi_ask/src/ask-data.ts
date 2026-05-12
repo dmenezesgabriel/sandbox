@@ -3,6 +3,8 @@ import * as chronoPt from 'chrono-node/pt';
 import Fuse from 'fuse.js';
 import MiniSearch from 'minisearch';
 
+import { DiagnosticRunner } from './diagnostic-runner';
+import { IntentDescriber } from './intent-describer';
 import { NarrativeGenerator, type NarrativeResult } from './narrative-generator';
 import {
   ChartDecisionTree,
@@ -22,6 +24,7 @@ import type {
   FieldSearchIndexType,
   IntentFilter,
   IntentMetric,
+  PlannedSql,
   Relationship,
   SemanticMatchingConfig,
   ValueFuse,
@@ -51,6 +54,7 @@ import {
   startOfYear,
   toRows,
 } from './utils';
+import { buildVocabulary } from './vocabulary';
 
 export class SemanticFieldMatcher {
   config: SemanticMatchingConfig;
@@ -1007,7 +1011,7 @@ export class SqlPlanner {
       : `TRY_CAST(${alias}.${quoteIdent(field.column)} AS DATE)`;
   }
 
-  plan(intent): import('./types').PlannedSql {
+  plan(intent): PlannedSql {
     const fields = [
       intent.metric?.field || intent.metric,
       intent.timeField,
@@ -2322,6 +2326,8 @@ export class AskDataEngine {
   initialized: boolean;
   semanticModelingEngine: SemanticModelingEngine;
   narrativeGenerator: NarrativeGenerator;
+  intentDescriber: IntentDescriber;
+  diagnosticRunner: DiagnosticRunner;
   autoSemanticEnabled: boolean;
   autoNarrativesEnabled: boolean;
 
@@ -2385,6 +2391,8 @@ export class AskDataEngine {
     this.semanticModelingEngine = new SemanticModelingEngine();
     this.autoSemanticEnabled = this.askConfig.autoSemanticModeling !== false;
     this.narrativeGenerator = new NarrativeGenerator();
+    this.intentDescriber = new IntentDescriber((item) => this.displayLabel(item));
+    this.diagnosticRunner = new DiagnosticRunner((sql) => this.duckDBManager.query(sql));
     this.autoNarrativesEnabled = this.askConfig.autoNarratives !== false;
     this.fieldResolver = new FieldResolver(
       [
@@ -2441,128 +2449,7 @@ export class AskDataEngine {
   }
 
   buildVocabulary() {
-    const defaults = {
-      en: {
-        by: ['by'],
-        top: ['top', 'best', 'highest'],
-        bottom: ['bottom', 'worst', 'lowest'],
-        most: ['most', 'highest', 'largest', 'biggest', 'best'],
-        least: ['least', 'lowest', 'smallest', 'worst'],
-        count: ['count', 'number of', 'how many'],
-        overTime: ['over time', 'trend'],
-        filters: ['in', 'for', 'where', 'with'],
-        and: ['and'],
-        prepositions: ['of', 'for', 'in'],
-        listAction: ['which', 'what', 'list', 'show'],
-        subjectQuestion: ['which', 'what'],
-        ownershipVerb: ['has'],
-        article: ['the'],
-        listAvailability: ['do i have', 'are there', 'exist', 'available'],
-        listKind: ['kind', 'kinds', 'type', 'types'],
-        listCategory: ['category', 'categories'],
-        listSubcategory: ['subcategory', 'sub category', 'sub categories'],
-        latestYear: ['latest year', 'last year'],
-        latestMonth: ['latest month', 'last month'],
-        thisYear: ['this year'],
-        thisMonth: ['this month'],
-        dateCue: [
-          'today',
-          'yesterday',
-          'tomorrow',
-          'last',
-          'this',
-          'next',
-          'year',
-          'month',
-          'week',
-          'quarter',
-          'day',
-        ],
-        yearCue: ['year'],
-        monthCue: ['month'],
-        dayCue: ['day', 'today', 'yesterday', 'tomorrow'],
-        dayGrain: ['day', 'daily'],
-        monthGrain: ['month', 'monthly'],
-        yearGrain: ['year', 'yearly', 'annual'],
-        yearOverYear: ['year over year', 'yoy', 'year on year'],
-        comparison: ['compare', 'versus', 'vs'],
-        change: ['change', 'changed', 'delta', 'growth'],
-        share: ['share', 'percent', 'percentage', 'proportion'],
-        unsupportedMetric: ['profit', 'margin', 'earnings', 'cost'],
-      },
-      pt: {
-        by: ['por'],
-        top: ['top', 'maiores', 'melhores'],
-        bottom: ['menores', 'piores'],
-        most: ['maior', 'maiores', 'melhor', 'melhores', 'mais'],
-        least: ['menor', 'menores', 'pior', 'piores', 'menos'],
-        count: ['contar', 'conte', 'quantos', 'numero de', 'número de'],
-        overTime: ['ao longo do tempo', 'tendencia', 'tendência', 'evolucao', 'evolução'],
-        filters: ['em', 'para', 'onde', 'com'],
-        and: ['e'],
-        prepositions: ['de', 'do', 'da', 'para', 'em'],
-        listAction: ['quais', 'qual', 'liste', 'mostrar'],
-        subjectQuestion: ['quais', 'qual'],
-        ownershipVerb: ['tem', 'possui'],
-        article: ['o', 'a'],
-        listAvailability: ['tenho', 'existem', 'disponiveis', 'disponíveis'],
-        listKind: ['tipo', 'tipos'],
-        listCategory: ['categoria', 'categorias'],
-        listSubcategory: ['subcategoria', 'subcategorias', 'sub categoria'],
-        latestYear: ['ano mais recente', 'ultimo ano', 'último ano', 'ano passado', 'ano anterior'],
-        latestMonth: [
-          'mes mais recente',
-          'mês mais recente',
-          'ultimo mes',
-          'último mês',
-          'mes passado',
-          'mês passado',
-          'mes anterior',
-          'mês anterior',
-        ],
-        thisYear: ['este ano', 'esse ano'],
-        thisMonth: ['este mes', 'este mês', 'esse mes', 'esse mês'],
-        dateCue: [
-          'hoje',
-          'ontem',
-          'amanha',
-          'amanhã',
-          'passado',
-          'passada',
-          'este',
-          'esta',
-          'proximo',
-          'próximo',
-          'ano',
-          'mes',
-          'mês',
-          'semana',
-          'trimestre',
-          'dia',
-        ],
-        yearCue: ['ano'],
-        monthCue: ['mes', 'mês'],
-        dayCue: ['dia', 'hoje', 'ontem', 'amanha', 'amanhã'],
-        dayGrain: ['dia', 'diario', 'diária', 'diario', 'diaria'],
-        monthGrain: ['mes', 'mês', 'mensal'],
-        yearGrain: ['ano', 'anual'],
-        yearOverYear: ['ano a ano', 'ano contra ano'],
-        comparison: ['comparar', 'compare', 'versus', 'vs', 'contra'],
-        change: ['mudanca', 'mudança', 'variacao', 'variação', 'crescimento'],
-        share: ['participacao', 'participação', 'percentual', 'porcentagem'],
-        unsupportedMetric: ['lucro', 'margem', 'custo'],
-      },
-    };
-    const configured: Vocabulary = this.askConfig.vocabulary || {};
-    const merged: Vocabulary = structuredClone(defaults);
-    for (const [lang, groups] of Object.entries(
-      configured as Record<string, Record<string, string[]>>,
-    )) {
-      merged[lang] ||= {};
-      for (const [group, terms] of Object.entries(groups))
-        merged[lang][group] = [...new Set([...(merged[lang][group] || []), ...terms])];
-    }
-    return merged;
+    return buildVocabulary(this.askConfig.vocabulary);
   }
 
   terms(group) {
@@ -2794,71 +2681,19 @@ export class AskDataEngine {
   }
 
   async evaluateJoinFanout(fanout) {
-    if (!fanout?.baseCountSql || !fanout?.joinedCountSql) return;
-    try {
-      const baseRow = toRows(await this.duckDBManager.query(fanout.baseCountSql))[0] || {};
-      const joinedRow = toRows(await this.duckDBManager.query(fanout.joinedCountSql))[0] || {};
-      const baseCount = numberValue(baseRow.row_count ?? baseRow.rowCount ?? 0);
-      const joinedCount = numberValue(joinedRow.row_count ?? joinedRow.rowCount ?? 0);
-      let ratio: number;
-      if (baseCount > 0) ratio = joinedCount / baseCount;
-      else if (joinedCount > 0) ratio = Infinity;
-      else ratio = 1;
-      Object.assign(fanout, {
-        baseCount,
-        joinedCount,
-        ratio: Number.isFinite(ratio) ? Number(ratio.toFixed(3)) : ratio,
-      });
-      if (joinedCount - baseCount >= fanout.minExtraRows && ratio >= fanout.threshold) {
-        fanout.warning = `Joined row count is ${ratio.toFixed(1)}x the base ${fanout.baseTable} row count (${baseCount.toLocaleString()} → ${joinedCount.toLocaleString()}). This join may duplicate rows and inflate metrics.`;
-      }
-    } catch (err) {
-      fanout.error = String(err);
-    }
+    return this.diagnosticRunner.evaluateJoinFanout(fanout);
   }
 
   async evaluateFilterSelectivity(selectivity) {
-    if (!selectivity?.unfilteredCountSql || !selectivity?.filteredCountSql) return;
-    try {
-      const unfiltered = numberValue(
-        (toRows(await this.duckDBManager.query(selectivity.unfilteredCountSql))[0] || {}).row_count,
-      );
-      const filtered = numberValue(
-        (toRows(await this.duckDBManager.query(selectivity.filteredCountSql))[0] || {}).row_count,
-      );
-      const ratio = unfiltered > 0 ? filtered / unfiltered : 1;
-      Object.assign(selectivity, {
-        unfilteredCount: unfiltered,
-        filteredCount: filtered,
-        ratio: Number(ratio.toFixed(3)),
-      });
-      if (unfiltered && ratio < selectivity.threshold)
-        selectivity.warning = `Filters keep only ${(ratio * 100).toFixed(1)}% of rows (${filtered.toLocaleString()} of ${unfiltered.toLocaleString()}). Results may be sparse.`;
-    } catch (err) {
-      selectivity.error = String(err);
-    }
+    return this.diagnosticRunner.evaluateFilterSelectivity(selectivity);
   }
 
   async evaluateDateParse(dateParse) {
-    if (!dateParse?.sql) return;
-    try {
-      const row = toRows(await this.duckDBManager.query(dateParse.sql))[0] || {};
-      const checkedRows = numberValue(row.checked_rows ?? row.checkedRows ?? 0);
-      const droppedRows = numberValue(row.dropped_rows ?? row.droppedRows ?? 0);
-      Object.assign(dateParse, { checkedRows, droppedRows });
-      if (droppedRows > 0)
-        dateParse.warning = `Date parsing dropped ${droppedRows.toLocaleString()} ${dateParse.field} rows.`;
-    } catch (err) {
-      dateParse.error = String(err);
-    }
+    return this.diagnosticRunner.evaluateDateParse(dateParse);
   }
 
   async evaluateDiagnostics(planned) {
-    const diagnostics = structuredClone(planned.diagnostics || {});
-    await this.evaluateJoinFanout(diagnostics.joinFanout);
-    await this.evaluateFilterSelectivity(diagnostics.filterSelectivity);
-    await this.evaluateDateParse(diagnostics.dateParse);
-    return diagnostics;
+    return this.diagnosticRunner.evaluateDiagnostics(planned.diagnostics || {});
   }
 
   fieldClarification(pending, message, fields) {
@@ -2934,114 +2769,23 @@ export class AskDataEngine {
     return this.sqlPlanner.findRelationshipPath(startTables, targetTable);
   }
 
-  describeEvidence(intent) {
-    const evidence: import('./types').EvidenceItem[] = [];
-    if (intent.metric?.kind === 'count_star')
-      evidence.push({ kind: 'metric', field: 'Records', source: 'count_star' });
-    else if (intent.metric?.kind === 'count_distinct')
-      evidence.push({
-        kind: 'metric',
-        field: this.displayLabel(intent.metric.field),
-        table: intent.metric.field.table,
-        column: intent.metric.field.column,
-        source: 'count_distinct',
-      });
-    else if (intent.metric?.table)
-      evidence.push({
-        kind: 'metric',
-        field: this.displayLabel(intent.metric),
-        table: intent.metric.table,
-        column: intent.metric.column,
-        source: intent.metric.default ? 'default_metric' : 'resolved_field',
-      });
-    for (const dimension of intent.dimensions || []) {
-      evidence.push({
-        kind: 'dimension',
-        field: this.displayLabel(dimension),
-        table: dimension.table,
-        column: dimension.column,
-        source: 'resolved_field',
-      });
-    }
-    for (const filter of intent.filters || []) {
-      evidence.push({
-        kind: 'filter',
-        field: this.displayLabel(filter.field),
-        table: filter.field.table,
-        column: filter.field.column,
-        value: filter.operator === 'IN' ? (filter.values || []).join(', ') : filter.value,
-        source: filter.source || 'resolved_value',
-      });
-    }
-    if (intent.dateRange?.field) {
-      evidence.push({
-        kind: 'date',
-        field: this.displayLabel(intent.dateRange.field),
-        table: intent.dateRange.field.table,
-        column: intent.dateRange.field.column,
-        source: intent.dateRange.kind || 'date_range',
-      });
-    }
-    return evidence;
-  }
-
   describeMetricPart(intent) {
-    if (intent.metric?.kind === 'count_star') return 'Count records';
-    if (intent.metric?.kind === 'count_distinct') {
-      const entityLabel = this.displayLabel(intent.metric.entity || { label: intent.metric.label });
-      return `Count distinct ${entityLabel}`;
-    }
-    const agg = intent.metric?.aggregation || 'SUM';
-    return `${agg}(${this.displayLabel(intent.metric || {})})`;
+    return this.intentDescriber.describeMetricPart(intent);
   }
 
   describeFilterParts(filters) {
-    return filters
-      .map((f) => {
-        if (f.operator === 'IN') {
-          const vals = (f.values || []).join(', ');
-          return `${this.displayLabel(f.field)} in ${vals}`;
-        }
-        return `${this.displayLabel(f.field)} = ${f.value}`;
-      })
-      .join(' and ');
+    return this.intentDescriber.describeFilterParts(filters);
   }
 
   describeDatePart(dateRange) {
-    if (!dateRange) return '';
-    if (dateRange.kind === 'monthOfYear') return ` in month ${dateRange.month}`;
-    return ` from ${dateRange.start} to ${dateRange.end}`;
+    return this.intentDescriber.describeDatePart(dateRange);
   }
 
   describeIntent(intent) {
-    if (intent.analysisType === 'list_values')
-      return `List ${this.displayLabel(intent.dimensions[0])}`;
-    if (intent.analysisType === 'yoy')
-      return `Year-over-year ${this.displayLabel(intent.metric || {})}`;
-    if (intent.analysisType === 'change')
-      return `${this.displayLabel(intent.metric || {})} change from ${intent.change?.startYear} to ${intent.change?.endYear}`;
-    if (intent.analysisType === 'share')
-      return `Share of ${intent.metric?.aggregation || 'SUM'}(${this.displayLabel(intent.metric || {})}) by ${intent.dimensions.map((d) => this.displayLabel(d)).join(' and ')}`;
-    if (intent.analysisType === 'comparison') {
-      const metric = intent.metric?.kind
-        ? this.displayLabel(intent.metric.field || { label: intent.metric.label })
-        : this.displayLabel(intent.metric || {});
-      const dim = intent.dimensions[0] ? this.displayLabel(intent.dimensions[0]) : 'groups';
-      return `Compare ${metric} by ${dim}`;
-    }
-    const metric = this.describeMetricPart(intent);
-    const dims = intent.dimensions.length
-      ? ` by ${intent.dimensions.map((d) => this.displayLabel(d)).join(' and ')}`
-      : '';
-    const filters = intent.filters.length
-      ? ` where ${this.describeFilterParts(intent.filters)}`
-      : '';
-    const dates = this.describeDatePart(intent.dateRange);
-    const grain = intent.dimensions.some((d) => d.role === 'time')
-      ? ` (${intent.timeGrain || 'month'})`
-      : '';
-    const sortLabel = intent.sort?.direction === 'ASC' ? 'ascending' : 'descending';
-    const limit = intent.dimensions.length ? `, sorted ${sortLabel}, limit ${intent.limit}` : '';
-    return `${metric}${dims}${grain}${filters}${dates}${limit}`;
+    return this.intentDescriber.describeIntent(intent);
+  }
+
+  describeEvidence(intent) {
+    return this.intentDescriber.describeEvidence(intent);
   }
 }
