@@ -6,8 +6,8 @@ import '../sheets-view';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
-import { AskDataEngine } from '../../ask-data';
-import { duckDBManager } from '../../db';
+import { AskOrchestrator } from '../../ask-orchestrator';
+import { createDashboardOrchestrator } from '../../create-dashboard-orchestrator';
 import type {
   AskResult,
   AskSuccessResult,
@@ -15,7 +15,6 @@ import type {
   ClarificationChoice,
   DashboardConfig,
 } from '../../types';
-import { escapeSqlString, quoteIdent } from '../../utils';
 
 function isAskSuccess(result: AskResult): result is AskSuccessResult {
   return 'rows' in result && 'sql' in result && 'chartType' in result;
@@ -44,55 +43,40 @@ export class DashboardEditor extends LitElement {
   private _askLoading = false;
   private _askError = '';
   private _askClarification: Clarification | null = null;
-  private _dataReady = false;
-  private _askEngine: AskDataEngine | null = null;
-
-  constructor() {
-    super();
-  }
+  private _orchestrator: AskOrchestrator | null = null;
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
     return this;
   }
 
+  private _getOrchestrator(): AskOrchestrator | null {
+    if (!this.config) return null;
+    if (!this._orchestrator) {
+      this._orchestrator = createDashboardOrchestrator(this.config);
+    }
+    return this._orchestrator;
+  }
+
   private async _ensureDataReady(): Promise<void> {
-    if (this._dataReady || !this.config) return;
-    if (!this._askEngine) {
-      this._askEngine = new AskDataEngine(this.config, duckDBManager);
-    }
-    for (const source of this.config.dataSources) {
-      console.info(`[editor] creating view ${source.name} from ${source.url}`);
-      try {
-        await duckDBManager.query(
-          `CREATE OR REPLACE VIEW ${quoteIdent(source.name)} AS SELECT * FROM read_csv_auto('${escapeSqlString(
-            source.url,
-          )}')`,
-        );
-        console.info(`[editor] created view ${source.name}`);
-      } catch (err) {
-        console.error(`[editor] failed to create view ${source.name}:`, err);
-        throw err;
-      }
-    }
-    console.info('[editor] initializing AskData engine');
-    await this._askEngine.initialize();
-    console.info('[editor] AskData engine initialized');
-    this._dataReady = true;
+    const orchestrator = this._getOrchestrator();
+    if (!orchestrator) return;
+    await orchestrator.initialize();
   }
 
   private async _runAsk(
     appliedClarification: Clarification['pending'] | null = null,
   ): Promise<void> {
     await this._ensureDataReady();
-    if (!this._askEngine) return;
+    const orchestrator = this._getOrchestrator();
+    if (!orchestrator) return;
     this._askLoading = true;
     this._askError = '';
     this._askClarification = null;
     this._askResult = null;
     try {
-      const result = await this._askEngine.ask(
+      const result = await orchestrator.ask(
         this._askQuestion,
-        appliedClarification ? { clarification: appliedClarification } : {},
+        appliedClarification ? { clarification: appliedClarification } : undefined,
       );
       if ('clarification' in result) this._askClarification = result.clarification;
       else if ('error' in result) this._askError = result.error;
