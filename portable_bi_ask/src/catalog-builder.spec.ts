@@ -138,6 +138,47 @@ describe('CatalogBuilder', () => {
       expect(catalog[0].dateProfile).not.toBeNull();
     });
 
+    it('infers dimension for a low-cardinality numeric field', async () => {
+      const db = makeQueryPort((sql) => {
+        if (sql.includes('COUNT(*)')) return [{ row_count: 1000 }];
+        if (sql.includes('DESCRIBE')) return [{ column_name: 'priority', column_type: 'INTEGER' }];
+        if (sql.includes('COUNT(DISTINCT')) return [{ distinct_count: 3 }];
+        return [{ v: 1 }, { v: 2 }, { v: 3 }];
+      });
+
+      const builder = new CatalogBuilder({
+        ...baseArgs,
+        config: { dataSources: [{ name: 'tasks' }] },
+        duckDBManager: db,
+        fieldByKey: new Map(),
+      });
+
+      const { catalog } = await builder.build();
+
+      expect(catalog[0]).toMatchObject({ column: 'priority', role: 'dimension' });
+    });
+
+    it('applies config override role over the detected role', async () => {
+      const db = makeQueryPort((sql) => {
+        if (sql.includes('COUNT(*)')) return [{ row_count: 1000 }];
+        if (sql.includes('DESCRIBE')) return [{ column_name: 'priority', column_type: 'INTEGER' }];
+        if (sql.includes('COUNT(DISTINCT')) return [{ distinct_count: 3 }];
+        return [{ v: 1 }, { v: 2 }, { v: 3 }];
+      });
+
+      const builder = new CatalogBuilder({
+        ...baseArgs,
+        config: { dataSources: [{ name: 'tasks' }] },
+        askConfig: { fields: [{ table: 'tasks', column: 'priority', role: 'measure' }] },
+        duckDBManager: db,
+        fieldByKey: new Map(),
+      });
+
+      const { catalog } = await builder.build();
+
+      expect(catalog[0]).toMatchObject({ column: 'priority', role: 'measure' });
+    });
+
     it('builds fields across multiple data sources', async () => {
       const db = makeQueryPort((sql) => {
         if (sql.includes('COUNT(*)')) return [{ row_count: 10 }];

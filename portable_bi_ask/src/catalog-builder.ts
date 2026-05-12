@@ -1,4 +1,5 @@
 import type { QueryPort } from './query-port';
+import { AutoFieldRoleDetector, type FieldSignature } from './semantic-modeling';
 import type { CatalogField, Entity, EntityConfig, FieldConfig, Relationship } from './types';
 import {
   addMonths,
@@ -6,9 +7,7 @@ import {
   compact,
   detectDateFormat,
   fieldKey,
-  isDateName,
   isIdLike,
-  isNumericType,
   isoDate,
   norm,
   numberValue,
@@ -19,6 +18,7 @@ import {
 } from './utils';
 
 export class CatalogBuilder {
+  private readonly roleDetector = new AutoFieldRoleDetector();
   config: { dataSources?: Array<{ name: string }>; relationships?: Relationship[] };
   askConfig: {
     fields?: FieldConfig[];
@@ -114,9 +114,10 @@ export class CatalogBuilder {
       ),
     );
     const cardinality = numberValue(distinctRows[0]?.distinct_count ?? 0);
-    const nameLooksDate = isDateName(column);
-    const parseFormat = override.parseFormat || (nameLooksDate ? detectDateFormat(samples) : null);
-    const role = this.inferRole({ override, parseFormat, nameLooksDate, column, type });
+    const signature: FieldSignature = { table, column, type, samples, cardinality, rowCount };
+    const role = override.role ?? this.roleDetector.detectRole(signature).role;
+    const parseFormat =
+      override.parseFormat || (role === 'time' ? detectDateFormat(samples) : null);
     const lowEnoughCardinality =
       cardinality <= (this.askConfig.profiling?.maxDistinctValuesPerField || 100);
     const sampleValues =
@@ -149,14 +150,6 @@ export class CatalogBuilder {
     };
     if (field.role === 'time') field.dateProfile = await this.profileTimeField(field);
     return field;
-  }
-
-  inferRole({ override, parseFormat, nameLooksDate, column, type }) {
-    if (override.role) return override.role;
-    if (parseFormat || nameLooksDate) return 'time';
-    if (isIdLike(column)) return 'key';
-    if (isNumericType(type)) return 'measure';
-    return 'dimension';
   }
 
   async profileTimeField(field) {
