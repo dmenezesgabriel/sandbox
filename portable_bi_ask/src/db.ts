@@ -1,7 +1,9 @@
 import * as duckdb from '@duckdb/duckdb-wasm';
 import type { Table } from 'apache-arrow';
 
-export class DuckDBManager {
+import type { QueryPort } from './query-port';
+
+export class DuckDBManager implements QueryPort {
   private dbInstance: duckdb.AsyncDuckDB | null = null;
   private dbConnection: duckdb.AsyncDuckDBConnection | null = null;
 

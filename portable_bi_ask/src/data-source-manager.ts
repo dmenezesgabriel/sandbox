@@ -1,3 +1,4 @@
+import type { QueryPort } from './query-port';
 import type { DataSourceConfig } from './types';
 import { escapeSqlString, quoteIdent } from './utils';
 
@@ -6,9 +7,9 @@ export interface DataSourceManager {
 }
 
 export class DuckDBDataSourceManager implements DataSourceManager {
-  private db: { query: (sql: string) => Promise<unknown> };
+  private db: QueryPort;
 
-  constructor(db: { query: (sql: string) => Promise<unknown> }) {
+  constructor(db: QueryPort) {
     this.db = db;
   }
 

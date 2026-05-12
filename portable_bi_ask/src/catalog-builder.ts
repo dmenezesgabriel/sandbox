@@ -1,3 +1,4 @@
+import type { QueryPort } from './query-port';
 import type { CatalogField, Entity, EntityConfig, FieldConfig, Relationship } from './types';
 import {
   addMonths,
@@ -27,7 +28,7 @@ export class CatalogBuilder {
     profiling?: { maxDistinctValuesPerField?: number; maxSampleRows?: number };
     relationshipInference?: { autoAcceptThreshold?: number; ambiguousThreshold?: number };
   };
-  duckDBManager: { query: (sql: string) => Promise<unknown> };
+  duckDBManager: QueryPort;
   fieldByKey: Map<string, CatalogField>;
   displayLabel: (item: CatalogField | EntityConfig) => string;
   localizedTerms: (item: CatalogField | EntityConfig) => string[];
@@ -44,7 +45,7 @@ export class CatalogBuilder {
   }: {
     config: CatalogBuilder['config'];
     askConfig?: CatalogBuilder['askConfig'];
-    duckDBManager: CatalogBuilder['duckDBManager'];
+    duckDBManager: QueryPort;
     fieldByKey: Map<string, CatalogField>;
     displayLabel: CatalogBuilder['displayLabel'];
     localizedTerms: CatalogBuilder['localizedTerms'];
