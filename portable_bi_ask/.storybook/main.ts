@@ -30,6 +30,12 @@ const config: StorybookConfig = {
     config.optimizeDeps.include = [
       ...(config.optimizeDeps.include ?? []),
       'lit/directives/if-defined.js',
+      // dayjs and its plugins ship only CJS; force pre-bundling so Vite converts them to ESM.
+      // chrono-node's ESM build does `import default from "dayjs/plugin/quarterOfYear.js"`, which
+      // fails if the plugin is served raw as CJS (no `export default`).
+      'dayjs',
+      'dayjs/plugin/quarterOfYear',
+      'dayjs/plugin/quarterOfYear.js',
     ];
     config.optimizeDeps.exclude = [
       ...(config.optimizeDeps.exclude ?? []),
