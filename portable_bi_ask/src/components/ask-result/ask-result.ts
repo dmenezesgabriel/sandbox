@@ -296,6 +296,16 @@ export class AskResult extends LitElement {
     `;
   }
 
+  private _importanceBadge(importance: number): TemplateResult | typeof nothing {
+    if (importance >= 9)
+      return html`<span class="narrative-badge narrative-badge-critical">Critical</span>`;
+    if (importance >= 8)
+      return html`<span class="narrative-badge narrative-badge-high">High</span>`;
+    if (importance >= 7)
+      return html`<span class="narrative-badge narrative-badge-notable">Notable</span>`;
+    return nothing;
+  }
+
   private _renderNarratives(result: AskSuccessResult): TemplateResult | typeof nothing {
     const narratives = result.narratives;
     if (!narratives?.narratives?.length) return nothing;
@@ -307,8 +317,11 @@ export class AskResult extends LitElement {
           ${narratives.narratives.map(
             (n) => html`
               <div class="narrative-item narrative-${n.type}" data-importance="${n.importance}">
-                <span class="narrative-type">${n.type}</span>
-                <span class="narrative-title">${n.title}</span>
+                <div class="narrative-item-header">
+                  <span class="narrative-type">${n.type}</span>
+                  <span class="narrative-title">${n.title}</span>
+                  ${this._importanceBadge(n.importance)}
+                </div>
                 <p class="narrative-text">${n.text}</p>
               </div>
             `,
@@ -411,9 +424,9 @@ export class AskResult extends LitElement {
       <section class="ask-card">
         <div class="interpretation"><strong>Interpreted as:</strong> ${result.interpretation}</div>
         ${(result.warnings || []).map((w) => html`<div class="warning">${w}</div>`)}
-        ${this._renderDecision(result)} ${this._renderInsights(result)}
-        ${this._renderNarratives(result)} ${this._renderExports(result)}
-        ${this._renderVisualization(result)} ${this._renderDetails(result)}
+        ${this._renderInsights(result)} ${this._renderNarratives(result)}
+        ${this._renderVisualization(result)} ${this._renderExports(result)}
+        ${this._renderDecision(result)} ${this._renderDetails(result)}
       </section>
     `;
   }

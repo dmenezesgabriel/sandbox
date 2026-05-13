@@ -1,6 +1,11 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["tests/integration/steps/steps.ts", "tests/e2e/steps/steps.ts"],
+  "entry": [
+    "tests/integration/steps/steps.ts",
+    "tests/e2e/steps/steps.ts",
+    "src/**/*.stories.ts",
+    ".storybook/*.ts"
+  ],
   "project": ["src/**/*.ts", "tests/**/*.ts"],
   "ignoreExportsUsedInFile": true,
   "ignoreUnresolved": ["tests/.*/steps/.*"]

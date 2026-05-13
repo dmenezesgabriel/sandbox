@@ -43,7 +43,15 @@
 .form-group textarea:focus {
   border-color: var(--color-border-focus);
   box-shadow: var(--focus-ring);
-  outline: none;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.field-error {
+  margin-top: 0.35rem;
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: 500;
 }
 
 /* ── Filter bar ───────────────────────────────────────────────────── */
@@ -93,7 +101,8 @@
 #filter-bar select:focus {
   border-color: var(--color-border-focus);
   box-shadow: var(--focus-ring);
-  outline: none;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /* ── Ask input ─────────────────────────────────────────────────────── */
@@ -119,7 +128,16 @@
 .ask-input-row input:focus {
   border-color: var(--color-border-focus);
   box-shadow: var(--focus-ring);
-  outline: none;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.ask-input-row input.input-prefilled {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgb(201 97 63 / 20%);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 /* ── Editor tabs ──────────────────────────────────────────────────── */

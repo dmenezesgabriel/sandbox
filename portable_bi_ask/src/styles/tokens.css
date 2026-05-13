@@ -46,8 +46,8 @@
   --color-accent-subtle: #eccfc4;
   --color-accent-light: #f5e8e2;
   --color-text: #1e2028;
-  --color-text-secondary: #7c808a;
-  --color-text-muted: #a0a4ae;
+  --color-text-secondary: #6b6f79;
+  --color-text-muted: #767b87;
   --color-text-on-accent: #fff;
   --color-success: #4a8c6f;
   --color-success-hover: #3d7d62;
@@ -108,5 +108,5 @@
   --page-padding-sm: 0.75rem;
 
   /* ── Focus ring ────────────────────────────────────────────────────── */
-  --focus-ring: 0 0 0 3px rgb(201 97 63 / 12%);
+  --focus-ring: 0 0 0 2px var(--color-border-focus);
 }

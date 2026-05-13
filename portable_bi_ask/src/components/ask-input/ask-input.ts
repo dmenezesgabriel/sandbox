@@ -52,8 +52,13 @@ export class AskInput extends LitElement {
             placeholder="sales by region"
           />
           <button class="primary-button" @click=${this._ask} ?disabled=${this.loading}>
-            ${icon(Sparkles, { size: 16 })} Ask
+            ${this.loading
+              ? html`<span class="ask-btn-spinner" aria-hidden="true"></span> Asking…`
+              : html`${icon(Sparkles, { size: 16 })} Ask`}
           </button>
+        </div>
+        <div aria-live="polite" aria-atomic="true" class="ask-sr-status">
+          ${this.loading ? 'Processing your question…' : ''}
         </div>
         <div class="ask-examples">
           Try:

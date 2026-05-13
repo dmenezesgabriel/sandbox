@@ -38,6 +38,7 @@ export class SheetsView extends LitElement {
     crossFilters: { state: true },
     _editingWidget: { state: true },
     _showEditor: { state: true },
+    _importError: { state: true },
   };
 
   config: DashboardConfig;
@@ -55,6 +56,8 @@ export class SheetsView extends LitElement {
   crossFilters: Record<string, CellValue[]>;
   private _editingWidget: WidgetConfig | null = null;
   private _showEditor: boolean = false;
+  private _editorTrigger: HTMLElement | null = null;
+  private _importError = '';
   private _askEngine: AskDataEngine;
   private _dataReady: boolean = false;
   private _dataCache: Record<
@@ -271,6 +274,7 @@ export class SheetsView extends LitElement {
   }
 
   private _onAddWidget(): void {
+    this._editorTrigger = document.activeElement as HTMLElement;
     this._editingWidget = null;
     this._showEditor = true;
   }
@@ -279,6 +283,7 @@ export class SheetsView extends LitElement {
     if (!this._activeSheet || !this.selectedWidgetId) return;
     const widget = this._activeSheet.widgets.find((w) => w.id === this.selectedWidgetId);
     if (widget) {
+      this._editorTrigger = document.activeElement as HTMLElement;
       this._editingWidget = widget;
       this._showEditor = true;
     }
@@ -306,6 +311,9 @@ export class SheetsView extends LitElement {
 
     this._showEditor = false;
     this._editingWidget = null;
+    const trigger = this._editorTrigger;
+    this._editorTrigger = null;
+    this.updateComplete.then(() => trigger?.focus());
     this._persistSheets();
     this._refreshWidgetData();
   }
@@ -313,6 +321,9 @@ export class SheetsView extends LitElement {
   private _onEditorCancel(): void {
     this._showEditor = false;
     this._editingWidget = null;
+    const trigger = this._editorTrigger;
+    this._editorTrigger = null;
+    this.updateComplete.then(() => trigger?.focus());
   }
 
   private _onLayoutChange(e: CustomEvent<{ sheet: Sheet }>): void {
@@ -547,6 +558,7 @@ export class SheetsView extends LitElement {
         sheet = yamlToSheet(text);
       }
 
+      this._importError = '';
       this.sheets = [...this.sheets, sheet];
       this.activeSheetId = sheet.id;
       this.sheetData = {};
@@ -554,7 +566,7 @@ export class SheetsView extends LitElement {
       this._refreshWidgetData();
     } catch (err) {
       console.error('Failed to import file:', err);
-      alert('Failed to import file. Make sure it is valid YAML or JSON.');
+      this._importError = 'Failed to import file. Make sure it is valid YAML or JSON.';
     }
   }
 
@@ -618,6 +630,9 @@ export class SheetsView extends LitElement {
           Export JSON
         </button>
         <button class="btn-import" @click=${this._onImport} title="Import YAML/JSON">Import</button>
+        ${this._importError
+          ? html`<div class="warning" role="alert">${this._importError}</div>`
+          : nothing}
         ${Object.keys(this.crossFilters).length
           ? html`
               <div class="cross-filters">
@@ -626,7 +641,12 @@ export class SheetsView extends LitElement {
                   ([field, values]) => html`
                     <span class="cross-filter-tag">
                       ${field}: ${values.join(', ')}
-                      <button @click=${() => this._onCrossFilterClear(field)}>✕</button>
+                      <button
+                        aria-label="Remove ${field} filter"
+                        @click=${() => this._onCrossFilterClear(field)}
+                      >
+                        ✕
+                      </button>
                     </span>
                   `,
                 )}

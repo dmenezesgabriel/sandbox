@@ -48,7 +48,12 @@ export class TopNav extends LitElement {
             <span class="topnav-mark" aria-hidden="true"></span>
             ${isInDashboard
               ? html`
-                  <button class="topnav-back" @click=${this._goBack} title="Back to Dashboards">
+                  <button
+                    class="topnav-back"
+                    @click=${this._goBack}
+                    aria-label="Back to Dashboards"
+                    title="Back to Dashboards"
+                  >
                     ${icon(ArrowLeft, { size: 18 })}
                   </button>
                 `
@@ -59,19 +64,23 @@ export class TopNav extends LitElement {
 
           ${isInDashboard
             ? html`
-                <div class="topnav-tabs" role="tablist">
+                <div class="topnav-tabs" role="tablist" aria-label="Dashboard views">
                   <button
+                    id="tab-dashboard"
                     class="topnav-tab ${this._tabClass('dashboard')}"
                     role="tab"
                     aria-selected=${this.activeTab === 'dashboard'}
+                    aria-controls="panel-dashboard"
                     @click=${() => this._select('dashboard')}
                   >
                     <span class="topnav-tab-text">Editor</span>
                   </button>
                   <button
+                    id="tab-ask-data"
                     class="topnav-tab ${this._tabClass('askData')}"
                     role="tab"
                     aria-selected=${this.activeTab === 'askData'}
+                    aria-controls="panel-ask-data"
                     @click=${() => this._select('askData')}
                   >
                     <span class="topnav-tab-text">Ask Data</span>

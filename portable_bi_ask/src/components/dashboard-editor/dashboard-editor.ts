@@ -120,7 +120,13 @@ export class DashboardEditor extends LitElement {
             this._askQuestion = e.detail;
             this._askError = '';
             this._askClarification = null;
-            this._runAsk().catch(console.error);
+            this._askResult = null;
+            this.updateComplete.then(() => {
+              const input = this.querySelector<HTMLInputElement>('.ask-input-row input');
+              input?.focus();
+              input?.classList.add('input-prefilled');
+              setTimeout(() => input?.classList.remove('input-prefilled'), 800);
+            });
           }}
         ></ask-input>
 
@@ -138,12 +144,18 @@ export class DashboardEditor extends LitElement {
   }
 
   private _renderTabContent(): TemplateResult {
-    if (this._activeTab === 'askData') return this._renderAskData();
-    return html`<sheets-view
-      .config=${this.config}
-      .isNew=${this.isNew}
-      .slug=${this.slug}
-    ></sheets-view>`;
+    if (this._activeTab === 'askData') {
+      return html`
+        <div id="panel-ask-data" role="tabpanel" aria-labelledby="tab-ask-data" tabindex="0">
+          ${this._renderAskData()}
+        </div>
+      `;
+    }
+    return html`
+      <div id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" tabindex="0">
+        <sheets-view .config=${this.config} .isNew=${this.isNew} .slug=${this.slug}></sheets-view>
+      </div>
+    `;
   }
 
   override render(): TemplateResult {

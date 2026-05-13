@@ -308,7 +308,12 @@ export class Widget extends LitElement {
                   @click=${(e: Event) => e.stopPropagation()}
                 />
               </label>
-              <button class="widget-delete" @click=${this._handleDelete} title="Delete question">
+              <button
+                class="widget-delete"
+                @click=${this._handleDelete}
+                aria-label="Delete ${this.config.title}"
+                title="Delete ${this.config.title}"
+              >
                 ✕
               </button>
             `

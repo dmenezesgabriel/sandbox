@@ -169,7 +169,12 @@ export class SqlPlanner {
       if (intent.dateRange.kind === 'monthOfYear') {
         conditions.push({ kind: 'month_of_year', dateExpr, month: intent.dateRange.month });
       } else {
-        conditions.push({ kind: 'date_range', dateExpr, start: intent.dateRange.start, end: intent.dateRange.end });
+        conditions.push({
+          kind: 'date_range',
+          dateExpr,
+          start: intent.dateRange.start,
+          end: intent.dateRange.end,
+        });
       }
     }
     return conditions;

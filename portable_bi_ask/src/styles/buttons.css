@@ -96,23 +96,25 @@
 }
 
 .btn-add-widget {
-  background: var(--color-success);
+  background: var(--color-accent);
   color: var(--color-text-on-accent);
 }
 
 .btn-add-widget:hover {
-  background: var(--color-success-hover);
-  box-shadow: 0 2px 8px rgb(74 140 111 / 30%);
+  background: var(--color-accent-hover);
+  box-shadow: 0 2px 8px rgb(201 97 63 / 30%);
 }
 
 .btn-edit-widget {
-  background: var(--color-info);
-  color: var(--color-text-on-accent);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
 }
 
 .btn-edit-widget:hover {
-  background: var(--color-info-hover);
-  box-shadow: 0 2px 8px rgb(45 106 143 / 30%);
+  border-color: var(--color-accent-subtle);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
 }
 
 .btn-import,
@@ -212,7 +214,12 @@
 /* ── Filter-tag dismiss button ─────────────────────────────────────── */
 
 .cross-filter-tag button {
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0.2rem 0.3rem;
   border: none;
   background: transparent;
   color: var(--color-text-muted);

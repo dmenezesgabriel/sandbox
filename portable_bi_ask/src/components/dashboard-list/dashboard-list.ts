@@ -1,4 +1,5 @@
-import { html, LitElement, type TemplateResult } from 'lit';
+import { html, LitElement, nothing, type TemplateResult } from 'lit';
+import { createRef, ref } from 'lit/directives/ref.js';
 import { LayoutGrid, List, Plus } from 'lucide';
 
 import { dashboardList } from '../../dashboard-registry';
@@ -12,11 +13,15 @@ export class DashboardList extends LitElement {
     _viewMode: { state: true },
     _showCreateModal: { state: true },
     _newDashboardName: { state: true },
+    _createNameError: { state: true },
   };
 
   private _viewMode: ViewMode = 'grid';
   private _showCreateModal = false;
   private _newDashboardName = '';
+  private _createNameError = '';
+  private _dialogRef = createRef<HTMLDialogElement>();
+  private _triggerEl: HTMLElement | null = null;
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
     return this;
@@ -33,16 +38,29 @@ export class DashboardList extends LitElement {
   }
 
   private _openCreateModal(): void {
+    this._triggerEl = document.activeElement as HTMLElement;
     this._showCreateModal = true;
     this._newDashboardName = '';
+    this._createNameError = '';
+    this.updateComplete.then(() => this._dialogRef.value?.showModal());
   }
 
   private _closeCreateModal(): void {
+    this._dialogRef.value?.close();
+  }
+
+  private _onDialogClose(): void {
     this._showCreateModal = false;
+    this._triggerEl?.focus();
+    this._triggerEl = null;
   }
 
   private _createDashboard(): void {
-    if (!this._newDashboardName.trim()) return;
+    if (!this._newDashboardName.trim()) {
+      this._createNameError = 'Please enter a dashboard name.';
+      return;
+    }
+    this._createNameError = '';
     this.dispatchEvent(
       new CustomEvent('dashboard-create', {
         detail: { name: this._newDashboardName.trim() },
@@ -113,6 +131,11 @@ export class DashboardList extends LitElement {
 
   override render(): TemplateResult {
     const entries = dashboardList;
+    const nameAriaDescribedBy = this._createNameError ? 'name-error' : nothing;
+    const nameAriaInvalid = this._createNameError ? 'true' : nothing;
+    const nameError = this._createNameError
+      ? html`<p id="name-error" class="field-error" role="alert">${this._createNameError}</p>`
+      : nothing;
 
     return html`
       <section class="dashboard-list-page">
@@ -160,32 +183,43 @@ export class DashboardList extends LitElement {
         ${this._viewMode === 'grid' ? this._renderGridView(entries) : this._renderListView(entries)}
         ${this._showCreateModal
           ? html`
-              <div class="modal-overlay" @click=${this._closeCreateModal}>
-                <div class="modal-content" @click=${(e: Event) => e.stopPropagation()}>
-                  <h3>Create New Dashboard</h3>
-                  <div class="form-group">
-                    <label>Name</label>
-                    <input
-                      type="text"
-                      .value=${this._newDashboardName}
-                      @input=${(e: Event) => {
-                        this._newDashboardName = (e.target as HTMLInputElement).value;
-                      }}
-                      @keydown=${(e: KeyboardEvent) => {
-                        if (e.key === 'Enter') this._createDashboard();
-                      }}
-                      placeholder="Enter dashboard name"
-                      autofocus
-                    />
-                  </div>
-                  <div class="modal-actions">
-                    <button class="btn-cancel" @click=${this._closeCreateModal}>Cancel</button>
-                    <button class="btn-save" @click=${this._createDashboard}>Create</button>
-                  </div>
+              <dialog
+                class="modal-content"
+                aria-labelledby="create-dialog-title"
+                @close=${this._onDialogClose}
+                @click=${(e: Event) => {
+                  if (e.target === e.currentTarget) this._closeCreateModal();
+                }}
+                ${ref(this._dialogRef)}
+              >
+                <h3 id="create-dialog-title">Create New Dashboard</h3>
+                <div class="form-group">
+                  <label for="new-dashboard-name">Name</label>
+                  <input
+                    id="new-dashboard-name"
+                    type="text"
+                    .value=${this._newDashboardName}
+                    @input=${(e: Event) => {
+                      this._newDashboardName = (e.target as HTMLInputElement).value;
+                      this._createNameError = '';
+                    }}
+                    @keydown=${(e: KeyboardEvent) => {
+                      if (e.key === 'Enter') this._createDashboard();
+                    }}
+                    placeholder="Enter dashboard name"
+                    aria-describedby=${nameAriaDescribedBy}
+                    aria-invalid=${nameAriaInvalid}
+                    autofocus
+                  />
+                  ${nameError}
                 </div>
-              </div>
+                <div class="modal-actions">
+                  <button class="btn-cancel" @click=${this._closeCreateModal}>Cancel</button>
+                  <button class="btn-save" @click=${this._createDashboard}>Create</button>
+                </div>
+              </dialog>
             `
-          : ''}
+          : nothing}
       </section>
     `;
   }

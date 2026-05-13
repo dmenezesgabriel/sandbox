@@ -1,4 +1,4 @@
-import { type AnalysisFacts,ResultAnalyzer } from './result-analyzer';
+import { type AnalysisFacts, ResultAnalyzer } from './result-analyzer';
 import type { AskIntent, CatalogField, DataRow, ResultShape } from './types';
 import { formatValue } from './utils';
 

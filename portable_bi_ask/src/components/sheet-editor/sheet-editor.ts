@@ -1,4 +1,5 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
+import { createRef, ref } from 'lit/directives/ref.js';
 
 import type { ChartType2, WidgetConfig, WidgetType } from '../../types';
 
@@ -17,12 +18,15 @@ export class SheetEditor extends LitElement {
     mode: { type: String },
     _form: { state: true },
     _activeSection: { state: true },
+    _titleError: { state: true },
   };
 
   widget: WidgetConfig | null;
   mode: 'add' | 'edit';
   private _form: WidgetFormData;
   private _activeSection: 'general' | 'data' | 'style' = 'general';
+  private _titleError = '';
+  private _dialogRef = createRef<HTMLDialogElement>();
 
   constructor() {
     super();
@@ -60,6 +64,13 @@ export class SheetEditor extends LitElement {
     } else {
       this._form = this._getDefaultForm();
     }
+    this.updateComplete.then(() => this._dialogRef.value?.showModal());
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback();
+    const dialog = this._dialogRef.value;
+    if (dialog?.open) dialog.close();
   }
 
   private _updateForm(field: keyof WidgetFormData, value: string): void {
@@ -68,10 +79,15 @@ export class SheetEditor extends LitElement {
   }
 
   private _onSave(): void {
+    if (!this._form.title.trim()) {
+      this._titleError = 'Please enter a title for this question.';
+      return;
+    }
+    this._titleError = '';
     const widget: WidgetConfig = {
       id: this._form.id,
       type: this._form.type as WidgetType,
-      title: this._form.title || 'Question',
+      title: this._form.title.trim(),
       query: this._form.query || undefined,
       chartType: this._form.chartType as ChartType2,
       textContent: this._form.type === 'text' ? this._form.textContent : undefined,
@@ -84,18 +100,30 @@ export class SheetEditor extends LitElement {
         composed: true,
       }),
     );
+    this._dialogRef.value?.close('save');
   }
 
   private _onCancel(): void {
     this.dispatchEvent(new CustomEvent('editor-cancel', { bubbles: true, composed: true }));
+    this._dialogRef.value?.close('cancel');
+  }
+
+  private _onDialogClose(): void {
+    if (
+      this._dialogRef.value?.returnValue !== 'save' &&
+      this._dialogRef.value?.returnValue !== 'cancel'
+    ) {
+      this.dispatchEvent(new CustomEvent('editor-cancel', { bubbles: true, composed: true }));
+    }
   }
 
   private _renderChartTypeSelect(): TemplateResult | typeof nothing {
     if (this._form.type !== 'chart') return nothing;
     return html`
       <div class="form-group">
-        <label>Chart Type</label>
+        <label for="widget-chart-type">Chart Type</label>
         <select
+          id="widget-chart-type"
           @change=${(e: Event) =>
             this._updateForm('chartType', (e.target as HTMLSelectElement).value)}
         >
@@ -114,8 +142,9 @@ export class SheetEditor extends LitElement {
     if (this._form.type !== 'text') return nothing;
     return html`
       <div class="form-group">
-        <label>Content</label>
+        <label for="widget-text-content">Content</label>
         <textarea
+          id="widget-text-content"
           .value=${this._form.textContent}
           @input=${(e: Event) =>
             this._updateForm('textContent', (e.target as HTMLTextAreaElement).value)}
@@ -127,10 +156,21 @@ export class SheetEditor extends LitElement {
   }
 
   override render(): TemplateResult {
+    const titleAriaDescribedBy = this._titleError ? 'title-error' : nothing;
+    const titleAriaInvalid = this._titleError ? 'true' : nothing;
+    const titleError = this._titleError
+      ? html`<p id="title-error" class="field-error" role="alert">${this._titleError}</p>`
+      : nothing;
+
     return html`
-      <div class="sheet-editor">
+      <dialog
+        class="sheet-editor"
+        aria-labelledby="editor-heading"
+        @close=${this._onDialogClose}
+        ${ref(this._dialogRef)}
+      >
         <div class="editor-header">
-          <h3>${this.mode === 'add' ? 'Add Question' : 'Edit Question'}</h3>
+          <h3 id="editor-heading">${this.mode === 'add' ? 'Add Question' : 'Edit Question'}</h3>
         </div>
 
         <div class="editor-tabs">
@@ -156,8 +196,9 @@ export class SheetEditor extends LitElement {
           ${this._activeSection === 'general'
             ? html`
                 <div class="form-group">
-                  <label>Question Type</label>
+                  <label for="widget-type">Question Type</label>
                   <select
+                    id="widget-type"
                     @change=${(e: Event) =>
                       this._updateForm('type', (e.target as HTMLSelectElement).value)}
                   >
@@ -169,14 +210,20 @@ export class SheetEditor extends LitElement {
                 </div>
 
                 <div class="form-group">
-                  <label>Title</label>
+                  <label for="widget-title">Title</label>
                   <input
+                    id="widget-title"
                     type="text"
                     .value=${this._form.title}
-                    @input=${(e: Event) =>
-                      this._updateForm('title', (e.target as HTMLInputElement).value)}
+                    @input=${(e: Event) => {
+                      this._updateForm('title', (e.target as HTMLInputElement).value);
+                      this._titleError = '';
+                    }}
                     placeholder="Question title"
+                    aria-describedby=${titleAriaDescribedBy}
+                    aria-invalid=${titleAriaInvalid}
                   />
+                  ${titleError}
                 </div>
 
                 ${this._renderChartTypeSelect()} ${this._renderTextContent()}
@@ -185,8 +232,9 @@ export class SheetEditor extends LitElement {
           ${this._activeSection === 'data'
             ? html`
                 <div class="form-group">
-                  <label>Query (Natural Language or SQL)</label>
+                  <label for="widget-query">Query (Natural Language or SQL)</label>
                   <textarea
+                    id="widget-query"
                     .value=${this._form.query}
                     @input=${(e: Event) =>
                       this._updateForm('query', (e.target as HTMLTextAreaElement).value)}
@@ -202,7 +250,7 @@ export class SheetEditor extends LitElement {
           <button class="btn-cancel" @click=${this._onCancel}>Cancel</button>
           <button class="btn-save" @click=${this._onSave}>Save Question</button>
         </div>
-      </div>
+      </dialog>
     `;
   }
 }
