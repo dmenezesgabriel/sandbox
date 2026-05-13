@@ -101,7 +101,6 @@ Given('a sheet exists with chart widgets', async function (this: BrowserWorld) {
     window.location.hash = '#/dashboard/portable-bi-dashboard';
   });
   await this.waitForWidgets();
-  await this.installAskSpy();
   await this.page.waitForTimeout(500);
 });
 
@@ -111,8 +110,26 @@ Then('I should see widgets rendered on the canvas', async function (this: Browse
 });
 
 Then('the chart widgets should initialize without errors', async function (this: BrowserWorld) {
-  const initCount = await this.getChartInitLogs();
-  assert.ok(initCount >= 0, 'Chart init logs not captured');
+  await this.waitForChartInitialization();
+  const [initCount, renderedChartCount, initErrors] = await Promise.all([
+    this.getChartInitLogs(),
+    this.getRenderedChartCount(),
+    this.getChartInitErrors(),
+  ]);
+
+  assert.ok(
+    renderedChartCount >= 1,
+    `Expected at least 1 rendered chart canvas, got ${renderedChartCount}`,
+  );
+  assert.ok(
+    initCount >= renderedChartCount,
+    `Expected chart init for ${renderedChartCount} rendered chart widget(s), got ${initCount}`,
+  );
+  assert.deepEqual(
+    initErrors,
+    [],
+    `Expected chart init without errors, got: ${initErrors.join(' | ')}`,
+  );
 });
 
 When('I click on a widget content area', async function (this: BrowserWorld) {
@@ -230,12 +247,13 @@ Given('sheets exist with chart widgets on multiple sheets', async function (this
   ]);
   await this.page.reload();
   await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
+  await this.installSheetsViewProbe();
   await this.page.evaluate(() => {
     window.location.hash = '#/dashboard/portable-bi-dashboard';
   });
   await this.waitForWidgets();
-  await this.waitForDataCache('sheet-a');
-  await this.installAskSpy();
+  await this.waitForSheetDataLoaded('sheet-a');
+  await this.resetAskCallCount();
 });
 
 When('I switch to the second sheet', async function (this: BrowserWorld) {

@@ -58,7 +58,8 @@ const meta = {
         component:
           'Orchestrates the sheet tab bar (`sheets-manager`), the absolute-positioned canvas (`sheet-canvas`), ' +
           'and the widget editor dialog (`sheet-editor`). ' +
-          'Persists sheet layouts to `localStorage` and executes widget queries via DuckDB WASM.',
+          'Persists sheet layouts to `localStorage`, executes widget queries via DuckDB WASM, ' +
+          'and emits `sheets-ask` / `sheets-data-loaded` events so hosts can observe ask activity and active-sheet data readiness.',
       },
     },
   },

@@ -24,6 +24,17 @@ import type {
 } from '../../types';
 import { escapeSqlString, quoteIdent, toRows } from '../../utils';
 
+type SheetsAskEventDetail = {
+  sheetId: string;
+  widgetId: string;
+  query: string;
+};
+
+type SheetsDataLoadedEventDetail = {
+  sheetId: string;
+  source: 'cache' | 'query';
+};
+
 export class SheetsView extends LitElement {
   static override readonly properties = {
     config: { type: Object },
@@ -190,6 +201,11 @@ export class SheetsView extends LitElement {
     rows?: Record<string, CellValue>[];
   }> {
     await this._ensureDataReady();
+    this._emitAskEvent({
+      sheetId: this.activeSheetId ?? '',
+      widgetId: widget.id,
+      query: widget.query ?? '',
+    });
     const result = await this._askEngine.ask(widget.query, {});
     if ('rows' in result && 'sql' in result) {
       const labels = result.rows.map((r) => String(r.label ?? r.name ?? ''));
@@ -221,6 +237,7 @@ export class SheetsView extends LitElement {
     if (!this.activeSheetId) return;
     if (this._dataCache[this.activeSheetId]) {
       this.sheetData = { ...this._dataCache[this.activeSheetId] };
+      this._emitSheetDataLoaded({ sheetId: this.activeSheetId, source: 'cache' });
     } else {
       this._refreshWidgetData();
     }
@@ -410,6 +427,18 @@ export class SheetsView extends LitElement {
     );
   }
 
+  // Public host-level hook for observing natural-language AskData executions.
+  private _emitAskEvent(detail: SheetsAskEventDetail): void {
+    this.dispatchEvent(new CustomEvent('sheets-ask', { detail, bubbles: true, composed: true }));
+  }
+
+  // Public host-level hook for observing when the active sheet data becomes ready.
+  private _emitSheetDataLoaded(detail: SheetsDataLoadedEventDetail): void {
+    this.dispatchEvent(
+      new CustomEvent('sheets-data-loaded', { detail, bubbles: true, composed: true }),
+    );
+  }
+
   private static readonly STORAGE_KEY = 'sheets';
   private static readonly STORAGE_VERSION = 3;
 
@@ -497,6 +526,9 @@ export class SheetsView extends LitElement {
       this._dataCache[this.activeSheetId] = { ...newData };
     }
     this.sheetData = newData;
+    if (loadingSheetId) {
+      this._emitSheetDataLoaded({ sheetId: loadingSheetId, source: 'query' });
+    }
   }
 
   private async _refreshWidgetData(): Promise<void> {

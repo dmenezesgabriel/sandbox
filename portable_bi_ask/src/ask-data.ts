@@ -265,17 +265,21 @@ export class AskDataEngine {
 
   async initialize() {
     if (this.initialized) return;
+    await this.refreshCatalog();
+    console.info('[AskData] Ready', {
+      fields: this.catalog.length,
+      relationships: this.relationships,
+      ambiguousRelationships: this.ambiguousRelationships,
+    });
+  }
+
+  async refreshCatalog() {
     console.info('[AskData] Building data catalog');
     const catalogStarted = performance.now();
     await this.buildCatalog();
     this.buildFuseIndexes();
     this.metrics.catalogBuildMs = Math.round(performance.now() - catalogStarted);
     this.initialized = true;
-    console.info('[AskData] Ready', {
-      fields: this.catalog.length,
-      relationships: this.relationships,
-      ambiguousRelationships: this.ambiguousRelationships,
-    });
   }
 
   async buildCatalog() {

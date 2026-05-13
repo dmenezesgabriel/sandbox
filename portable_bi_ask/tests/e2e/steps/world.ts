@@ -72,6 +72,8 @@ let browser: Browser | null = null;
 export class BrowserWorld {
   page!: Page;
   _expectedChartInitCount: number = 0;
+  _pageErrors: string[] = [];
+  _consoleErrors: string[] = [];
 
   async navigate(urlPath: string = '/'): Promise<void> {
     await this.page.goto(`${BASE_URL}${urlPath}`);
@@ -157,48 +159,130 @@ export class BrowserWorld {
     });
   }
 
-  async installLogInterceptor(): Promise<void> {
-    await this.page.evaluate(() => {
-      const w = window as unknown as { __chartInitLogs: string[] };
-      w.__chartInitLogs = [];
-      const orig = console.log;
-      console.log = (..._args: unknown[]) => {
-        const msg = String(_args[0] ?? '');
-        if (msg.includes('[widget] initializing chart')) {
-          w.__chartInitLogs.push(msg);
-        }
-        orig.apply(console, _args);
-      };
+  async getChartInitErrors(): Promise<string[]> {
+    const interceptedErrors = await this.page.evaluate(() => {
+      const errors = (window as unknown as { __chartInitErrors?: string[] }).__chartInitErrors;
+      return Array.isArray(errors) ? [...errors] : [];
     });
+    return [...new Set([...this._pageErrors, ...this._consoleErrors, ...interceptedErrors])];
   }
 
-  async installAskSpy(): Promise<void> {
-    await this.page.evaluate(() => {
-      const w = window as unknown as { __askCallCount: number };
-      w.__askCallCount = 0;
-      const el = document.querySelector('sheets-view') as unknown as {
-        _askEngine?: { ask: (...args: unknown[]) => Promise<unknown> };
-      };
-      if (el && el._askEngine) {
-        el._askEngine.ask = async (..._args: unknown[]) => {
-          w.__askCallCount = (w.__askCallCount || 0) + 1;
-          return { rows: [{ label: 'Mock', value: 100 }], sql: 'SELECT 1', chartType: 'bar' };
+  async getRenderedChartCount(): Promise<number> {
+    return this.page.evaluate(
+      () => document.querySelectorAll('.widget-chart-container canvas').length,
+    );
+  }
+
+  async waitForChartInitialization(): Promise<void> {
+    await this.page.waitForFunction(
+      () => {
+        const w = window as unknown as {
+          __chartInitLogs?: string[];
+          __chartInitErrors?: string[];
         };
+        const initCount = Array.isArray(w.__chartInitLogs) ? w.__chartInitLogs.length : 0;
+        const errorCount = Array.isArray(w.__chartInitErrors) ? w.__chartInitErrors.length : 0;
+        const canvasCount = document.querySelectorAll('.widget-chart-container canvas').length;
+        return errorCount > 0 || (canvasCount > 0 && initCount >= canvasCount);
+      },
+      undefined,
+      { timeout: 8000 },
+    );
+  }
+
+  async installLogInterceptor(): Promise<void> {
+    this._pageErrors = [];
+    this._consoleErrors = [];
+
+    await this.page.evaluate(() => {
+      const w = window as unknown as {
+        __chartInitLogs?: string[];
+        __chartInitErrors?: string[];
+        __chartInitInterceptorInstalled?: boolean;
+      };
+
+      w.__chartInitLogs = [];
+      w.__chartInitErrors = [];
+
+      if (w.__chartInitInterceptorInstalled) {
+        return;
       }
+      w.__chartInitInterceptorInstalled = true;
+
+      const origLog = console.log.bind(console);
+      const origError = console.error.bind(console);
+
+      console.log = (...args: unknown[]) => {
+        const msg = args.map((arg) => String(arg)).join(' ');
+        if (msg.includes('[widget] initializing chart')) {
+          w.__chartInitLogs?.push(msg);
+        }
+        origLog(...args);
+      };
+
+      console.error = (...args: unknown[]) => {
+        const msg = args.map((arg) => String(arg)).join(' ');
+        w.__chartInitErrors?.push(msg);
+        origError(...args);
+      };
+
+      window.addEventListener('error', (event) => {
+        const msg = String(event.error?.message ?? event.message ?? 'Unknown error');
+        w.__chartInitErrors?.push(msg);
+      });
+
+      window.addEventListener('unhandledrejection', (event) => {
+        const msg = String(event.reason?.message ?? event.reason ?? 'Unhandled rejection');
+        w.__chartInitErrors?.push(msg);
+      });
     });
   }
 
-  async waitForDataCache(sheetId: string): Promise<void> {
+  async installSheetsViewProbe(): Promise<void> {
+    await this.page.evaluate(() => {
+      const w = window as unknown as {
+        __sheetsViewProbeInstalled?: boolean;
+        __askCallCount?: number;
+        __loadedSheetIds?: string[];
+      };
+
+      w.__askCallCount = 0;
+      w.__loadedSheetIds = [];
+
+      if (w.__sheetsViewProbeInstalled) {
+        return;
+      }
+      w.__sheetsViewProbeInstalled = true;
+
+      document.addEventListener('sheets-ask', () => {
+        w.__askCallCount = (w.__askCallCount || 0) + 1;
+      });
+
+      document.addEventListener('sheets-data-loaded', (event) => {
+        const detail = (event as CustomEvent<{ sheetId?: string }>).detail;
+        if (detail?.sheetId) {
+          w.__loadedSheetIds?.push(detail.sheetId);
+        }
+      });
+    });
+  }
+
+  async waitForSheetDataLoaded(sheetId: string): Promise<void> {
     await this.page.waitForFunction(
       (id: string) => {
-        const el = document.querySelector('sheets-view') as unknown as {
-          _dataCache?: Record<string, unknown>;
-        };
-        return el && el._dataCache && el._dataCache[id] !== undefined;
+        const loadedSheetIds = (window as unknown as { __loadedSheetIds?: string[] })
+          .__loadedSheetIds;
+        return Array.isArray(loadedSheetIds) && loadedSheetIds.includes(id);
       },
       sheetId,
       { timeout: 15000 },
     );
+  }
+
+  async resetAskCallCount(): Promise<void> {
+    await this.page.evaluate(() => {
+      (window as unknown as { __askCallCount?: number }).__askCallCount = 0;
+    });
   }
 
   async getAskCallCount(): Promise<number> {
@@ -208,7 +292,14 @@ export class BrowserWorld {
   }
 
   async waitForWidgets(): Promise<void> {
-    await this.page.waitForSelector('.widget-wrapper', { timeout: 8000 }).catch(() => {});
+    try {
+      await this.page.waitForSelector('.widget-wrapper', { timeout: 8000 });
+    } catch (error) {
+      throw new Error(
+        'Timed out waiting for .widget-wrapper to appear. Widget rendering is a required precondition for this scenario.',
+        { cause: error },
+      );
+    }
   }
 
   async waitForCanvas(): Promise<void> {
@@ -249,6 +340,16 @@ BeforeAll(async () => {
 Before(async function (this: BrowserWorld) {
   const context = await browser!.newContext({ viewport: { width: 1280, height: 900 } });
   this.page = await context.newPage();
+  this._pageErrors = [];
+  this._consoleErrors = [];
+  this.page.on('pageerror', (error) => {
+    this._pageErrors.push(error.message);
+  });
+  this.page.on('console', (message) => {
+    if (message.type() === 'error') {
+      this._consoleErrors.push(message.text());
+    }
+  });
 });
 
 After(async function (this: BrowserWorld) {

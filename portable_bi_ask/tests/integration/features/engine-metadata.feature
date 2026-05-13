@@ -24,5 +24,15 @@ Feature: Engine Metadata
     Then the confidence should be between 0 and 1
 
   Scenario: Engine reuses cached catalog on subsequent calls
+    Given I remember the current catalog build count
+    And I remember the current catalog instance
     When I ask "sales by region" twice
-    Then the catalog build time should be unchanged
+    Then the catalog build count should be unchanged
+    And the catalog instance should be unchanged
+
+  Scenario: Engine rebuilds catalog after data changes
+    Given I remember the current catalog build count
+    When I add customer region "Northwest" to the test data
+    And I refresh the data engine catalog
+    Then the catalog build count should increase by 1
+    And the field "customer::Region" should have sample values including "Northwest"

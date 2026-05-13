@@ -133,6 +133,22 @@ export const SaveWidget: Story = {
   },
 };
 
+export const BlankTitleValidation: Story = {
+  name: 'Interaction — Blank Title Validation',
+  tags: ['!autodocs'],
+  play: async ({ canvas, args }) => {
+    const titleInput = await canvas.findByRole('textbox', { name: /title/i });
+    const saveBtn = canvas.getByRole('button', { name: /save question/i });
+
+    await userEvent.click(saveBtn);
+
+    const errorAlert = await canvas.findByRole('alert');
+    await expect(args.onWidgetSave).not.toHaveBeenCalled();
+    await expect(titleInput).toHaveAttribute('aria-invalid', 'true');
+    await expect(errorAlert).toHaveTextContent('Please enter a title for this question.');
+  },
+};
+
 export const CancelEditor: Story = {
   name: 'Interaction — Cancel',
   tags: ['!autodocs'],

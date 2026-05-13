@@ -1,28 +1,34 @@
-import { setWorldConstructor, BeforeAll } from '@cucumber/cucumber';
+import { Before, setWorldConstructor } from '@cucumber/cucumber';
 import { AskDataEngine } from '../../../src/ask-data.ts';
-import { NodeDuckDBManager } from '../../helpers/node-duckdb.ts';
+import type { AskResult, CatalogField } from '../../../src/types.ts';
 import { TEST_CONFIG, setupTestDatabase } from '../../helpers/fixtures.ts';
-import type { AskResult } from '../../../src/types.ts';
-
-// Shared engine created once before all scenarios.
-let sharedDb: NodeDuckDBManager;
-let sharedEngine: AskDataEngine;
-
-BeforeAll(async () => {
-  sharedDb = new NodeDuckDBManager();
-  await setupTestDatabase(sharedDb);
-  sharedEngine = new AskDataEngine(TEST_CONFIG, sharedDb);
-  await sharedEngine.initialize();
-});
+import { NodeDuckDBManager } from '../../helpers/node-duckdb.ts';
 
 export class AskWorld {
+  db!: NodeDuckDBManager;
   engine!: AskDataEngine;
   result: AskResult | null = null;
-  _catalogBuildMs: number | null = null;
+  catalogBuildCount = 0;
+  _catalogBuildCount: number | null = null;
+  _catalogInstance: CatalogField[] | null = null;
 
   getEngine(): AskDataEngine {
-    return sharedEngine;
+    return this.engine;
   }
 }
+
+Before(async function (this: AskWorld) {
+  this.db = new NodeDuckDBManager();
+  await setupTestDatabase(this.db);
+  this.engine = new AskDataEngine(TEST_CONFIG, this.db);
+
+  const originalBuild = this.engine.catalogBuilder.build.bind(this.engine.catalogBuilder);
+  this.engine.catalogBuilder.build = async () => {
+    this.catalogBuildCount += 1;
+    return originalBuild();
+  };
+
+  await this.engine.initialize();
+});
 
 setWorldConstructor(AskWorld);

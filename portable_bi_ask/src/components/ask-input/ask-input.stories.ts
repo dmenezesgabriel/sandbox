@@ -123,6 +123,17 @@ export const Loading: Story = {
       },
     },
   },
+  play: async ({ canvas, step }) => {
+    await step('Keep submission disabled while loading', async () => {
+      const button = canvas.getByRole('button', { name: /asking/i });
+      await expect(button).toBeDisabled();
+    });
+
+    await step('Announce loading progress accessibly', async () => {
+      await expect(canvas.getByText('Processing your question…')).toBeInTheDocument();
+      await expect(canvas.queryByRole('button', { name: /^ask$/i })).not.toBeInTheDocument();
+    });
+  },
 };
 
 export const NoExamples: Story = {

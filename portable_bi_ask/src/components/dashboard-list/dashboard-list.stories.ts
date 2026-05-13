@@ -2,7 +2,7 @@ import './index';
 
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
 import { html } from 'lit';
-import { expect, fn, userEvent } from 'storybook/test';
+import { expect, fn, userEvent, waitFor } from 'storybook/test';
 
 type DashboardListArgs = {
   onDashboardSelect: (slug: string) => void;
@@ -89,5 +89,40 @@ export const CreateDashboard: Story = {
     const createBtn = canvas.getByRole('button', { name: /^create$/i });
     await userEvent.click(createBtn);
     await expect(args.onDashboardCreate).toHaveBeenCalledWith('Q4 Revenue');
+  },
+};
+
+export const BlankNameValidation: Story = {
+  name: 'Interaction — Blank Name Validation',
+  tags: ['!autodocs'],
+  play: async ({ canvas, args }) => {
+    const newBtn = canvas.getByRole('button', { name: /new dashboard/i });
+    await userEvent.click(newBtn);
+
+    const nameInput = await canvas.findByRole('textbox', { name: /name/i });
+    const createBtn = canvas.getByRole('button', { name: /^create$/i });
+    await userEvent.click(createBtn);
+
+    const errorAlert = await canvas.findByRole('alert');
+    await expect(args.onDashboardCreate).not.toHaveBeenCalled();
+    await expect(nameInput).toHaveAttribute('aria-invalid', 'true');
+    await expect(errorAlert).toHaveTextContent('Please enter a dashboard name.');
+  },
+};
+
+export const CancelCreateModalRestoresFocus: Story = {
+  name: 'Interaction — Cancel Restores Focus',
+  tags: ['!autodocs'],
+  play: async ({ canvas }) => {
+    const newBtn = canvas.getByRole('button', { name: /new dashboard/i });
+    await userEvent.click(newBtn);
+
+    const cancelBtn = await canvas.findByRole('button', { name: /cancel/i });
+    await userEvent.click(cancelBtn);
+
+    await waitFor(() => {
+      expect(canvas.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(newBtn).toHaveFocus();
+    });
   },
 };
