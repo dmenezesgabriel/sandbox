@@ -16,7 +16,7 @@ type TopNavArgs = {
 };
 
 const meta = {
-  title: 'Components/TopNav',
+  title: 'Organisms/Top Nav',
   component: 'top-nav',
   tags: ['autodocs'],
   render: ({ activeTab, brand, subtitle, showTabs, dashboardSlug, onTabChange }: TopNavArgs) =>

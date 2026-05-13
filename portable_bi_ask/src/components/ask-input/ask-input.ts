@@ -1,3 +1,6 @@
+import '../ui-button';
+import '../ui-text-field';
+
 import { html, LitElement, type TemplateResult } from 'lit';
 import { Sparkles } from 'lucide';
 
@@ -18,15 +21,18 @@ export class AskInput extends LitElement {
     return this;
   }
 
-  private _onInput(e: Event): void {
-    const value = e.target instanceof HTMLInputElement ? e.target.value : '';
+  private _onInput(e: CustomEvent<string>): void {
     this.dispatchEvent(
-      new CustomEvent<string>('question-change', { detail: value, bubbles: true, composed: true }),
+      new CustomEvent<string>('question-change', {
+        detail: e.detail,
+        bubbles: true,
+        composed: true,
+      }),
     );
   }
 
-  private _onKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Enter') this._ask();
+  private _onEnterPress(): void {
+    this._ask();
   }
 
   private _ask(): void {
@@ -44,18 +50,23 @@ export class AskInput extends LitElement {
       <section class="ask-card">
         <h2>Ask Data</h2>
         <div class="ask-input-row">
-          <input
-            aria-label="Ask your data"
+          <ui-text-field
+            .accessibleLabel=${'Ask your data'}
             .value=${this.question}
-            @input=${this._onInput}
-            @keydown=${this._onKeydown}
-            placeholder="sales by region"
-          />
-          <button class="primary-button" @click=${this._ask} ?disabled=${this.loading}>
-            ${this.loading
+            .appearance=${'prominent'}
+            .placeholder=${'sales by region'}
+            @value-change=${this._onInput}
+            @enter-press=${this._onEnterPress}
+          ></ui-text-field>
+          <ui-button
+            .variant=${'primary'}
+            .size=${'lg'}
+            .content=${this.loading
               ? html`<span class="ask-btn-spinner" aria-hidden="true"></span> Asking…`
               : html`${icon(Sparkles, { size: 16 })} Ask`}
-          </button>
+            @click=${this._ask}
+            ?disabled=${this.loading}
+          ></ui-button>
         </div>
         <div aria-live="polite" aria-atomic="true" class="ask-sr-status">
           ${this.loading ? 'Processing your question…' : ''}
@@ -64,9 +75,12 @@ export class AskInput extends LitElement {
           Try:
           ${this.examples.map(
             (example, i) =>
-              html`${i ? ' · ' : ''}<button @click=${() => this._selectExample(example)}>
-                  ${example}
-                </button>`,
+              html`${i ? ' · ' : ''}<ui-button
+                  .variant=${'choice'}
+                  .size=${'sm'}
+                  .content=${example}
+                  @click=${() => this._selectExample(example)}
+                ></ui-button>`,
           )}
         </div>
       </section>

@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from '@storybook/web-components-vite';
 import { html } from 'lit';
 
 const meta = {
-  title: 'Components/Dashboard',
+  title: 'Pages/Dashboard App',
   component: 'app-dashboard',
   tags: ['autodocs', '!test'],
   render: () => html`<app-dashboard></app-dashboard>`,
@@ -13,8 +13,8 @@ const meta = {
     docs: {
       description: {
         component:
-          'Top-level application shell. Parses `window.location.hash` to route between the ' +
-          'dashboard list (`#/`) and the dashboard editor (`#/dashboard/:slug`). ' +
+          'Page-level application shell. Parses `window.location.hash` to route between the ' +
+          'dashboard list page (`#/`) and the dashboard editor template (`#/dashboard/:slug`). ' +
           'All navigation is hash-based — no props are required.',
       },
     },

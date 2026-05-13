@@ -109,8 +109,18 @@ const withWarning: AskSuccessResult = {
   warnings: ['Join produced 1.8x fan-out — values may be inflated. Check relationships.'],
 };
 
+const longLabelsResult: AskSuccessResult = {
+  ...barResult,
+  interpretation: 'SUM(Revenue) by Customer Segment and Fulfilment Program',
+  rows: [
+    { label: 'North America Enterprise Accounts', value: 744294 },
+    { label: 'APAC Mid-Market Expansion Program', value: 606351 },
+    { label: 'LATAM Partner-led Growth Initiative', value: 514251 },
+  ],
+};
+
 const meta = {
-  title: 'Components/AskResult',
+  title: 'Organisms/Ask Result',
   component: 'ask-result',
   tags: ['autodocs'],
   render: ({ result }: AskResultArgs) => html`<ask-result .result=${result}></ask-result>`,
@@ -127,9 +137,8 @@ const meta = {
     docs: {
       description: {
         component:
-          'Renders the output of a successful natural-language query: ' +
-          'the interpreted SQL label, AI narrative, Chart.js visualisation, data table, ' +
-          'export buttons (Copy SQL, CSV, JSON), and a collapsible SQL / diagnostics panel.',
+          'Ask Data result organism. Combines narrative copy, Chart.js visualisation, export actions built from shared button atoms, ' +
+          'a tabular fallback, and a collapsible SQL / diagnostics panel for the same query result.',
       },
     },
   },
@@ -182,6 +191,19 @@ export const WithWarning: Story = {
       description: {
         story:
           'Query engine warning banner is shown above the chart when data quality issues are detected.',
+      },
+    },
+  },
+};
+
+export const LongLabels: Story = {
+  name: 'Long Labels and Dense Copy',
+  args: { result: longLabelsResult },
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Representative content stress case used to verify that verbose business labels and longer interpretation text remain readable.',
       },
     },
   },

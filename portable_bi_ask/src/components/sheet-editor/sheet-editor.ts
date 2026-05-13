@@ -1,3 +1,6 @@
+import '../ui-button';
+import '../ui-text-field';
+
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';
 
@@ -161,6 +164,8 @@ export class SheetEditor extends LitElement {
     const titleError = this._titleError
       ? html`<p id="title-error" class="field-error" role="alert">${this._titleError}</p>`
       : nothing;
+    const describedBy = typeof titleAriaDescribedBy === 'string' ? titleAriaDescribedBy : undefined;
+    const invalid = typeof titleAriaInvalid === 'string' ? titleAriaInvalid : undefined;
 
     return html`
       <dialog
@@ -211,18 +216,17 @@ export class SheetEditor extends LitElement {
 
                 <div class="form-group">
                   <label for="widget-title">Title</label>
-                  <input
-                    id="widget-title"
-                    type="text"
+                  <ui-text-field
+                    .inputId=${'widget-title'}
                     .value=${this._form.title}
-                    @input=${(e: Event) => {
-                      this._updateForm('title', (e.target as HTMLInputElement).value);
+                    .placeholder=${'Question title'}
+                    .describedBy=${describedBy}
+                    .invalid=${invalid}
+                    @value-change=${(e: CustomEvent<string>) => {
+                      this._updateForm('title', e.detail);
                       this._titleError = '';
                     }}
-                    placeholder="Question title"
-                    aria-describedby=${titleAriaDescribedBy}
-                    aria-invalid=${titleAriaInvalid}
-                  />
+                  ></ui-text-field>
                   ${titleError}
                 </div>
 
@@ -247,8 +251,16 @@ export class SheetEditor extends LitElement {
         </div>
 
         <div class="editor-actions">
-          <button class="btn-cancel" @click=${this._onCancel}>Cancel</button>
-          <button class="btn-save" @click=${this._onSave}>Save Question</button>
+          <ui-button
+            .variant=${'secondary'}
+            .content=${'Cancel'}
+            @click=${this._onCancel}
+          ></ui-button>
+          <ui-button
+            .variant=${'primary'}
+            .content=${'Save Question'}
+            @click=${this._onSave}
+          ></ui-button>
         </div>
       </dialog>
     `;

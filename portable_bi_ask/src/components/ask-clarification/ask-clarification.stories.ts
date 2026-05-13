@@ -40,7 +40,7 @@ const filterAmbiguity: Clarification = {
 };
 
 const meta = {
-  title: 'Components/AskClarification',
+  title: 'Molecules/Ask Clarification',
   component: 'ask-clarification',
   tags: ['autodocs'],
   render: ({ clarification, onChoiceSelect }: AskClarificationArgs) =>

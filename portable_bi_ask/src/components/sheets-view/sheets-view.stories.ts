@@ -23,8 +23,35 @@ const EMPTY_CONFIG: DashboardConfig = {
   layout: [],
 };
 
+const STORYBOOK_STORAGE_KEY = 'sheets:storybook-populated';
+const POPULATED_SHEETS = [
+  {
+    id: 'sheet-1',
+    name: 'Overview',
+    type: 'sheet' as const,
+    widgets: [
+      {
+        id: 'widget-1',
+        type: 'text' as const,
+        title: 'Narrative',
+        textContent: 'Focus West region for the next planning cycle.',
+      },
+      {
+        id: 'widget-2',
+        type: 'text' as const,
+        title: 'Owner',
+        textContent: 'Sales Operations — Q3 revenue review',
+      },
+    ],
+    layout: [
+      { x: 16, y: 16, w: 360, h: 180 },
+      { x: 392, y: 16, w: 360, h: 180 },
+    ],
+  },
+];
+
 const meta = {
-  title: 'Components/SheetsView',
+  title: 'Templates/Sheets View',
   component: 'sheets-view',
   tags: ['autodocs', '!test'],
   render: ({ config, slug, isNew }: SheetsViewArgs) =>
@@ -56,9 +83,8 @@ const meta = {
     docs: {
       description: {
         component:
-          'Orchestrates the sheet tab bar (`sheets-manager`), the absolute-positioned canvas (`sheet-canvas`), ' +
-          'and the widget editor dialog (`sheet-editor`). ' +
-          'Persists sheet layouts to `localStorage`, executes widget queries via DuckDB WASM, ' +
+          'Template for a dashboard workspace. Composes the sheet tab bar (`sheets-manager`), canvas organism (`sheet-canvas`), ' +
+          'and widget editor dialog (`sheet-editor`). Persists sheet layouts to `localStorage`, executes widget queries via DuckDB WASM, ' +
           'and emits `sheets-ask` / `sheets-data-loaded` events so hosts can observe ask activity and active-sheet data readiness.',
       },
     },
@@ -100,6 +126,28 @@ export const EditModeView: Story = {
         story:
           'Same as New Dashboard — click the "Edit" button in the sheets manager to enter edit mode ' +
           'and reveal the "Add Question" toolbar.',
+      },
+    },
+  },
+};
+
+export const PopulatedWorkspace: Story = {
+  name: 'Populated Workspace Template',
+  args: { isNew: false, slug: 'storybook-populated' },
+  decorators: [
+    (story) => {
+      localStorage.setItem(
+        STORYBOOK_STORAGE_KEY,
+        JSON.stringify({ version: 3, data: POPULATED_SHEETS }),
+      );
+      return story();
+    },
+  ],
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Representative-content template story. Seeds localStorage with a realistic persisted sheet so layout, spacing, and toolbar actions can be reviewed against non-empty content.',
       },
     },
   },

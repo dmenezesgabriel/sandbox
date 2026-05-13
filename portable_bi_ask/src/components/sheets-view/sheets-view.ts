@@ -1,6 +1,7 @@
 import '../sheets-manager';
 import '../sheet-canvas';
 import '../sheet-editor';
+import '../ui-button';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
@@ -23,6 +24,13 @@ import type {
   WidgetConfig,
 } from '../../types';
 import { escapeSqlString, quoteIdent, toRows } from '../../utils';
+import {
+  applySqlFilters,
+  exportFileBaseName,
+  filterSheetData,
+  sanitizePersistedSheets,
+  storageKeyForSheets,
+} from './sheets-view-model';
 
 type SheetsAskEventDetail = {
   sheetId: string;
@@ -164,16 +172,7 @@ export class SheetsView extends LitElement {
     rows?: Record<string, CellValue>[];
   }> {
     await this._ensureDataReady();
-    let sql = widget.query ?? '';
-    const filterDefs = this._getFilterDefs();
-    for (const filterDef of filterDefs) {
-      const placeholder = `--filter:${filterDef.field}--`;
-      if (sql.includes(placeholder)) {
-        const val = this.filters[filterDef.field];
-        const replacement = val && val !== 'All' ? `'${String(val).replace(/'/g, "''")}'` : '1=1';
-        sql = sql.replaceAll(placeholder, replacement);
-      }
-    }
+    const sql = applySqlFilters(widget.query ?? '', this._getFilterDefs(), this.filters);
     const result = await duckDBManager.query(sql);
     const rows = toRows(result).map((row) =>
       Object.fromEntries(
@@ -386,34 +385,7 @@ export class SheetsView extends LitElement {
       return this._cachedFilterResult!;
     }
 
-    const result: Record<
-      string,
-      { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
-    > = {};
-
-    for (const [widgetId, data] of Object.entries(this.sheetData)) {
-      let rows = data.rows ?? [];
-
-      if (Object.keys(this.crossFilters).length) {
-        const filterValues = Object.values(this.crossFilters).flat() as string[];
-
-        if (filterValues.length) {
-          rows = rows.filter((row) => {
-            const label = (row.label ?? row.name) as string;
-            return filterValues.includes(label);
-          });
-        }
-      }
-
-      const filteredValues = rows.map((r) => r.value as number);
-      const filteredLabels = rows.map((r) => String(r.label ?? r.name ?? ''));
-
-      result[widgetId] = {
-        labels: filteredLabels,
-        values: filteredValues,
-        rows,
-      };
-    }
+    const result = filterSheetData(this.sheetData, this.crossFilters);
 
     this._cachedFilterResult = result;
     this._cachedFilterSheetData = this.sheetData;
@@ -439,11 +411,10 @@ export class SheetsView extends LitElement {
     );
   }
 
-  private static readonly STORAGE_KEY = 'sheets';
   private static readonly STORAGE_VERSION = 3;
 
   private _persistSheets(): void {
-    const key = `${SheetsView.STORAGE_KEY}:${this.slug || 'default'}`;
+    const key = storageKeyForSheets(this.slug);
     localStorage.setItem(
       key,
       JSON.stringify({ version: SheetsView.STORAGE_VERSION, data: this.sheets }),
@@ -457,7 +428,7 @@ export class SheetsView extends LitElement {
         this._initDefaultSheet();
         return;
       }
-      const key = `${SheetsView.STORAGE_KEY}:${this.slug || 'default'}`;
+      const key = storageKeyForSheets(this.slug);
       const stored = localStorage.getItem(key);
       if (stored) {
         const raw = JSON.parse(stored);
@@ -468,12 +439,7 @@ export class SheetsView extends LitElement {
           parsed = [];
         }
         if (parsed.length) {
-          this.sheets = parsed.map((s) => {
-            const clean = { ...s } as Record<string, unknown>;
-            delete clean.width;
-            delete clean.height;
-            return clean as unknown as Sheet;
-          });
+          this.sheets = sanitizePersistedSheets(parsed);
           this.activeSheetId = this.sheets[0]?.id ?? null;
           this._loadWidgetData();
           return;
@@ -546,7 +512,7 @@ export class SheetsView extends LitElement {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${this._activeSheet.name.replace(/\s+/g, '-').toLowerCase()}.yaml`;
+    a.download = `${exportFileBaseName(this._activeSheet.name)}.yaml`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -558,7 +524,7 @@ export class SheetsView extends LitElement {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${this._activeSheet.name.replace(/\s+/g, '-').toLowerCase()}.json`;
+    a.download = `${exportFileBaseName(this._activeSheet.name)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -605,10 +571,20 @@ export class SheetsView extends LitElement {
   private _renderToolbar(sheet: Sheet | undefined): TemplateResult | typeof nothing {
     if (!this.editMode || !sheet) return nothing;
     return html`
-      <button class="btn-add-widget" @click=${this._onAddWidget}>+ Add Question</button>
+      <ui-button
+        .variant=${'primary'}
+        .size=${'sm'}
+        .content=${'+ Add Question'}
+        @click=${this._onAddWidget}
+      ></ui-button>
       ${this.selectedWidgetId
         ? html`
-            <button class="btn-edit-widget" @click=${this._onEditWidget}>Edit Question</button>
+            <ui-button
+              .variant=${'secondary'}
+              .size=${'sm'}
+              .content=${'Edit Question'}
+              @click=${this._onEditWidget}
+            ></ui-button>
           `
         : nothing}
     `;
@@ -655,13 +631,27 @@ export class SheetsView extends LitElement {
 
       <div class="sheets-toolbar-bar">
         ${this._renderToolbar(sheet)} ${sheet ? html`` : nothing}
-        <button class="btn-export-yaml" @click=${this._onExportYaml} title="Export as YAML">
-          Export YAML
-        </button>
-        <button class="btn-export-json" @click=${this._onExportJson} title="Export as JSON">
-          Export JSON
-        </button>
-        <button class="btn-import" @click=${this._onImport} title="Import YAML/JSON">Import</button>
+        <ui-button
+          .variant=${'secondary'}
+          .size=${'sm'}
+          .content=${'Export YAML'}
+          @click=${this._onExportYaml}
+          title="Export as YAML"
+        ></ui-button>
+        <ui-button
+          .variant=${'secondary'}
+          .size=${'sm'}
+          .content=${'Export JSON'}
+          @click=${this._onExportJson}
+          title="Export as JSON"
+        ></ui-button>
+        <ui-button
+          .variant=${'secondary'}
+          .size=${'sm'}
+          .content=${'Import'}
+          @click=${this._onImport}
+          title="Import YAML/JSON"
+        ></ui-button>
         ${this._importError
           ? html`<div class="warning" role="alert">${this._importError}</div>`
           : nothing}

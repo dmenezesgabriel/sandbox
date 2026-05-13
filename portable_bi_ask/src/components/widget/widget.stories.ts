@@ -57,7 +57,7 @@ const textConfig: WidgetConfig = {
 };
 
 const meta = {
-  title: 'Components/Widget',
+  title: 'Organisms/Widget',
   component: 'app-widget',
   tags: ['autodocs'],
   render: ({
@@ -134,9 +134,9 @@ const meta = {
     docs: {
       description: {
         component:
-          'Polymorphic dashboard widget. Renders as KPI, bar/line/pie chart, table, or free text ' +
-          'based on `config.type`. Shows skeleton loaders while `data` is `null`. ' +
-          'Emits `cross-filter` events for inter-widget drill-down.',
+          'Dashboard organism composed from the spinner and skeleton atoms plus chart/table/text views. ' +
+          'Renders as KPI, bar/line/pie chart, table, or free text based on `config.type`. ' +
+          'Shows loading states while `data` is `null` and emits `cross-filter` events for inter-widget drill-down.',
       },
     },
   },

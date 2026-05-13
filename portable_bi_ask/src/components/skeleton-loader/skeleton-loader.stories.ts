@@ -13,7 +13,7 @@ type SkeletonArgs = {
 };
 
 const meta = {
-  title: 'Components/SkeletonLoader',
+  title: 'Atoms/Skeleton Loader',
   component: 'skeleton-loader',
   tags: ['autodocs'],
   render: ({ variant, lines, columns, rows, width, height }: SkeletonArgs) => html`

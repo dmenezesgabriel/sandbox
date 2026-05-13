@@ -29,7 +29,7 @@ const textWidget: WidgetConfig = {
 };
 
 const meta = {
-  title: 'Components/SheetEditor',
+  title: 'Organisms/Sheet Editor',
   component: 'sheet-editor',
   tags: ['autodocs'],
   render: ({ widget, mode, onWidgetSave, onEditorCancel }: SheetEditorArgs) =>

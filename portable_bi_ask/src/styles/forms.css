@@ -105,34 +105,42 @@
   outline-offset: 2px;
 }
 
-/* ── Ask input ─────────────────────────────────────────────────────── */
+/* ── Text field atom ───────────────────────────────────────────────── */
 
-.ask-input-row input {
-  flex: 1;
-  padding: 0.75em var(--space-base);
+.ui-text-field {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.65rem var(--space-sm);
   border: 1.5px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-surface);
   color: var(--color-text);
   font-family: var(--font-body);
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   transition:
     border-color var(--transition-fast),
     box-shadow var(--transition-fast);
 }
 
-.ask-input-row input::placeholder {
+.ui-text-field::placeholder {
   color: var(--color-text-muted);
 }
 
-.ask-input-row input:focus {
+.ui-text-field:focus {
   border-color: var(--color-border-focus);
   box-shadow: var(--focus-ring);
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-.ask-input-row input.input-prefilled {
+.ui-text-field--prominent {
+  flex: 1;
+  padding: 0.75em var(--space-base);
+  border-radius: var(--radius-md);
+  font-size: var(--text-lg);
+}
+
+.ui-text-field.input-prefilled {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px rgb(201 97 63 / 20%);
   transition:

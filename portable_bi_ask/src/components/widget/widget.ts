@@ -6,6 +6,7 @@ import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
 import type { CellValue, Filters, ValueFormat, WidgetConfig } from '../../types';
 import { formatValue } from '../../utils';
+import { buildWidgetChartConfig } from './widget-model';
 
 Chart.register(...registerables);
 
@@ -219,44 +220,15 @@ export class Widget extends LitElement {
     if (!ctx) return;
 
     this._destroyChart();
-    const chartType = this._getChartJsType();
-    const colorSet = [
-      '#c9613f',
-      '#4a8c6f',
-      '#2d6a8f',
-      '#c8963e',
-      '#8b6f9e',
-      '#d9756a',
-      '#6bb5a0',
-      '#b89b6b',
-      '#d48466',
-      '#5a9e82',
-    ];
-
-    const isLineChart = chartType === 'line' || this.config.chartType === 'area';
+    const chartConfig = buildWidgetChartConfig(this.config, {
+      labels: this.data.labels,
+      values: this.data.values,
+    });
 
     this._chartInstance = new Chart(ctx, {
-      type: chartType,
-      data: {
-        labels: this.data.labels,
-        datasets: [
-          {
-            label: this.config.title,
-            data: this.data.values,
-            backgroundColor: isLineChart ? 'rgba(201, 97, 63, 0.1)' : colorSet,
-            borderColor: '#c9613f',
-            borderWidth: isLineChart ? 2 : 1,
-            fill: this.config.chartType === 'area' || isLineChart,
-            tension: 0.4,
-          },
-        ],
-      },
+      ...chartConfig,
       options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-        },
+        ...chartConfig.options,
         onClick: (_event: unknown, elements: { index: number }[]) => {
           if (elements.length > 0) {
             this._onChartClick({ index: elements[0].index });
@@ -272,25 +244,6 @@ export class Widget extends LitElement {
       }
     });
     this._resizeObserver.observe(this);
-  }
-
-  private _getChartJsType(): 'bar' | 'line' | 'pie' | 'doughnut' | 'scatter' | 'bubble' {
-    const map: Record<string, string> = {
-      bar: 'bar',
-      line: 'line',
-      pie: 'pie',
-      donut: 'doughnut',
-      scatter: 'scatter',
-      bubble: 'bubble',
-      area: 'line',
-    };
-    return (map[this.config.chartType ?? 'bar'] ?? 'bar') as
-      | 'bar'
-      | 'line'
-      | 'pie'
-      | 'doughnut'
-      | 'scatter'
-      | 'bubble';
   }
 
   override render(): TemplateResult {

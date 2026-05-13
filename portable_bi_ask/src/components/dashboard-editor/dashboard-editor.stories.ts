@@ -24,7 +24,7 @@ const EMPTY_CONFIG: DashboardConfig = {
 };
 
 const meta = {
-  title: 'Components/DashboardEditor',
+  title: 'Templates/Dashboard Editor',
   component: 'dashboard-editor',
   tags: ['autodocs', '!test'],
   render: ({ config, slug, isNew }: DashboardEditorArgs) =>
@@ -56,8 +56,8 @@ const meta = {
     docs: {
       description: {
         component:
-          'Page-level component that renders the full dashboard editor: top navigation, ' +
-          'dashboard sheet canvas, and Ask Data tab. ' +
+          'Template-level composition for the dashboard workspace. Renders the top navigation, ' +
+          'sheet workspace template, and Ask Data flow together so layout and state relationships can be reviewed in one place. ' +
           'DuckDB is initialised on-demand when the user first submits a natural-language query.',
       },
     },

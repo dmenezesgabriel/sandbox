@@ -1,6 +1,7 @@
 import '../dashboard-list';
 import '../dashboard-editor';
 import '../top-nav';
+import '../ui-button';
 
 import { html, LitElement, type TemplateResult } from 'lit';
 
@@ -94,9 +95,12 @@ export class Dashboard extends LitElement {
           <div class="dashboard-not-found">
             <h2 class="dashboard-nf-heading">Dashboard not found</h2>
             <p class="dashboard-nf-text">The dashboard "${slug}" does not exist.</p>
-            <button class="primary-button" @click=${() => this._navigate({ view: 'list' })}>
-              ← Back to Dashboards
-            </button>
+            <ui-button
+              .variant=${'primary'}
+              .size=${'lg'}
+              .content=${'← Back to Dashboards'}
+              @click=${() => this._navigate({ view: 'list' })}
+            ></ui-button>
           </div>
         `;
       }

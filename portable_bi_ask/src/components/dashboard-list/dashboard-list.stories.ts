@@ -10,7 +10,7 @@ type DashboardListArgs = {
 };
 
 const meta = {
-  title: 'Components/DashboardList',
+  title: 'Organisms/Dashboard List',
   component: 'dashboard-list',
   tags: ['autodocs'],
   render: ({ onDashboardSelect, onDashboardCreate }: DashboardListArgs) =>

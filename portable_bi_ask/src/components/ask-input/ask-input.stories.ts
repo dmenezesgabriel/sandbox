@@ -14,7 +14,7 @@ type AskInputArgs = {
 };
 
 const meta = {
-  title: 'Components/AskInput',
+  title: 'Molecules/Ask Input',
   component: 'ask-input',
   tags: ['autodocs'],
   render: ({
@@ -48,7 +48,8 @@ const meta = {
     },
     examples: {
       control: 'object',
-      description: 'Suggested question strings rendered as clickable chips below the input.',
+      description:
+        'Suggested question strings rendered as reusable choice-button atoms below the field.',
     },
     onAsk: {
       action: 'ask',
@@ -79,11 +80,10 @@ const meta = {
     docs: {
       description: {
         component:
-          'Natural-language query entry point for the BI dashboard. ' +
+          'Molecule composed from the text-field and button atoms. ' +
           'Exposes three events — `ask`, `question-change`, and `example-select` — ' +
           'and delegates all state management to the parent so it stays fully controlled. ' +
-          'Chips below the input are populated from the `examples` prop and ' +
-          'can be swapped per dataset.',
+          'Choice-button examples below the field can be swapped per dataset.',
       },
     },
   },

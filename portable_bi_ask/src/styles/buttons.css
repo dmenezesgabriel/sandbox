@@ -3,48 +3,132 @@
    Shared button styles across the application.
    ========================================================================== */
 
+.ui-button,
 .primary-button,
-.choice-button {
+.choice-button,
+.btn-new-dashboard,
+.btn-save,
+.btn-cancel,
+.btn-import,
+.btn-export-yaml,
+.btn-export-json,
+.btn-edit-widget,
+.btn-add-widget {
   display: inline-flex;
   gap: 0.4em;
   align-items: center;
-  padding: 0.75em 1.15em;
-  border: none;
+  justify-content: center;
   border-radius: var(--radius-md);
-  background: var(--color-accent);
-  color: var(--color-text-on-accent);
   font-family: var(--font-body);
-  font-size: var(--text-md);
-  font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast),
     transform var(--transition-fast),
     box-shadow var(--transition-fast);
 }
 
+.ui-button {
+  padding: 0.6rem var(--space-lg);
+  border: none;
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.ui-button--sm {
+  padding: 0.45rem var(--space-base);
+  font-size: 0.82rem;
+}
+
+.ui-button--md {
+  padding: 0.6rem var(--space-lg);
+  font-size: var(--text-base);
+}
+
+.ui-button--lg {
+  padding: 0.75em 1.15em;
+  font-size: var(--text-md);
+}
+
+.ui-button--primary,
+.primary-button,
+.btn-new-dashboard,
+.btn-save,
+.btn-add-widget {
+  border: none;
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+}
+
+.ui-button--primary:hover,
+.primary-button:hover,
+.btn-new-dashboard:hover,
+.btn-save:hover,
+.btn-add-widget:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.ui-button--secondary,
+.btn-cancel,
+.btn-import,
+.btn-export-yaml,
+.btn-export-json,
+.btn-edit-widget {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+}
+
+.ui-button--secondary:hover,
+.btn-cancel:hover,
+.btn-import:hover,
+.btn-export-yaml:hover,
+.btn-export-json:hover,
+.btn-edit-widget:hover {
+  border-color: var(--color-accent-subtle);
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.ui-button--choice,
 .choice-button {
   padding: 0.5em 0.9em;
   border: 1px solid var(--color-border);
   background: var(--color-bg);
   color: var(--color-text);
   font-size: var(--text-base);
+  font-weight: 500;
 }
 
+.ui-button--choice:hover,
 .choice-button:hover {
   border-color: var(--color-accent-subtle);
   background: var(--color-accent-light);
   color: var(--color-accent);
 }
 
-.primary-button:hover {
-  background: var(--color-accent-hover);
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-sm);
+.ui-button:disabled,
+.primary-button:disabled,
+.choice-button:disabled,
+.btn-save:disabled,
+.btn-add-widget:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+  box-shadow: none;
 }
 
+.ui-button:active,
 .primary-button:active,
-.choice-button:active {
+.choice-button:active,
+.btn-new-dashboard:active,
+.btn-save:active,
+.btn-add-widget:active {
   transform: translateY(0);
 }
 

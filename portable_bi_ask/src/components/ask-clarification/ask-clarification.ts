@@ -1,3 +1,5 @@
+import '../ui-button';
+
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
 import type { Clarification, ClarificationChoice } from '../../types';
@@ -31,9 +33,12 @@ export class AskClarification extends LitElement {
         <p>${this.clarification.message}</p>
         ${this.clarification.choices.map(
           (choice) => html`
-            <button class="choice-button" @click=${() => this._choose(choice)}>
-              ${choice.label}
-            </button>
+            <ui-button
+              .variant=${'choice'}
+              .size=${'sm'}
+              .content=${choice.label}
+              @click=${() => this._choose(choice)}
+            ></ui-button>
           `,
         )}
       </section>

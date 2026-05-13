@@ -9,7 +9,7 @@ type SpinnerArgs = {
 };
 
 const meta = {
-  title: 'Components/AppSpinner',
+  title: 'Atoms/Spinner',
   component: 'app-spinner',
   tags: ['autodocs'],
   render: ({ label, size }: SpinnerArgs) =>

@@ -23,7 +23,7 @@ const SHEETS: Sheet[] = [
 ];
 
 const meta = {
-  title: 'Components/SheetsManager',
+  title: 'Organisms/Sheets Manager',
   component: 'sheets-manager',
   tags: ['autodocs'],
   render: ({

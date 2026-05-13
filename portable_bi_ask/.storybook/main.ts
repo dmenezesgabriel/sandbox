@@ -27,6 +27,10 @@ const config: StorybookConfig = {
     // Suppress "unable to find package.json" warnings for packages that ship
     // non-standard layouts or are only used in tests/server code.
     config.optimizeDeps ??= {};
+    config.optimizeDeps.include = [
+      ...(config.optimizeDeps.include ?? []),
+      'lit/directives/if-defined.js',
+    ];
     config.optimizeDeps.exclude = [
       ...(config.optimizeDeps.exclude ?? []),
       'chrono-node',

@@ -60,7 +60,7 @@ const EMPTY_SHEET: Sheet = {
 };
 
 const meta = {
-  title: 'Components/SheetCanvas',
+  title: 'Organisms/Sheet Canvas',
   component: 'sheet-canvas',
   tags: ['autodocs'],
   render: ({

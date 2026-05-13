@@ -1,3 +1,6 @@
+import '../ui-button';
+import '../ui-text-field';
+
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { LayoutGrid, List, Plus } from 'lucide';
@@ -136,6 +139,8 @@ export class DashboardList extends LitElement {
     const nameError = this._createNameError
       ? html`<p id="name-error" class="field-error" role="alert">${this._createNameError}</p>`
       : nothing;
+    const describedBy = typeof nameAriaDescribedBy === 'string' ? nameAriaDescribedBy : undefined;
+    const invalid = typeof nameAriaInvalid === 'string' ? nameAriaInvalid : undefined;
 
     return html`
       <section class="dashboard-list-page">
@@ -147,9 +152,12 @@ export class DashboardList extends LitElement {
             </h1>
             <p class="dashboard-hero-subtitle">Your Data, Any Data, Instantly Explained</p>
             <div class="dashboard-hero-actions">
-              <button class="btn-new-dashboard" @click=${this._openCreateModal}>
-                ${icon(Plus, { size: 18 })} New Dashboard
-              </button>
+              <ui-button
+                .variant=${'primary'}
+                .size=${'lg'}
+                .content=${html`${icon(Plus, { size: 18 })} New Dashboard`}
+                @click=${this._openCreateModal}
+              ></ui-button>
             </div>
           </div>
         </div>
@@ -195,27 +203,32 @@ export class DashboardList extends LitElement {
                 <h3 id="create-dialog-title">Create New Dashboard</h3>
                 <div class="form-group">
                   <label for="new-dashboard-name">Name</label>
-                  <input
-                    id="new-dashboard-name"
-                    type="text"
+                  <ui-text-field
+                    .inputId=${'new-dashboard-name'}
                     .value=${this._newDashboardName}
-                    @input=${(e: Event) => {
-                      this._newDashboardName = (e.target as HTMLInputElement).value;
+                    .placeholder=${'Enter dashboard name'}
+                    .describedBy=${describedBy}
+                    .invalid=${invalid}
+                    .autoFocus=${true}
+                    @value-change=${(e: CustomEvent<string>) => {
+                      this._newDashboardName = e.detail;
                       this._createNameError = '';
                     }}
-                    @keydown=${(e: KeyboardEvent) => {
-                      if (e.key === 'Enter') this._createDashboard();
-                    }}
-                    placeholder="Enter dashboard name"
-                    aria-describedby=${nameAriaDescribedBy}
-                    aria-invalid=${nameAriaInvalid}
-                    autofocus
-                  />
+                    @enter-press=${this._createDashboard}
+                  ></ui-text-field>
                   ${nameError}
                 </div>
                 <div class="modal-actions">
-                  <button class="btn-cancel" @click=${this._closeCreateModal}>Cancel</button>
-                  <button class="btn-save" @click=${this._createDashboard}>Create</button>
+                  <ui-button
+                    .variant=${'secondary'}
+                    .content=${'Cancel'}
+                    @click=${this._closeCreateModal}
+                  ></ui-button>
+                  <ui-button
+                    .variant=${'primary'}
+                    .content=${'Create'}
+                    @click=${this._createDashboard}
+                  ></ui-button>
                 </div>
               </dialog>
             `
