@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Use TDD to implement features and remediate design issues safely: low cohesion, tight coupling, weak encapsulation, poor boundaries, infrastructure leakage, brittle tests, and over-fragmentation.
+description: Use TDD to implement features and remediate design issues safely, low cohesion, tight coupling, weak encapsulation, poor boundaries, infrastructure leakage, brittle tests, and over-fragmentation.
 ---
 
 ## Purpose
