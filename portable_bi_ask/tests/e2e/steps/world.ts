@@ -19,7 +19,7 @@ const __dirname = path.dirname(__filename);
 const PORT = 5199;
 const BASE_URL = `http://localhost:${PORT}`;
 
-export const TEST_SHEETS = [
+export const TEST_DASHBOARDS = [
   {
     id: 'sheet-a',
     name: 'Sales Overview',
@@ -74,40 +74,41 @@ export class BrowserWorld {
   _expectedChartInitCount: number = 0;
   _pageErrors: string[] = [];
   _consoleErrors: string[] = [];
+  _lastQuestionSlug = '';
 
   async navigate(urlPath: string = '/'): Promise<void> {
     await this.page.goto(`${BASE_URL}${urlPath}`);
   }
 
-  async injectSheets(
-    sheets: typeof TEST_SHEETS,
+  async injectDashboards(
+    sheets: typeof TEST_DASHBOARDS,
     slug: string = 'portable-bi-dashboard',
   ): Promise<void> {
     await this.page.evaluate(
       ({ s, slug: sl }) => {
-        localStorage.setItem(`sheets:${sl}`, JSON.stringify({ version: 3, data: s }));
+        localStorage.setItem(`dashboard:${sl}`, JSON.stringify({ version: 3, data: s }));
       },
       { s: sheets, slug },
     );
   }
 
-  async clearSheets(slug: string = 'portable-bi-dashboard'): Promise<void> {
-    await this.page.evaluate((sl) => localStorage.removeItem(`sheets:${sl}`), slug);
+  async clearDashboards(slug: string = 'portable-bi-dashboard'): Promise<void> {
+    await this.page.evaluate((sl) => localStorage.removeItem(`dashboard:${sl}`), slug);
   }
 
   async hasEmptyState(): Promise<boolean> {
-    return this.page.evaluate(() => !!document.querySelector('.sheet-empty'));
+    return this.page.evaluate(() => !!document.querySelector('.dashboard-empty'));
   }
 
-  async hasNewSheetButton(): Promise<boolean> {
-    return this.page.evaluate(() => !!document.querySelector('.btn-new-sheet'));
+  async hasNewDashboardButton(): Promise<boolean> {
+    return this.page.evaluate(() => !!document.querySelector('.btn-new-dashboard'));
   }
 
-  async clickNewSheet(): Promise<void> {
-    await this.page.click('.btn-new-sheet');
+  async clickNewDashboard(): Promise<void> {
+    await this.page.click('.btn-new-dashboard');
   }
 
-  async fillNewSheetName(name: string): Promise<void> {
+  async fillNewDashboardName(name: string): Promise<void> {
     const input = this.page.locator('.modal-content input[type="text"]');
     await input.fill(name);
   }
@@ -116,7 +117,7 @@ export class BrowserWorld {
     await this.page.click('.btn-save');
   }
 
-  async getSheetTabNames(): Promise<string[]> {
+  async getDashboardTabNames(): Promise<string[]> {
     return this.page.evaluate(() =>
       [...document.querySelectorAll('.sheet-name')].map((el) => el.textContent ?? ''),
     );
@@ -147,7 +148,7 @@ export class BrowserWorld {
     await this.page.click('.editor-edit-btn');
   }
 
-  async clickSheetTab(name: string): Promise<void> {
+  async clickDashboardTab(name: string): Promise<void> {
     const tab = this.page.locator('.sheet-tab', { hasText: name });
     await tab.click();
   }
@@ -241,40 +242,40 @@ export class BrowserWorld {
   async installDashboardWorkspaceProbe(): Promise<void> {
     await this.page.evaluate(() => {
       const w = window as unknown as {
-        __sheetsViewProbeInstalled?: boolean;
+        __dashboardsViewProbeInstalled?: boolean;
         __askCallCount?: number;
-        __loadedSheetIds?: string[];
+        __loadedDashboardIds?: string[];
       };
 
       w.__askCallCount = 0;
-      w.__loadedSheetIds = [];
+      w.__loadedDashboardIds = [];
 
-      if (w.__sheetsViewProbeInstalled) {
+      if (w.__dashboardsViewProbeInstalled) {
         return;
       }
-      w.__sheetsViewProbeInstalled = true;
+      w.__dashboardsViewProbeInstalled = true;
 
-      document.addEventListener('sheets-ask', () => {
+      document.addEventListener('dashboard-ask', () => {
         w.__askCallCount = (w.__askCallCount || 0) + 1;
       });
 
-      document.addEventListener('sheets-data-loaded', (event) => {
-        const detail = (event as CustomEvent<{ sheetId?: string }>).detail;
-        if (detail?.sheetId) {
-          w.__loadedSheetIds?.push(detail.sheetId);
+      document.addEventListener('dashboard-data-loaded', (event) => {
+        const detail = (event as CustomEvent<{ dashboardId?: string }>).detail;
+        if (detail?.dashboardId) {
+          w.__loadedDashboardIds?.push(detail.dashboardId);
         }
       });
     });
   }
 
-  async waitForSheetDataLoaded(sheetId: string): Promise<void> {
+  async waitForDashboardDataLoaded(dashboardId: string): Promise<void> {
     await this.page.waitForFunction(
       (id: string) => {
-        const loadedSheetIds = (window as unknown as { __loadedSheetIds?: string[] })
-          .__loadedSheetIds;
-        return Array.isArray(loadedSheetIds) && loadedSheetIds.includes(id);
+        const loadedDashboardIds = (window as unknown as { __loadedDashboardIds?: string[] })
+          .__loadedDashboardIds;
+        return Array.isArray(loadedDashboardIds) && loadedDashboardIds.includes(id);
       },
-      sheetId,
+      dashboardId,
       { timeout: 15000 },
     );
   }
@@ -303,7 +304,61 @@ export class BrowserWorld {
   }
 
   async waitForCanvas(): Promise<void> {
-    await this.page.waitForSelector('.sheet-canvas', { timeout: 8000 }).catch(() => {});
+    await this.page.waitForSelector('.dashboard-canvas', { timeout: 8000 }).catch(() => {});
+  }
+
+  async navigateToHash(hash: string): Promise<void> {
+    await this.page.evaluate((h) => {
+      window.location.hash = h;
+    }, hash);
+    await this.page.waitForTimeout(300);
+  }
+
+  async injectUserQuestion(title: string): Promise<void> {
+    const slug =
+      title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'question';
+    const now = new Date().toISOString();
+    const question = {
+      id: slug,
+      slug,
+      title,
+      type: 'chart',
+      source: 'user',
+      createdAt: now,
+      updatedAt: now,
+      query: '',
+      dataSources: [],
+    };
+    await this.page.evaluate(
+      ({ key, q }: { key: string; q: Record<string, unknown> }) => {
+        const existing: unknown[] = JSON.parse(localStorage.getItem(key) ?? '[]');
+        existing.push(q);
+        localStorage.setItem(key, JSON.stringify(existing));
+      },
+      { key: 'persisted_questions_v1', q: question as Record<string, unknown> },
+    );
+    this._lastQuestionSlug = slug;
+  }
+
+  async getQuestionCardTitles(): Promise<string[]> {
+    return this.page.evaluate(() =>
+      [...document.querySelectorAll('.question-card-title')].map(
+        (el) => el.textContent?.trim() ?? '',
+      ),
+    );
+  }
+
+  async hasDeleteButtonForCard(title: string): Promise<boolean> {
+    return this.page.evaluate((t) => {
+      const cards = [...document.querySelectorAll('.question-card')];
+      const card = cards.find(
+        (c) => c.querySelector('.question-card-title')?.textContent?.trim() === t,
+      );
+      return !!card?.querySelector('.question-card-delete');
+    }, title);
   }
 }
 

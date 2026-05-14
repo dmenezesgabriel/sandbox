@@ -171,6 +171,8 @@ export class DashboardList extends LitElement {
               class="dashboard-view-btn ${this._viewMode === 'grid'
                 ? 'dashboard-view-btn-active'
                 : ''}"
+              aria-label="Grid view"
+              aria-pressed=${this._viewMode === 'grid'}
               @click=${() => this._setView('grid')}
               title="Grid view"
             >
@@ -180,6 +182,8 @@ export class DashboardList extends LitElement {
               class="dashboard-view-btn ${this._viewMode === 'list'
                 ? 'dashboard-view-btn-active'
                 : ''}"
+              aria-label="List view"
+              aria-pressed=${this._viewMode === 'list'}
               @click=${() => this._setView('list')}
               title="List view"
             >

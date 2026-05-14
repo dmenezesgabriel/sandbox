@@ -118,8 +118,8 @@ export const SwitchToAskData: Story = {
   name: 'Interaction — Switch to Ask Data',
   tags: ['!autodocs'],
   play: async ({ canvas, args }) => {
-    const btn = canvas.getByRole('button', { name: 'Ask Data' });
-    await userEvent.click(btn);
+    const tab = canvas.getByRole('tab', { name: 'Ask Data' });
+    await userEvent.click(tab);
     await expect(args.onModeChange).toHaveBeenCalledWith('askData');
   },
 };

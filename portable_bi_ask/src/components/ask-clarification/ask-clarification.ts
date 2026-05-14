@@ -30,17 +30,19 @@ export class AskClarification extends LitElement {
     return html`
       <section class="ask-card">
         <h3>Clarification needed</h3>
-        <p>${this.clarification.message}</p>
-        ${this.clarification.choices.map(
-          (choice) => html`
-            <ui-button
-              .variant=${'choice'}
-              .size=${'sm'}
-              .content=${choice.label}
-              @click=${() => this._choose(choice)}
-            ></ui-button>
-          `,
-        )}
+        <p id="clarification-message">${this.clarification.message}</p>
+        <div role="group" aria-labelledby="clarification-message" class="clarification-choices">
+          ${this.clarification.choices.map(
+            (choice) => html`
+              <ui-button
+                .variant=${'choice'}
+                .size=${'sm'}
+                .content=${choice.label}
+                @click=${() => this._choose(choice)}
+              ></ui-button>
+            `,
+          )}
+        </div>
       </section>
     `;
   }

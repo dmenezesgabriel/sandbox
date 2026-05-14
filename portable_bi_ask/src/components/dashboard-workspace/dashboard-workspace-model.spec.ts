@@ -4,7 +4,7 @@ import type { DashboardFilterConfig } from '../../types';
 import {
   applySqlFilters,
   exportFileBaseName,
-  filterSheetData,
+  filterDashboardData,
   sanitizePersistedDashboardLayouts,
   storageKeyForDashboard,
 } from './dashboard-workspace-model';
@@ -39,9 +39,9 @@ describe('dashboard-workspace-model', () => {
     });
   });
 
-  describe('filterSheetData', () => {
+  describe('filterDashboardData', () => {
     it('filters each widget rows by active cross-filter labels', () => {
-      const data = filterSheetData(
+      const data = filterDashboardData(
         {
           widgetA: {
             labels: ['West', 'East'],
@@ -65,8 +65,8 @@ describe('dashboard-workspace-model', () => {
 
   describe('storageKeyForDashboard', () => {
     it('uses a default namespace when no slug is provided', () => {
-      expect(storageKeyForDashboard('')).toBe('sheets:default');
-      expect(storageKeyForDashboard('sales')).toBe('sheets:sales');
+      expect(storageKeyForDashboard('')).toBe('dashboard:default');
+      expect(storageKeyForDashboard('sales')).toBe('dashboard:sales');
     });
   });
 

@@ -27,7 +27,7 @@
 
 /* 06. Components */
 @import url('./styles/navigation.css');
-@import url('./styles/canvas.css');
+@import url('./styles/dashboard.css');
 @import url('./styles/ask.css');
 @import url('./styles/feedback.css');
-@import url('./styles/dashboard-list.css');
+@import url('./styles/questions.css');

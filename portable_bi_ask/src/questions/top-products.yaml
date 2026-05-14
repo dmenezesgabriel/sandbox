@@ -1,0 +1,23 @@
+id: 'top-products'
+slug: 'top-products'
+title: 'Top 10 Products by Sales'
+description: 'Ranked list of products by total revenue'
+type: table
+queryType: sql
+query: >
+  SELECT p."Product Name" AS Product, SUM(s.Sales) AS Sales
+  FROM sales s
+  JOIN product p ON s."Product ID" = p."Product ID"
+  GROUP BY p."Product Name"
+  ORDER BY Sales DESC
+  LIMIT 10
+columns:
+  - Product
+  - Sales
+columnFormats:
+  Sales: currency
+dataSources:
+  - name: product
+    url: 'https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/product.csv'
+  - name: sales
+    url: 'https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/sales.csv'

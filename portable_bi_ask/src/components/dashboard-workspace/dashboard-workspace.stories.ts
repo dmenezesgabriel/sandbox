@@ -23,12 +23,12 @@ const EMPTY_CONFIG: DashboardConfig = {
   layout: [],
 };
 
-const STORYBOOK_STORAGE_KEY = 'sheets:storybook-populated';
+const STORYBOOK_STORAGE_KEY = 'dashboard:storybook-populated';
 const POPULATED_SHEETS = [
   {
     id: 'sheet-1',
     name: 'Overview',
-    type: 'sheet' as const,
+    type: 'layout' as const,
     widgets: [
       {
         id: 'widget-1',
@@ -87,9 +87,9 @@ const meta = {
     docs: {
       description: {
         component:
-          'Template for a single-dashboard workspace. Composes the canvas organism (`sheet-canvas`) ' +
-          'and widget editor dialog (`sheet-editor`). Persists the dashboard layout to `localStorage`, executes widget queries via DuckDB WASM, ' +
-          'and emits `sheets-ask` / `sheets-data-loaded` events so hosts can observe ask activity and data readiness.',
+          'Template for a single-dashboard workspace. Composes the canvas organism (`dashboard-canvas`) ' +
+          'and widget editor dialog (`widget-editor`). Persists the dashboard layout to `localStorage`, executes widget queries via DuckDB WASM, ' +
+          'and emits `dashboard-ask` / `dashboard-data-loaded` events so hosts can observe ask activity and data readiness.',
       },
     },
   },
@@ -115,7 +115,7 @@ export const MultipleSheets: Story = {
     docs: {
       description: {
         story:
-          'Loads the persisted dashboard sheet from `localStorage["sheets:storybook-demo"]`. ' +
+          'Loads the persisted dashboard from `localStorage["dashboard:storybook-demo"]`. ' +
           'Falls back to a blank default sheet if no data is stored.',
       },
     },

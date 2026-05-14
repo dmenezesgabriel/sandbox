@@ -6,7 +6,7 @@ import { expect, fn, userEvent } from 'storybook/test';
 
 import type { WidgetConfig } from '../../types';
 
-type SheetEditorArgs = {
+type WidgetEditorArgs = {
   widget: WidgetConfig | null;
   mode: 'add' | 'edit';
   onWidgetSave: (detail: { widget: WidgetConfig; mode: 'add' | 'edit' }) => void;
@@ -29,17 +29,17 @@ const textWidget: WidgetConfig = {
 };
 
 const meta = {
-  title: 'Organisms/Sheet Editor',
-  component: 'sheet-editor',
+  title: 'Organisms/Widget Editor',
+  component: 'widget-editor',
   tags: ['autodocs'],
-  render: ({ widget, mode, onWidgetSave, onEditorCancel }: SheetEditorArgs) =>
-    html`<sheet-editor
+  render: ({ widget, mode, onWidgetSave, onEditorCancel }: WidgetEditorArgs) =>
+    html`<widget-editor
       .widget=${widget}
       .mode=${mode}
       @widget-save=${(e: CustomEvent<{ widget: WidgetConfig; mode: 'add' | 'edit' }>) =>
         onWidgetSave(e.detail)}
       @editor-cancel=${onEditorCancel}
-    ></sheet-editor>`,
+    ></widget-editor>`,
   argTypes: {
     widget: {
       control: 'object',
@@ -81,10 +81,10 @@ const meta = {
     },
   },
   decorators: [(story) => html`<div style="min-height:520px;">${story()}</div>`],
-} satisfies Meta<SheetEditorArgs>;
+} satisfies Meta<WidgetEditorArgs>;
 
 export default meta;
-type Story = StoryObj<SheetEditorArgs>;
+type Story = StoryObj<WidgetEditorArgs>;
 
 export const AddMode: Story = {
   parameters: {
@@ -144,7 +144,7 @@ export const BlankTitleValidation: Story = {
 
     const errorAlert = await canvas.findByRole('alert');
     await expect(args.onWidgetSave).not.toHaveBeenCalled();
-    await expect(titleInput).toHaveAttribute('aria-invalid', 'true');
+    await expect(titleInput).toHaveAttribute('aria-invalid', '');
     await expect(errorAlert).toHaveTextContent('Please enter a title for this question.');
   },
 };

@@ -13,24 +13,27 @@ import {
   resolveCollisions,
   ROW_PX,
 } from '../../grid-layout-engine';
-import type { CellValue, Filters, Sheet } from '../../types';
+import type { CellValue, Dashboard, Filters } from '../../types';
 
-export class SheetCanvas extends LitElement {
+export class DashboardCanvas extends LitElement {
   static override readonly properties = {
     sheet: { type: Object },
     data: { type: Object },
     filters: { type: Object },
+    widgetErrors: { type: Object },
     selectedWidgetId: { type: String },
     editMode: { type: Boolean },
     _workingLayout: { state: true },
     _draggingId: { state: true },
     _resizingId: { state: true },
     _containerWidth: { state: true },
+    _isMobile: { state: true },
   };
 
-  sheet: Sheet;
+  sheet: Dashboard;
   data: Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }>;
   filters: Filters;
+  widgetErrors: Record<string, string>;
   selectedWidgetId: string | null;
   editMode: boolean;
 
@@ -39,6 +42,7 @@ export class SheetCanvas extends LitElement {
   private _draggingId: string | null = null;
   private _resizingId: string | null = null;
   private _containerWidth: number = 1200;
+  private _isMobile: boolean = false;
 
   // Non-reactive private fields
   private _committedLayout: GridItemLayout[] = [];
@@ -72,9 +76,10 @@ export class SheetCanvas extends LitElement {
 
   constructor() {
     super();
-    this.sheet = { id: '', name: '', type: 'sheet', widgets: [], layout: [] };
+    this.sheet = { id: '', name: '', type: 'layout', widgets: [], layout: [] };
     this.data = {};
     this.filters = {};
+    this.widgetErrors = {};
     this.selectedWidgetId = null;
     this.editMode = false;
   }
@@ -91,6 +96,12 @@ export class SheetCanvas extends LitElement {
   }
 
   private _getWidgetStyle(widgetId: string): string {
+    if (this._isMobile) {
+      const item = this._getItemForWidget(widgetId);
+      const minHeight = Math.max(200, (item?.h ?? 0) * ROW_PX - GAP_PX);
+      return [`position: relative;`, `width: 100%;`, `min-height: ${minHeight}px;`].join(' ');
+    }
+
     if (widgetId === this._draggingId) {
       const item = this._committedLayout.find((i) => i.id === widgetId);
       if (!item) return 'position: absolute;';
@@ -134,7 +145,7 @@ export class SheetCanvas extends LitElement {
   }
 
   private _renderGridLines(): TemplateResult | typeof renderNothing {
-    if (!this.editMode) return renderNothing;
+    if (!this.editMode || this._isMobile) return renderNothing;
 
     const lines: TemplateResult[] = [];
     const rows = 30;
@@ -192,7 +203,7 @@ export class SheetCanvas extends LitElement {
   }
 
   private _getCanvasElement(): HTMLElement | null {
-    return this.querySelector('.sheet-canvas');
+    return this.querySelector('.dashboard-canvas');
   }
 
   private _getCanvasMetrics(): { width: number; left: number; top: number } {
@@ -212,13 +223,20 @@ export class SheetCanvas extends LitElement {
   private _updateContainerWidth(): void {
     const canvasEl = this._getCanvasElement();
     const width = canvasEl?.clientWidth ?? 0;
-    if (width > 0 && width !== this._containerWidth) {
+    if (width <= 0) return;
+
+    if (width !== this._containerWidth) {
       this._containerWidth = width;
+    }
+
+    const isMobile = width <= 640;
+    if (isMobile !== this._isMobile) {
+      this._isMobile = isMobile;
     }
   }
 
   private _onPointerDown(e: PointerEvent): void {
-    if (!this.editMode) return;
+    if (!this.editMode || this._isMobile) return;
     const target = e.target as HTMLElement;
     const handle = target.closest('.resize-handle');
     const widgetWrapper = target.closest('.widget-wrapper') as HTMLElement | null;
@@ -380,6 +398,79 @@ export class SheetCanvas extends LitElement {
     }
   }
 
+  private _getResizeDelta(
+    handle: 'se' | 'sw' | 'ne' | 'nw',
+    key: string,
+  ): { width: number; height: number } {
+    const growsWidthFromRight = handle === 'se' || handle === 'ne';
+    const growsHeightFromBottom = handle === 'se' || handle === 'sw';
+
+    let width = 0;
+    if (key === 'ArrowRight') width = growsWidthFromRight ? 1 : -1;
+    if (key === 'ArrowLeft') width = growsWidthFromRight ? -1 : 1;
+
+    let height = 0;
+    if (key === 'ArrowDown') height = growsHeightFromBottom ? 1 : -1;
+    if (key === 'ArrowUp') height = growsHeightFromBottom ? -1 : 1;
+
+    return { width, height };
+  }
+
+  private _getResizeRules(widgetId: string): {
+    minW: number;
+    minH: number;
+    maxW: number;
+    maxH: number;
+  } {
+    const widgetType = this.sheet.widgets.find((widget) => widget.id === widgetId)?.type;
+    const rules = widgetType ? COMPONENT_RULES[widgetType] : null;
+    return {
+      minW: rules?.minW ?? 1,
+      minH: rules?.minH ?? 1,
+      maxW: rules?.maxW ?? GRID_COLS,
+      maxH: rules?.maxH ?? 100,
+    };
+  }
+
+  private _onResizeKeydown(
+    e: KeyboardEvent,
+    widgetId: string,
+    handle: 'se' | 'sw' | 'ne' | 'nw',
+  ): void {
+    if (!this.editMode || this._isMobile) return;
+
+    const resizeKeys = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+    if (!resizeKeys.includes(e.key)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const item = this._committedLayout.find((layoutItem) => layoutItem.id === widgetId);
+    if (!item) return;
+
+    const { minW, minH, maxW, maxH } = this._getResizeRules(widgetId);
+    const delta = this._getResizeDelta(handle, e.key);
+    if (delta.width === 0 && delta.height === 0) return;
+
+    const nextWidth = Math.max(minW, Math.min(maxW, item.w + delta.width));
+    const nextHeight = Math.max(minH, Math.min(maxH, item.h + delta.height));
+
+    if (nextWidth === item.w && nextHeight === item.h) return;
+
+    const updatedLayout = this._committedLayout.map((layoutItem) => {
+      if (layoutItem.id !== widgetId) return layoutItem;
+      return {
+        ...layoutItem,
+        w: Math.min(nextWidth, GRID_COLS - item.x),
+        h: nextHeight,
+      };
+    });
+
+    this._committedLayout = normalizeLayout(resolveCollisions(updatedLayout, widgetId));
+    this._workingLayout = null;
+    this._emitLayoutChange();
+  }
+
   private _emitLayoutChange(): void {
     const layout = this._committedLayout.map(({ x, y, w, h }) => ({ x, y, w, h }));
     const updatedSheet = { ...this.sheet, layout };
@@ -393,6 +484,8 @@ export class SheetCanvas extends LitElement {
   }
 
   private _computeCanvasHeight(): number {
+    if (this._isMobile) return 0;
+
     const layout = this._workingLayout ?? this._committedLayout;
     const maxRow = layout.reduce((m, i) => Math.max(m, i.y + i.h), 0);
     return Math.max(400, maxRow * ROW_PX + 80);
@@ -445,7 +538,7 @@ export class SheetCanvas extends LitElement {
 
     // Ghost placeholder for drag target position
     let ghostTemplate: TemplateResult | typeof renderNothing = renderNothing;
-    if (this._draggingId && this._workingLayout) {
+    if (!this._isMobile && this._draggingId && this._workingLayout) {
       const ghostItem = this._workingLayout.find((i) => i.id === this._draggingId);
       if (ghostItem) {
         const px = gridToPixels(ghostItem, this._containerWidth);
@@ -460,8 +553,10 @@ export class SheetCanvas extends LitElement {
 
     return html`
       <div
-        class="sheet-canvas ${this.editMode ? 'edit-mode' : ''}"
-        style="min-height: ${canvasHeight}px;"
+        class="dashboard-canvas ${this.editMode ? 'edit-mode' : ''} ${this._isMobile
+          ? 'mobile-stack'
+          : ''}"
+        style=${this._isMobile ? 'min-height: unset;' : `min-height: ${canvasHeight}px;`}
         @pointerdown=${this._onPointerDown}
       >
         ${this._renderGridLines()} ${ghostTemplate}
@@ -482,31 +577,60 @@ export class SheetCanvas extends LitElement {
                 .config=${widget}
                 .data=${widgetData ?? null}
                 .filters=${this.filters}
+                .error=${this.widgetErrors[widget.id] ?? ''}
                 .selected=${this.selectedWidgetId === widget.id}
                 .editMode=${this.editMode}
                 @widget-select=${this._onWidgetSelect}
                 @widget-delete=${this._onWidgetDelete}
                 @cross-filter=${this._onCrossFilter}
               ></app-widget>
-              ${this.editMode
+              ${this.editMode && !this._isMobile
                 ? html`
-                    <div class="resize-handle resize-se" data-handle="se"></div>
-                    <div class="resize-handle resize-sw" data-handle="sw"></div>
-                    <div class="resize-handle resize-ne" data-handle="ne"></div>
-                    <div class="resize-handle resize-nw" data-handle="nw"></div>
+                    <div
+                      class="resize-handle resize-se"
+                      data-handle="se"
+                      tabindex="0"
+                      role="button"
+                      aria-label=${`Resize ${widget.title} — bottom right`}
+                      @keydown=${(e: KeyboardEvent) => this._onResizeKeydown(e, widget.id, 'se')}
+                    ></div>
+                    <div
+                      class="resize-handle resize-sw"
+                      data-handle="sw"
+                      tabindex="0"
+                      role="button"
+                      aria-label=${`Resize ${widget.title} — bottom left`}
+                      @keydown=${(e: KeyboardEvent) => this._onResizeKeydown(e, widget.id, 'sw')}
+                    ></div>
+                    <div
+                      class="resize-handle resize-ne"
+                      data-handle="ne"
+                      tabindex="0"
+                      role="button"
+                      aria-label=${`Resize ${widget.title} — top right`}
+                      @keydown=${(e: KeyboardEvent) => this._onResizeKeydown(e, widget.id, 'ne')}
+                    ></div>
+                    <div
+                      class="resize-handle resize-nw"
+                      data-handle="nw"
+                      tabindex="0"
+                      role="button"
+                      aria-label=${`Resize ${widget.title} — top left`}
+                      @keydown=${(e: KeyboardEvent) => this._onResizeKeydown(e, widget.id, 'nw')}
+                    ></div>
                   `
                 : renderNothing}
             </div>
           `;
         })}
         ${!this.sheet.widgets.length
-          ? html`<div class="sheet-empty">Add questions to this dashboard</div>`
+          ? html`<div class="dashboard-empty">Add questions to this dashboard</div>`
           : renderNothing}
       </div>
     `;
   }
 }
 
-if (!customElements.get('sheet-canvas')) {
-  customElements.define('sheet-canvas', SheetCanvas);
+if (!customElements.get('dashboard-canvas')) {
+  customElements.define('dashboard-canvas', DashboardCanvas);
 }

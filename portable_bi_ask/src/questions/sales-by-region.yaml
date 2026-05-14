@@ -1,0 +1,23 @@
+id: 'sales-by-region'
+slug: 'sales-by-region'
+title: 'Sales by Region'
+description: 'Total sales broken down by geographic region'
+type: chart
+chartType: bar
+queryType: sql
+query: >
+  SELECT c.Region AS label, SUM(s.Sales) AS value
+  FROM sales s
+  JOIN customer c ON s."Customer ID" = c."Customer ID"
+  GROUP BY c.Region
+  ORDER BY value DESC
+dataSources:
+  - name: customer
+    url: 'https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/customer.csv'
+  - name: sales
+    url: 'https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/sales.csv'
+options:
+  aspectRatio: 1.7
+  plugins:
+    legend:
+      display: false

@@ -28,8 +28,8 @@ const meta = {
           </li>
           <li>
             <strong>Organisms</strong>: larger interactive sections that coordinate multiple states
-            (<code>widget</code>, <code>top-nav</code>, <code>sheet-editor</code>,
-            <code>sheet-canvas</code>, <code>dashboard-list</code>, <code>ask-result</code>).
+            (<code>widget</code>, <code>top-nav</code>, <code>widget-editor</code>,
+            <code>dashboard-canvas</code>, <code>dashboard-list</code>, <code>ask-result</code>).
           </li>
           <li>
             <strong>Templates</strong>: layout-level compositions (<code>dashboard-workspace</code>,

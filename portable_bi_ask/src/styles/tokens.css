@@ -47,7 +47,7 @@
   --color-accent-light: #f5e8e2;
   --color-text: #1e2028;
   --color-text-secondary: #6b6f79;
-  --color-text-muted: #767b87;
+  --color-text-muted: #5c6170;
   --color-text-on-accent: #fff;
   --color-success: #4a8c6f;
   --color-success-hover: #3d7d62;
@@ -97,7 +97,7 @@
   --topnav-brand-color: #ff6b3d;
   --topnav-brand-glow: rgb(255 107 61 / 18%);
   --topnav-text: #c9d1d9;
-  --topnav-text-muted: #6e7681;
+  --topnav-text-muted: #8d96a0;
   --topnav-text-active: #f0f6fc;
   --topnav-tab-indicator: var(--color-accent);
   --topnav-border: rgb(240 246 252 / 8%);

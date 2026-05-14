@@ -15,6 +15,7 @@ export class Widget extends LitElement {
     config: { type: Object },
     data: { type: Object },
     filters: { type: Object },
+    error: { type: String },
     selected: { type: Boolean },
     editMode: { type: Boolean },
   };
@@ -22,16 +23,20 @@ export class Widget extends LitElement {
   config: WidgetConfig;
   data: { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] } | null;
   filters: Filters;
+  error: string;
   selected: boolean;
   editMode: boolean;
   private _chartInstance: Chart | null = null;
   private _resizeObserver: ResizeObserver | null = null;
+  private _confirmingDelete = false;
+  private _confirmTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     super();
     this.config = { id: '', type: 'text', title: 'Question' };
     this.data = null;
     this.filters = {};
+    this.error = '';
     this.selected = false;
     this.editMode = false;
   }
@@ -42,6 +47,10 @@ export class Widget extends LitElement {
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
+    if (this._confirmTimeout) {
+      clearTimeout(this._confirmTimeout);
+      this._confirmTimeout = null;
+    }
     this._destroyChart();
     this._resizeObserver?.disconnect();
   }
@@ -108,6 +117,23 @@ export class Widget extends LitElement {
 
   private _handleDelete(e: MouseEvent): void {
     e.stopPropagation();
+
+    if (!this._confirmingDelete) {
+      this._confirmingDelete = true;
+      this.requestUpdate();
+      this._confirmTimeout = setTimeout(() => {
+        this._confirmingDelete = false;
+        this._confirmTimeout = null;
+        this.requestUpdate();
+      }, 3000);
+      return;
+    }
+
+    if (this._confirmTimeout) {
+      clearTimeout(this._confirmTimeout);
+      this._confirmTimeout = null;
+    }
+    this._confirmingDelete = false;
     this.dispatchEvent(
       new CustomEvent('widget-delete', {
         detail: { id: this.config.id },
@@ -173,9 +199,18 @@ export class Widget extends LitElement {
   private _renderEmpty(): TemplateResult {
     return html`
       <div class="widget-empty">
-        <div class="empty-icon">📊</div>
+        <div class="empty-icon" aria-hidden="true">📊</div>
         <div>No data loaded</div>
         <div class="empty-hint">Add a query to display data</div>
+      </div>
+    `;
+  }
+
+  private _renderError(): TemplateResult {
+    return html`
+      <div class="widget-error" role="alert">
+        <div class="widget-error-icon" aria-hidden="true">⚠</div>
+        <div class="widget-error-msg">${this.error}</div>
       </div>
     `;
   }
@@ -248,6 +283,15 @@ export class Widget extends LitElement {
 
   override render(): TemplateResult {
     const bg = this.config.backgroundColor;
+    const deleteClass = this._confirmingDelete ? 'widget-delete confirming' : 'widget-delete';
+    const deleteAriaLabel = this._confirmingDelete
+      ? `Confirm delete ${this.config.title}`
+      : `Delete ${this.config.title}`;
+    const deleteTitle = this._confirmingDelete
+      ? 'Click again to confirm'
+      : `Delete ${this.config.title}`;
+    const deleteLabel = this._confirmingDelete ? 'Delete?' : '✕';
+
     return html`
       <div class="widget-header" style=${bg ? `background: ${bg};` : ''}>
         <span class="widget-title">${this.config.title}</span>
@@ -262,12 +306,12 @@ export class Widget extends LitElement {
                 />
               </label>
               <button
-                class="widget-delete"
+                class=${deleteClass}
                 @click=${this._handleDelete}
-                aria-label="Delete ${this.config.title}"
-                title="Delete ${this.config.title}"
+                aria-label=${deleteAriaLabel}
+                title=${deleteTitle}
               >
-                ✕
+                ${deleteLabel}
               </button>
             `
           : nothing}
@@ -283,6 +327,7 @@ export class Widget extends LitElement {
   }
 
   private _renderWidgetContent(): TemplateResult {
+    if (this.error) return this._renderError();
     if (this.config.type === 'kpi') return this._renderKpi();
     if (this.config.type === 'chart') {
       if (this.data) return this._renderChart();

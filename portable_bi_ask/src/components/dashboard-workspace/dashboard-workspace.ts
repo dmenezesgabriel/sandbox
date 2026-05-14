@@ -1,45 +1,48 @@
-import '../sheet-canvas';
-import '../sheet-editor';
+import '../dashboard-canvas';
+import '../question-picker';
+import '../widget-editor';
 import '../ui-button';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
 import { AskDataEngine } from '../../ask-data';
 import { DASHBOARD_CONFIG } from '../../dashboard-config';
+import {
+  configToDashboard,
+  dashboardToJson,
+  dashboardToYaml,
+  jsonToDashboard,
+  yamlToDashboard,
+} from '../../dashboard-yaml';
 import { duckDBManager } from '../../db';
 import { findBestPosition, migrateToGridLayout } from '../../grid-layout-engine';
-import {
-  configToSheet,
-  jsonToSheet,
-  sheetToJson,
-  sheetToYaml,
-  yamlToSheet,
-} from '../../sheet-yaml';
 import type {
   CellValue,
+  Dashboard,
   DashboardConfig,
   DashboardFilterConfig,
-  DashboardSheet,
   Filters,
+  QuestionConfig,
   WidgetConfig,
 } from '../../types';
 import { escapeSqlString, quoteIdent, toRows } from '../../utils';
 import {
   applySqlFilters,
   exportFileBaseName,
-  filterSheetData,
+  filterDashboardData,
+  questionToWidget,
   sanitizePersistedDashboardLayouts,
   storageKeyForDashboard,
 } from './dashboard-workspace-model';
 
-type SheetsAskEventDetail = {
-  sheetId: string;
+type DashboardAskEventDetail = {
+  dashboardId: string;
   widgetId: string;
   query: string;
 };
 
-type SheetsDataLoadedEventDetail = {
-  sheetId: string;
+type DashboardDataLoadedEventDetail = {
+  dashboardId: string;
   source: 'cache' | 'query';
 };
 
@@ -53,17 +56,20 @@ export class DashboardWorkspace extends LitElement {
     editMode: { type: Boolean },
     selectedWidgetId: { type: String },
     sheetData: { state: true },
+    widgetErrors: { state: true },
     filters: { type: Object },
     crossFilters: { state: true },
     _editingWidget: { state: true },
     _showEditor: { state: true },
+    _showPicker: { state: true },
+    _showOverflow: { state: true },
     _importError: { state: true },
   };
 
   config: DashboardConfig;
   isNew: boolean;
   slug: string;
-  sheets: DashboardSheet[];
+  sheets: Dashboard[];
   activeSheetId: string | null;
   editMode: boolean;
   selectedWidgetId: string | null;
@@ -71,11 +77,14 @@ export class DashboardWorkspace extends LitElement {
     string,
     { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
   >;
+  widgetErrors: Record<string, string>;
   filters: Filters;
   crossFilters: Record<string, CellValue[]>;
   private _editingWidget: WidgetConfig | null = null;
   private _showEditor: boolean = false;
+  private _showPicker: boolean = false;
   private _editorTrigger: HTMLElement | null = null;
+  private _showOverflow = false;
   private _importError = '';
   private _askEngine: AskDataEngine;
   private _dataReady: boolean = false;
@@ -83,6 +92,7 @@ export class DashboardWorkspace extends LitElement {
     string,
     Record<string, { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }>
   > = {};
+  private _widgetErrorCache: Record<string, Record<string, string>> = {};
   private _cachedFilterResult: Record<
     string,
     { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
@@ -104,6 +114,7 @@ export class DashboardWorkspace extends LitElement {
     this.editMode = false;
     this.selectedWidgetId = null;
     this.sheetData = {};
+    this.widgetErrors = {};
     this.filters = {};
     this.crossFilters = {};
     this._askEngine = new AskDataEngine(this.config, duckDBManager);
@@ -131,7 +142,7 @@ export class DashboardWorkspace extends LitElement {
     }
   }
 
-  private get _activeDashboard(): DashboardSheet | undefined {
+  private get _activeDashboard(): Dashboard | undefined {
     return this.sheets.find((dashboard) => dashboard.id === this.activeSheetId);
   }
 
@@ -205,7 +216,7 @@ export class DashboardWorkspace extends LitElement {
   }> {
     await this._ensureDataReady();
     this._emitAskEvent({
-      sheetId: this.activeSheetId ?? '',
+      dashboardId: this.activeSheetId ?? '',
       widgetId: widget.id,
       query: widget.query ?? '',
     });
@@ -234,7 +245,8 @@ export class DashboardWorkspace extends LitElement {
     if (!this.activeSheetId) return;
     if (this._dataCache[this.activeSheetId]) {
       this.sheetData = { ...this._dataCache[this.activeSheetId] };
-      this._emitSheetDataLoaded({ sheetId: this.activeSheetId, source: 'cache' });
+      this.widgetErrors = { ...(this._widgetErrorCache[this.activeSheetId] ?? {}) };
+      this._emitSheetDataLoaded({ dashboardId: this.activeSheetId, source: 'cache' });
     } else {
       this._refreshWidgetData();
     }
@@ -271,6 +283,22 @@ export class DashboardWorkspace extends LitElement {
       this._editingWidget = widget;
       this._showEditor = true;
     }
+  }
+
+  private _onAttachQuestion(q: QuestionConfig): void {
+    if (!this._activeDashboard) return;
+    const widget = questionToWidget(q);
+    const existingGridItems = migrateToGridLayout(
+      this._activeDashboard.layout,
+      this._activeDashboard.widgets.map((w) => w.id),
+    );
+    const pos = findBestPosition(widget.type, existingGridItems);
+    this._updateActiveSheet({
+      widgets: [...this._activeDashboard.widgets, widget],
+      layout: [...this._activeDashboard.layout, { x: pos.x, y: pos.y, w: pos.w, h: pos.h }],
+    });
+    this._persistSheets();
+    this._refreshWidgetData();
   }
 
   private _onWidgetSave(e: CustomEvent<{ widget: WidgetConfig; mode: 'add' | 'edit' }>): void {
@@ -310,7 +338,7 @@ export class DashboardWorkspace extends LitElement {
     this.updateComplete.then(() => trigger?.focus());
   }
 
-  private _onLayoutChange(e: CustomEvent<{ sheet: DashboardSheet }>): void {
+  private _onLayoutChange(e: CustomEvent<{ sheet: Dashboard }>): void {
     const { sheet } = e.detail;
     this._updateActiveSheet({ layout: sheet.layout });
     this._persistSheets();
@@ -353,7 +381,7 @@ export class DashboardWorkspace extends LitElement {
       return this._cachedFilterResult!;
     }
 
-    const result = filterSheetData(this.sheetData, this.crossFilters);
+    const result = filterDashboardData(this.sheetData, this.crossFilters);
 
     this._cachedFilterResult = result;
     this._cachedFilterSheetData = this.sheetData;
@@ -361,21 +389,21 @@ export class DashboardWorkspace extends LitElement {
     return result;
   }
 
-  private _updateActiveSheet(update: Partial<DashboardSheet>): void {
+  private _updateActiveSheet(update: Partial<Dashboard>): void {
     this.sheets = this.sheets.map((s) =>
       s.id === this.activeSheetId ? { ...s, ...update, updatedAt: new Date().toISOString() } : s,
     );
   }
 
   // Public host-level hook for observing natural-language AskData executions.
-  private _emitAskEvent(detail: SheetsAskEventDetail): void {
-    this.dispatchEvent(new CustomEvent('sheets-ask', { detail, bubbles: true, composed: true }));
+  private _emitAskEvent(detail: DashboardAskEventDetail): void {
+    this.dispatchEvent(new CustomEvent('dashboard-ask', { detail, bubbles: true, composed: true }));
   }
 
-  // Public host-level hook for observing when the active sheet data becomes ready.
-  private _emitSheetDataLoaded(detail: SheetsDataLoadedEventDetail): void {
+  // Public host-level hook for observing when the active dashboard data becomes ready.
+  private _emitSheetDataLoaded(detail: DashboardDataLoadedEventDetail): void {
     this.dispatchEvent(
-      new CustomEvent('sheets-data-loaded', { detail, bubbles: true, composed: true }),
+      new CustomEvent('dashboard-data-loaded', { detail, bubbles: true, composed: true }),
     );
   }
 
@@ -396,13 +424,18 @@ export class DashboardWorkspace extends LitElement {
         this._initDefaultSheet();
         return;
       }
+      const oldKey = `sheets:${this.slug || 'default'}`;
       const key = storageKeyForDashboard(this.slug);
+      if (!localStorage.getItem(key) && localStorage.getItem(oldKey)) {
+        localStorage.setItem(key, localStorage.getItem(oldKey)!);
+        localStorage.removeItem(oldKey);
+      }
       const stored = localStorage.getItem(key);
       if (stored) {
         const raw = JSON.parse(stored);
-        let parsed: DashboardSheet[];
+        let parsed: Dashboard[];
         if (raw && raw.version === DashboardWorkspace.STORAGE_VERSION && Array.isArray(raw.data)) {
-          parsed = raw.data as DashboardSheet[];
+          parsed = raw.data as Dashboard[];
         } else {
           parsed = [];
         }
@@ -424,7 +457,7 @@ export class DashboardWorkspace extends LitElement {
   }
 
   private async _initDefaultSheet(): Promise<void> {
-    const defaultSheet = configToSheet(this.config);
+    const defaultSheet = configToDashboard(this.config);
     this.sheets = [defaultSheet];
     this.activeSheetId = defaultSheet.id;
     this._persistSheets();
@@ -439,6 +472,7 @@ export class DashboardWorkspace extends LitElement {
       string,
       { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
     > = {};
+    const newErrors: Record<string, string> = {};
 
     for (const widget of this._activeDashboard.widgets) {
       if (widget.query) {
@@ -448,6 +482,7 @@ export class DashboardWorkspace extends LitElement {
         } catch (err) {
           console.error(`Failed to load data for widget ${widget.id}:`, err);
           newData[widget.id] = { labels: [], values: [] };
+          newErrors[widget.id] = err instanceof Error ? err.message : String(err);
         }
       }
     }
@@ -461,24 +496,28 @@ export class DashboardWorkspace extends LitElement {
 
     if (this.activeSheetId) {
       this._dataCache[this.activeSheetId] = { ...newData };
+      this._widgetErrorCache[this.activeSheetId] = { ...newErrors };
     }
     this.sheetData = newData;
+    this.widgetErrors = newErrors;
     if (loadingSheetId) {
-      this._emitSheetDataLoaded({ sheetId: loadingSheetId, source: 'query' });
+      this._emitSheetDataLoaded({ dashboardId: loadingSheetId, source: 'query' });
     }
   }
 
   private async _refreshWidgetData(): Promise<void> {
     this.sheetData = {};
+    this.widgetErrors = {};
     if (this.activeSheetId) {
       delete this._dataCache[this.activeSheetId];
+      delete this._widgetErrorCache[this.activeSheetId];
     }
     await this._loadWidgetData();
   }
 
   private _onExportYaml(): void {
     if (!this._activeDashboard) return;
-    const yaml = sheetToYaml(this._activeDashboard);
+    const yaml = dashboardToYaml(this._activeDashboard);
     const blob = new Blob([yaml], { type: 'text/yaml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -490,7 +529,7 @@ export class DashboardWorkspace extends LitElement {
 
   private _onExportJson(): void {
     if (!this._activeDashboard) return;
-    const json = sheetToJson(this._activeDashboard);
+    const json = dashboardToJson(this._activeDashboard);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -513,18 +552,39 @@ export class DashboardWorkspace extends LitElement {
     this._fileInput.click();
   }
 
+  private _closeOverflow(): void {
+    this._showOverflow = false;
+  }
+
+  private _toggleOverflow(e: MouseEvent): void {
+    e.stopPropagation();
+    this._showOverflow = !this._showOverflow;
+  }
+
+  private readonly _onDocumentClick = (e: MouseEvent): void => {
+    if (!this.contains(e.target as Node)) {
+      this._closeOverflow();
+    }
+  };
+
+  private readonly _onDocumentKeydown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this._closeOverflow();
+    }
+  };
+
   private async _handleFileImport(): Promise<void> {
     const file = this._fileInput?.files?.[0];
     if (!file) return;
 
     try {
       const text = await file.text();
-      let sheet: DashboardSheet;
+      let sheet: Dashboard;
 
       if (file.name.endsWith('.json')) {
-        sheet = jsonToSheet(text);
+        sheet = jsonToDashboard(text);
       } else {
-        sheet = yamlToSheet(text);
+        sheet = yamlToDashboard(text);
       }
 
       this._importError = '';
@@ -533,7 +593,9 @@ export class DashboardWorkspace extends LitElement {
       this.selectedWidgetId = null;
       this.crossFilters = {};
       this.sheetData = {};
+      this.widgetErrors = {};
       this._dataCache = {};
+      this._widgetErrorCache = {};
       this._persistSheets();
       this._refreshWidgetData();
     } catch (err) {
@@ -542,7 +604,7 @@ export class DashboardWorkspace extends LitElement {
     }
   }
 
-  private _renderToolbar(dashboard: DashboardSheet | undefined): TemplateResult | typeof nothing {
+  private _renderToolbar(dashboard: Dashboard | undefined): TemplateResult | typeof nothing {
     if (!this.editMode || !dashboard) return nothing;
     return html`
       <ui-button
@@ -550,6 +612,14 @@ export class DashboardWorkspace extends LitElement {
         .size=${'sm'}
         .content=${'+ Add Question'}
         @click=${this._onAddWidget}
+      ></ui-button>
+      <ui-button
+        .variant=${'secondary'}
+        .size=${'sm'}
+        .content=${'+ From library'}
+        @click=${() => {
+          this._showPicker = true;
+        }}
       ></ui-button>
       ${this.selectedWidgetId
         ? html`
@@ -567,21 +637,26 @@ export class DashboardWorkspace extends LitElement {
   private _renderEditor(): TemplateResult | typeof nothing {
     if (!this._showEditor) return nothing;
     return html`
-      <sheet-editor
+      <widget-editor
         .widget=${this._editingWidget}
         .mode=${this._editingWidget ? 'edit' : 'add'}
+        .dataSources=${this.config?.dataSources ?? []}
         @widget-save=${this._onWidgetSave}
         @editor-cancel=${this._onEditorCancel}
-      ></sheet-editor>
+      ></widget-editor>
     `;
   }
 
   override connectedCallback(): void {
     super.connectedCallback();
+    document.addEventListener('click', this._onDocumentClick);
+    document.addEventListener('keydown', this._onDocumentKeydown);
     this._loadSheets();
   }
 
   override disconnectedCallback(): void {
+    document.removeEventListener('click', this._onDocumentClick);
+    document.removeEventListener('keydown', this._onDocumentKeydown);
     super.disconnectedCallback();
     if (this._fileInput && this._fileInput.parentNode) {
       this._fileInput.parentNode.removeChild(this._fileInput);
@@ -593,29 +668,53 @@ export class DashboardWorkspace extends LitElement {
     const dashboard = this._activeDashboard;
 
     return html`
-      <div class="sheets-toolbar-bar">
+      <div class="dashboard-toolbar-bar">
         ${this._renderToolbar(dashboard)} ${dashboard ? html`` : nothing}
-        <ui-button
-          .variant=${'secondary'}
-          .size=${'sm'}
-          .content=${'Export YAML'}
-          @click=${this._onExportYaml}
-          title="Export as YAML"
-        ></ui-button>
-        <ui-button
-          .variant=${'secondary'}
-          .size=${'sm'}
-          .content=${'Export JSON'}
-          @click=${this._onExportJson}
-          title="Export as JSON"
-        ></ui-button>
-        <ui-button
-          .variant=${'secondary'}
-          .size=${'sm'}
-          .content=${'Import'}
-          @click=${this._onImport}
-          title="Import YAML/JSON"
-        ></ui-button>
+        <div class="toolbar-overflow-wrapper">
+          <button
+            class="toolbar-overflow-btn"
+            aria-label="More actions"
+            aria-expanded=${this._showOverflow}
+            aria-haspopup="menu"
+            @click=${this._toggleOverflow}
+          >
+            ⋯
+          </button>
+
+          ${this._showOverflow
+            ? html`
+                <div class="toolbar-overflow-menu" role="menu">
+                  <button
+                    role="menuitem"
+                    @click=${() => {
+                      this._onExportYaml();
+                      this._closeOverflow();
+                    }}
+                  >
+                    Export YAML
+                  </button>
+                  <button
+                    role="menuitem"
+                    @click=${() => {
+                      this._onExportJson();
+                      this._closeOverflow();
+                    }}
+                  >
+                    Export JSON
+                  </button>
+                  <button
+                    role="menuitem"
+                    @click=${() => {
+                      this._onImport();
+                      this._closeOverflow();
+                    }}
+                  >
+                    Import
+                  </button>
+                </div>
+              `
+            : nothing}
+        </div>
         ${this._importError
           ? html`<div class="warning" role="alert">${this._importError}</div>`
           : nothing}
@@ -641,19 +740,27 @@ export class DashboardWorkspace extends LitElement {
           : nothing}
       </div>
 
-      <sheet-canvas
-        .sheet=${dashboard ?? { id: '', name: '', type: 'sheet', widgets: [], layout: [] }}
+      <dashboard-canvas
+        .sheet=${dashboard ?? { id: '', name: '', type: 'layout', widgets: [], layout: [] }}
         .data=${this._getFilteredData()}
         .filters=${this.filters}
+        .widgetErrors=${this.widgetErrors}
         .selectedWidgetId=${this.selectedWidgetId}
         .editMode=${this.editMode}
         @widget-select=${this._onWidgetSelect}
         @widget-delete=${this._onWidgetDelete}
         @layout-change=${this._onLayoutChange}
         @cross-filter=${this._onCrossFilterEvent}
-      ></sheet-canvas>
+      ></dashboard-canvas>
 
       ${this._renderEditor()}
+      <question-picker
+        .open=${this._showPicker}
+        @question-attach=${(e: CustomEvent<QuestionConfig>) => this._onAttachQuestion(e.detail)}
+        @picker-close=${() => {
+          this._showPicker = false;
+        }}
+      ></question-picker>
     `;
   }
 }

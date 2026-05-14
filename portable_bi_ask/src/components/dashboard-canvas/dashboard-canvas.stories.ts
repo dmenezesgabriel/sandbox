@@ -4,24 +4,24 @@ import type { Meta, StoryObj } from '@storybook/web-components-vite';
 import { html } from 'lit';
 import { fn } from 'storybook/test';
 
-import type { Filters, Sheet } from '../../types';
+import type { Dashboard, Filters } from '../../types';
 
-type SheetCanvasArgs = {
-  sheet: Sheet;
+type DashboardCanvasArgs = {
+  sheet: Dashboard;
   data: Record<string, { labels: string[]; values: number[]; rows?: Record<string, unknown>[] }>;
   filters: Filters;
   selectedWidgetId: string | null;
   editMode: boolean;
   onWidgetSelect: (id: string) => void;
   onWidgetDelete: (id: string) => void;
-  onLayoutChange: (sheet: Sheet) => void;
+  onLayoutChange: (sheet: Dashboard) => void;
   onCrossFilter: (detail: unknown) => void;
 };
 
-const SHEET_WITH_WIDGETS: Sheet = {
-  id: 'sheet-demo',
+const DASHBOARD_WITH_WIDGETS: Dashboard = {
+  id: 'dashboard-demo',
   name: 'Demo',
-  type: 'sheet',
+  type: 'layout',
   widgets: [
     {
       id: 'kpi-1',
@@ -37,7 +37,7 @@ const SHEET_WITH_WIDGETS: Sheet = {
   ],
 };
 
-const SHEET_DATA = {
+const DASHBOARD_DATA = {
   'kpi-1': { labels: [], values: [2261537], rows: [{ value: 2261537 }] },
   'chart-1': {
     labels: ['West', 'East', 'Central', 'South'],
@@ -51,17 +51,17 @@ const SHEET_DATA = {
   },
 };
 
-const EMPTY_SHEET: Sheet = {
-  id: 'sheet-empty',
+const EMPTY_DASHBOARD: Dashboard = {
+  id: 'dashboard-empty',
   name: 'Empty',
-  type: 'sheet',
+  type: 'layout',
   widgets: [],
   layout: [],
 };
 
 const meta = {
-  title: 'Organisms/Sheet Canvas',
-  component: 'sheet-canvas',
+  title: 'Organisms/Dashboard Canvas',
+  component: 'dashboard-canvas',
   tags: ['autodocs'],
   render: ({
     sheet,
@@ -73,8 +73,8 @@ const meta = {
     onWidgetDelete,
     onLayoutChange,
     onCrossFilter,
-  }: SheetCanvasArgs) =>
-    html`<sheet-canvas
+  }: DashboardCanvasArgs) =>
+    html`<dashboard-canvas
       .sheet=${sheet}
       .data=${data}
       .filters=${filters}
@@ -82,14 +82,14 @@ const meta = {
       .editMode=${editMode}
       @widget-select=${(e: CustomEvent<{ id: string }>) => onWidgetSelect(e.detail.id)}
       @widget-delete=${(e: CustomEvent<{ id: string }>) => onWidgetDelete(e.detail.id)}
-      @layout-change=${(e: CustomEvent<{ sheet: Sheet }>) => onLayoutChange(e.detail.sheet)}
+      @layout-change=${(e: CustomEvent<{ sheet: Dashboard }>) => onLayoutChange(e.detail.sheet)}
       @cross-filter=${(e: CustomEvent) => onCrossFilter(e.detail)}
-    ></sheet-canvas>`,
+    ></dashboard-canvas>`,
   argTypes: {
     sheet: {
       control: 'object',
       description:
-        'The active sheet containing widget configs and absolute-pixel layout positions.',
+        'The active dashboard containing widget configs and absolute-pixel layout positions.',
     },
     data: {
       control: 'object',
@@ -131,8 +131,8 @@ const meta = {
     },
   },
   args: {
-    sheet: SHEET_WITH_WIDGETS,
-    data: SHEET_DATA,
+    sheet: DASHBOARD_WITH_WIDGETS,
+    data: DASHBOARD_DATA,
     filters: {},
     selectedWidgetId: null,
     editMode: false,
@@ -152,10 +152,10 @@ const meta = {
       },
     },
   },
-} satisfies Meta<SheetCanvasArgs>;
+} satisfies Meta<DashboardCanvasArgs>;
 
 export default meta;
-type Story = StoryObj<SheetCanvasArgs>;
+type Story = StoryObj<DashboardCanvasArgs>;
 
 export const Default: Story = {
   parameters: {
@@ -200,12 +200,12 @@ export const LoadingData: Story = {
   },
 };
 
-export const EmptySheet: Story = {
-  args: { sheet: EMPTY_SHEET, data: {} },
+export const EmptyDashboard: Story = {
+  args: { sheet: EMPTY_DASHBOARD, data: {} },
   parameters: {
     docs: {
       description: {
-        story: '"Add questions to this dashboard" placeholder — sheet has no widgets.',
+        story: '"Add questions to this dashboard" placeholder — dashboard has no widgets.',
       },
     },
   },

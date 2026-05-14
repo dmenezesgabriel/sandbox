@@ -249,9 +249,8 @@ app-spinner {
 
 /* ── Sheet editor modal ────────────────────────────────────────────── */
 
-.sheet-editor {
-  width: 450px;
-  max-width: 90vw;
+.widget-editor {
+  width: min(920px, 95vw);
   border: none;
   border-radius: var(--radius-xl);
   background: var(--color-surface);
@@ -260,17 +259,17 @@ app-spinner {
   animation: fade-in 0.2s ease;
 }
 
-.sheet-editor::backdrop {
+.widget-editor::backdrop {
   background: rgb(26 35 46 / 50%);
   animation: fade-in 0.15s ease;
 }
 
-.sheet-editor .editor-header {
+.widget-editor .editor-header {
   padding: var(--space-lg) var(--space-xl);
   border-bottom: 1px solid var(--color-border-light);
 }
 
-.sheet-editor .editor-header h3 {
+.widget-editor .editor-header h3 {
   margin: 0;
   color: var(--color-text);
   font-family: var(--font-body);
@@ -278,13 +277,8 @@ app-spinner {
   font-weight: 600;
 }
 
-.editor-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--color-border-light);
-}
-
 .editor-body {
-  max-height: 400px;
+  max-height: 70vh;
   padding: var(--space-xl);
   overflow-y: auto;
 }

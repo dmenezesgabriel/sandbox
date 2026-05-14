@@ -2,7 +2,7 @@ import '../ask-clarification';
 import '../ask-input';
 import '../ask-result';
 import '../dashboard-editor-header';
-import '../sheet-editor';
+import '../widget-editor';
 import '../dashboard-workspace';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
@@ -134,7 +134,9 @@ export class DashboardEditor extends LitElement {
           }}
         ></ask-input>
 
-        ${this._askError ? html`<div class="warning">${this._askError}</div>` : nothing}
+        ${this._askError
+          ? html`<div class="warning" role="alert">${this._askError}</div>`
+          : nothing}
 
         <ask-clarification
           .clarification=${this._askClarification}
@@ -148,21 +150,29 @@ export class DashboardEditor extends LitElement {
   }
 
   private _renderTabContent(): TemplateResult {
-    if (this._activeTab === 'askData') {
-      return html`
-        <div id="panel-ask-data" role="tabpanel" aria-labelledby="tab-ask-data" tabindex="0">
-          ${this._renderAskData()}
-        </div>
-      `;
-    }
     return html`
-      <div id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" tabindex="0">
+      <div
+        id="panel-dashboard"
+        role="tabpanel"
+        aria-labelledby="tab-dashboard"
+        tabindex="0"
+        ?hidden=${this._activeTab !== 'dashboard'}
+      >
         <dashboard-workspace
           .config=${this.config}
           .isNew=${this.isNew}
           .slug=${this.slug}
           .editMode=${this._editMode}
         ></dashboard-workspace>
+      </div>
+      <div
+        id="panel-ask-data"
+        role="tabpanel"
+        aria-labelledby="tab-ask-data"
+        tabindex="0"
+        ?hidden=${this._activeTab !== 'askData'}
+      >
+        ${this._renderAskData()}
       </div>
     `;
   }

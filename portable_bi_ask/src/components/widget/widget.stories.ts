@@ -220,6 +220,10 @@ export const DeleteWidget: Story = {
   play: async ({ canvas, args }) => {
     const deleteBtn = canvas.getByRole('button', { name: /delete total sales/i });
     await userEvent.click(deleteBtn);
+
+    const confirmDeleteBtn = canvas.getByRole('button', { name: /confirm delete total sales/i });
+    await userEvent.click(confirmDeleteBtn);
+
     await expect(args.onWidgetDelete).toHaveBeenCalledWith('kpi-1');
   },
 };

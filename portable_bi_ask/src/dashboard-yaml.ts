@@ -1,7 +1,7 @@
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
 import { findBestPosition, type GridItemLayout, migrateToGridLayout } from './grid-layout-engine';
-import type { ChartType2, DashboardConfig, Position, Sheet, WidgetConfig } from './types';
+import type { ChartType2, Dashboard, DashboardConfig, Position, WidgetConfig } from './types';
 
 function mapChartType(type: string): ChartType2 {
   const map: Record<string, ChartType2> = {
@@ -19,7 +19,7 @@ function mapChartType(type: string): ChartType2 {
   return map[type] ?? 'bar';
 }
 
-export function configToSheet(config: DashboardConfig): Sheet {
+export function configToDashboard(config: DashboardConfig): Dashboard {
   const widgets: WidgetConfig[] = [];
   const layout: Position[] = [];
   const accumulatedGridItems: GridItemLayout[] = [];
@@ -105,7 +105,7 @@ export function configToSheet(config: DashboardConfig): Sheet {
   };
 }
 
-export function sheetToYaml(sheet: Sheet): string {
+export function dashboardToYaml(sheet: Dashboard): string {
   const obj: Record<string, unknown> = {
     title: sheet.name,
     dataSources: [],
@@ -163,7 +163,7 @@ export function sheetToYaml(sheet: Sheet): string {
   return stringifyYaml(obj, { indent: 2 });
 }
 
-export function sheetToJson(sheet: Sheet): string {
+export function dashboardToJson(sheet: Dashboard): string {
   return JSON.stringify(
     sheet,
     (key, value) => (key === 'width' || key === 'height' ? undefined : value),
@@ -171,7 +171,7 @@ export function sheetToJson(sheet: Sheet): string {
   );
 }
 
-export function yamlToSheet(yaml: string): Sheet {
+export function yamlToDashboard(yaml: string): Dashboard {
   const parsed = parseYaml(yaml) as Record<string, unknown>;
   const widgets: WidgetConfig[] = [];
   const layout: Position[] = [];
@@ -272,8 +272,8 @@ export function yamlToSheet(yaml: string): Sheet {
   };
 }
 
-export function jsonToSheet(json: string): Sheet {
-  const parsed = JSON.parse(json) as Sheet & { width?: number; height?: number };
+export function jsonToDashboard(json: string): Dashboard {
+  const parsed = JSON.parse(json) as Dashboard & { width?: number; height?: number };
   const rest = { ...parsed };
   delete (rest as Record<string, unknown>).width;
   delete (rest as Record<string, unknown>).height;

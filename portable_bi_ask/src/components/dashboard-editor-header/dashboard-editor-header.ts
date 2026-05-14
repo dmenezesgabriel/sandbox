@@ -52,19 +52,23 @@ export class DashboardEditorHeader extends LitElement {
         </div>
 
         <div class="editor-header-controls">
-          <div class="editor-mode-group" role="group" aria-label="Dashboard mode">
+          <div class="editor-mode-group" role="tablist" aria-label="Dashboard mode">
             <button
               id="tab-dashboard"
+              role="tab"
               class="editor-mode-btn ${this._modeClass('dashboard')}"
-              aria-pressed=${this.mode === 'dashboard'}
+              aria-selected=${this.mode === 'dashboard'}
+              aria-controls="panel-dashboard"
               @click=${() => this._selectMode('dashboard')}
             >
               Editor
             </button>
             <button
               id="tab-ask-data"
+              role="tab"
               class="editor-mode-btn ${this._modeClass('askData')}"
-              aria-pressed=${this.mode === 'askData'}
+              aria-selected=${this.mode === 'askData'}
+              aria-controls="panel-ask-data"
               @click=${() => this._selectMode('askData')}
             >
               Ask Data

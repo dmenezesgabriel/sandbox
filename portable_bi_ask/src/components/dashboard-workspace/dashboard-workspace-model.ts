@@ -1,4 +1,11 @@
-import type { CellValue, DashboardFilterConfig, DashboardSheet, Filters } from '../../types';
+import type {
+  CellValue,
+  Dashboard,
+  DashboardFilterConfig,
+  Filters,
+  QuestionConfig,
+  WidgetConfig,
+} from '../../types';
 
 export type WidgetDataMap = Record<
   string,
@@ -6,7 +13,7 @@ export type WidgetDataMap = Record<
 >;
 
 export function storageKeyForDashboard(slug: string): string {
-  return `sheets:${slug || 'default'}`;
+  return `dashboard:${slug || 'default'}`;
 }
 
 export function applySqlFilters(
@@ -25,7 +32,7 @@ export function applySqlFilters(
   return sql;
 }
 
-export function filterSheetData(
+export function filterDashboardData(
   sheetData: WidgetDataMap,
   crossFilters: Record<string, CellValue[]>,
 ): WidgetDataMap {
@@ -54,12 +61,26 @@ export function exportFileBaseName(sheetName: string): string {
   return sheetName.replace(/\s+/g, '-').toLowerCase();
 }
 
-export function sanitizePersistedDashboardLayouts(value: unknown): DashboardSheet[] {
+export function questionToWidget(q: QuestionConfig): WidgetConfig {
+  return {
+    id: `widget-${Date.now()}`,
+    type: q.type,
+    title: q.title,
+    chartType: q.chartType,
+    query: q.query,
+    queryType: q.queryType ?? 'sql',
+    columns: q.columns,
+    columnFormats: q.columnFormats as Record<string, 'currency'> | undefined,
+    options: q.options,
+  };
+}
+
+export function sanitizePersistedDashboardLayouts(value: unknown): Dashboard[] {
   if (!Array.isArray(value)) return [];
   return value.map((sheet) => {
     const clean = { ...(sheet as Record<string, unknown>) };
     delete clean.width;
     delete clean.height;
-    return clean as unknown as DashboardSheet;
+    return clean as unknown as Dashboard;
   });
 }

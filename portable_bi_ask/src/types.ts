@@ -494,10 +494,10 @@ export interface WidgetConfig {
   backgroundColor?: string;
 }
 
-export interface DashboardSheet {
+export interface Dashboard {
   id: string;
   name: string;
-  type: 'sheet' | 'dashboard';
+  type: 'layout' | 'dashboard';
   widgets: WidgetConfig[];
   layout: Position[];
   filters?: DashboardFilterConfig[];
@@ -505,4 +505,27 @@ export interface DashboardSheet {
   updatedAt?: string;
 }
 
-export type Sheet = DashboardSheet;
+export interface QuestionConfig {
+  // Identity
+  id: string;
+  slug: string;
+  title: string;
+  description?: string;
+
+  // Visualization (mirrors WidgetConfig fields)
+  type: WidgetType;
+  chartType?: ChartType2;
+  query?: string;
+  queryType?: 'nl' | 'sql';
+  columns?: string[];
+  columnFormats?: Record<string, string>;
+  options?: Record<string, unknown>;
+
+  // Standalone data sources (optional — used for preview only)
+  dataSources?: DataSourceConfig[];
+
+  // Registry metadata
+  source: 'yaml' | 'user';
+  createdAt: string;
+  updatedAt: string;
+}

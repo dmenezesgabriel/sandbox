@@ -22,7 +22,7 @@ Then(
   async function (this: BrowserWorld, text: string) {
     const empty = await this.hasEmptyState();
     assert.ok(empty, 'Expected empty state to be visible');
-    const content = await this.page.textContent('.sheet-empty');
+    const content = await this.page.textContent('.dashboard-empty');
     assert.ok(content?.includes(text), `Expected "${text}" in empty state, got "${content}"`);
   },
 );
@@ -38,7 +38,7 @@ When('I click {string}', async function (this: BrowserWorld, label: string) {
 });
 
 When('I enter the sheet name {string}', async function (this: BrowserWorld, name: string) {
-  await this.fillNewSheetName(name);
+  await this.fillNewDashboardName(name);
 });
 
 When('I click the Edit button in the dashboard header', async function (this: BrowserWorld) {
@@ -54,7 +54,7 @@ When('I click Done Editing in the dashboard header', async function (this: Brows
 Then(
   'a sheet tab with the name {string} should appear',
   async function (this: BrowserWorld, name: string) {
-    const tabs = await this.getSheetTabNames();
+    const tabs = await this.getDashboardTabNames();
     assert.ok(tabs.includes(name), `Expected sheet tab "${name}" in [${tabs.join(', ')}]`);
   },
 );
@@ -65,7 +65,7 @@ Then('the canvas should be empty', async function (this: BrowserWorld) {
 });
 
 Given('a sheet exists with chart widgets', async function (this: BrowserWorld) {
-  await this.injectSheets([
+  await this.injectDashboards([
     {
       id: 'sheet-a',
       name: 'Test Sheet',
@@ -159,7 +159,7 @@ Then('the widget should be selected', async function (this: BrowserWorld) {
 });
 
 Given('I am in edit mode with a selected widget', async function (this: BrowserWorld) {
-  await this.injectSheets([
+  await this.injectDashboards([
     {
       id: 'sheet-a',
       name: 'Test Sheet',
@@ -197,3 +197,94 @@ Then('no widget should be selected', async function (this: BrowserWorld) {
   const selected = await this.getSelectedCount();
   assert.equal(selected, 0, `Expected 0 selected widgets, got ${selected}`);
 });
+
+// ── Question steps ────────────────────────────────────────────────────────────
+
+When('I navigate to {string}', async function (this: BrowserWorld, hash: string) {
+  await this.navigateToHash(hash);
+});
+
+Then('I should be on a question editor page', async function (this: BrowserWorld) {
+  await this.page.waitForSelector('question-editor', { timeout: 5000 });
+});
+
+When('I set the question title to {string}', async function (this: BrowserWorld, title: string) {
+  const input = this.page.locator('#qep-title');
+  await input.clear();
+  await input.fill(title);
+});
+
+Then(
+  'I should see {string} in the question list',
+  async function (this: BrowserWorld, title: string) {
+    const titles = await this.getQuestionCardTitles();
+    assert.ok(
+      titles.includes(title),
+      `Expected "${title}" in question list, got [${titles.join(', ')}]`,
+    );
+  },
+);
+
+Then(
+  'I should not see {string} in the question list',
+  async function (this: BrowserWorld, title: string) {
+    const titles = await this.getQuestionCardTitles();
+    assert.ok(
+      !titles.includes(title),
+      `Expected "${title}" to be absent from question list, got [${titles.join(', ')}]`,
+    );
+  },
+);
+
+When(
+  'I delete the question {string} from the list',
+  async function (this: BrowserWorld, title: string) {
+    this.page.once('dialog', (dialog) => dialog.accept());
+    await this.page.evaluate((t) => {
+      const cards = [...document.querySelectorAll('.question-card')];
+      const card = cards.find(
+        (c) => c.querySelector('.question-card-title')?.textContent?.trim() === t,
+      );
+      const btn = card?.querySelector<HTMLButtonElement>('.question-card-delete');
+      if (btn) btn.click();
+    }, title);
+    await this.page.waitForTimeout(300);
+  },
+);
+
+Given('a user question {string} exists', async function (this: BrowserWorld, title: string) {
+  await this.injectUserQuestion(title);
+  await this.page.reload();
+  await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
+});
+
+When('I navigate to its question editor page', async function (this: BrowserWorld) {
+  await this.navigateToHash(`#/question/${this._lastQuestionSlug}`);
+  await this.page.waitForSelector('question-editor', { timeout: 5000 });
+});
+
+When('I click Delete in the question editor header', async function (this: BrowserWorld) {
+  this.page.once('dialog', (dialog) => dialog.accept());
+  await this.page.locator('.qeh-delete-btn').click();
+  await this.page.waitForTimeout(300);
+});
+
+Then('I should be on the questions collection page', async function (this: BrowserWorld) {
+  await this.page.waitForSelector('question-list', { timeout: 5000 });
+});
+
+Then(
+  'the question {string} should not have a delete button',
+  async function (this: BrowserWorld, title: string) {
+    const hasDelete = await this.hasDeleteButtonForCard(title);
+    assert.ok(!hasDelete, `Expected question "${title}" not to have a delete button`);
+  },
+);
+
+Then(
+  'the question editor header should not show a Delete button',
+  async function (this: BrowserWorld) {
+    const btn = await this.page.$('.qeh-delete-btn');
+    assert.ok(!btn, 'Expected no delete button in the question editor header');
+  },
+);
