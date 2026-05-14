@@ -5,9 +5,9 @@ import {
   applySqlFilters,
   exportFileBaseName,
   filterSheetData,
-  sanitizePersistedSheets,
-  storageKeyForSheets,
-} from './sheets-view-model';
+  sanitizePersistedDashboardLayouts,
+  storageKeyForDashboard,
+} from './dashboard-workspace-model';
 
 const filterDefs: DashboardFilterConfig[] = [
   {
@@ -18,7 +18,7 @@ const filterDefs: DashboardFilterConfig[] = [
   },
 ];
 
-describe('sheets-view-model', () => {
+describe('dashboard-workspace-model', () => {
   describe('applySqlFilters', () => {
     it('replaces placeholders with escaped filter values', () => {
       const sql = applySqlFilters(
@@ -63,10 +63,10 @@ describe('sheets-view-model', () => {
     });
   });
 
-  describe('storageKeyForSheets', () => {
+  describe('storageKeyForDashboard', () => {
     it('uses a default namespace when no slug is provided', () => {
-      expect(storageKeyForSheets('')).toBe('sheets:default');
-      expect(storageKeyForSheets('sales')).toBe('sheets:sales');
+      expect(storageKeyForDashboard('')).toBe('sheets:default');
+      expect(storageKeyForDashboard('sales')).toBe('sheets:sales');
     });
   });
 
@@ -76,11 +76,11 @@ describe('sheets-view-model', () => {
     });
   });
 
-  describe('sanitizePersistedSheets', () => {
+  describe('sanitizePersistedDashboardLayouts', () => {
     it('removes legacy width/height fields and ignores non-arrays', () => {
-      expect(sanitizePersistedSheets(null)).toEqual([]);
+      expect(sanitizePersistedDashboardLayouts(null)).toEqual([]);
       expect(
-        sanitizePersistedSheets([
+        sanitizePersistedDashboardLayouts([
           {
             id: 'sheet-1',
             name: 'Overview',

@@ -5,7 +5,7 @@ import { html } from 'lit';
 
 import type { DashboardConfig } from '../../types';
 
-type SheetsViewArgs = {
+type DashboardWorkspaceArgs = {
   config: DashboardConfig;
   slug: string;
   isNew: boolean;
@@ -51,11 +51,15 @@ const POPULATED_SHEETS = [
 ];
 
 const meta = {
-  title: 'Templates/Sheets View',
-  component: 'sheets-view',
+  title: 'Templates/Dashboard Workspace',
+  component: 'dashboard-workspace',
   tags: ['autodocs', '!test'],
-  render: ({ config, slug, isNew }: SheetsViewArgs) =>
-    html`<sheets-view .config=${config} .slug=${slug} .isNew=${isNew}></sheets-view>`,
+  render: ({ config, slug, isNew }: DashboardWorkspaceArgs) =>
+    html`<dashboard-workspace
+      .config=${config}
+      .slug=${slug}
+      .isNew=${isNew}
+    ></dashboard-workspace>`,
   argTypes: {
     config: {
       control: 'object',
@@ -83,22 +87,22 @@ const meta = {
     docs: {
       description: {
         component:
-          'Template for a dashboard workspace. Composes the sheet tab bar (`sheets-manager`), canvas organism (`sheet-canvas`), ' +
-          'and widget editor dialog (`sheet-editor`). Persists sheet layouts to `localStorage`, executes widget queries via DuckDB WASM, ' +
-          'and emits `sheets-ask` / `sheets-data-loaded` events so hosts can observe ask activity and active-sheet data readiness.',
+          'Template for a single-dashboard workspace. Composes the canvas organism (`sheet-canvas`) ' +
+          'and widget editor dialog (`sheet-editor`). Persists the dashboard layout to `localStorage`, executes widget queries via DuckDB WASM, ' +
+          'and emits `sheets-ask` / `sheets-data-loaded` events so hosts can observe ask activity and data readiness.',
       },
     },
   },
-} satisfies Meta<SheetsViewArgs>;
+} satisfies Meta<DashboardWorkspaceArgs>;
 
 export default meta;
-type Story = StoryObj<SheetsViewArgs>;
+type Story = StoryObj<DashboardWorkspaceArgs>;
 
 export const NewDashboard: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Fresh dashboard — blank canvas with one default sheet tab and no widgets.',
+        story: 'Fresh dashboard — blank canvas with one default dashboard sheet and no widgets.',
       },
     },
   },
@@ -111,7 +115,7 @@ export const MultipleSheets: Story = {
     docs: {
       description: {
         story:
-          'Loads sheets from `localStorage["sheets:storybook-demo"]`. ' +
+          'Loads the persisted dashboard sheet from `localStorage["sheets:storybook-demo"]`. ' +
           'Falls back to a blank default sheet if no data is stored.',
       },
     },
@@ -124,8 +128,7 @@ export const EditModeView: Story = {
     docs: {
       description: {
         story:
-          'Same as New Dashboard — click the "Edit" button in the sheets manager to enter edit mode ' +
-          'and reveal the "Add Question" toolbar.',
+          'Same as New Dashboard — enable edit mode from the dashboard header to reveal the "Add Question" toolbar.',
       },
     },
   },

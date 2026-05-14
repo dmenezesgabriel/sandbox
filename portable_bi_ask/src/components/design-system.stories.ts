@@ -29,11 +29,10 @@ const meta = {
           <li>
             <strong>Organisms</strong>: larger interactive sections that coordinate multiple states
             (<code>widget</code>, <code>top-nav</code>, <code>sheet-editor</code>,
-            <code>sheet-canvas</code>, <code>sheets-manager</code>, <code>dashboard-list</code>,
-            <code>ask-result</code>).
+            <code>sheet-canvas</code>, <code>dashboard-list</code>, <code>ask-result</code>).
           </li>
           <li>
-            <strong>Templates</strong>: layout-level compositions (<code>sheets-view</code>,
+            <strong>Templates</strong>: layout-level compositions (<code>dashboard-workspace</code>,
             <code>dashboard-editor</code>).
           </li>
           <li><strong>Pages</strong>: route-level instances (<code>app-dashboard</code>).</li>

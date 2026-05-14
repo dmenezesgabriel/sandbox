@@ -1,11 +1,11 @@
-import type { CellValue, DashboardFilterConfig, Filters, Sheet } from '../../types';
+import type { CellValue, DashboardFilterConfig, DashboardSheet, Filters } from '../../types';
 
 export type WidgetDataMap = Record<
   string,
   { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
 >;
 
-export function storageKeyForSheets(slug: string): string {
+export function storageKeyForDashboard(slug: string): string {
   return `sheets:${slug || 'default'}`;
 }
 
@@ -54,12 +54,12 @@ export function exportFileBaseName(sheetName: string): string {
   return sheetName.replace(/\s+/g, '-').toLowerCase();
 }
 
-export function sanitizePersistedSheets(value: unknown): Sheet[] {
+export function sanitizePersistedDashboardLayouts(value: unknown): DashboardSheet[] {
   if (!Array.isArray(value)) return [];
   return value.map((sheet) => {
     const clean = { ...(sheet as Record<string, unknown>) };
     delete clean.width;
     delete clean.height;
-    return clean as unknown as Sheet;
+    return clean as unknown as DashboardSheet;
   });
 }

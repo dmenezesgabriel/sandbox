@@ -119,7 +119,7 @@ header h1 {
     padding: 0 var(--page-padding-sm);
   }
 
-  sheets-view {
+  dashboard-workspace {
     margin: var(--space-base) var(--page-padding-sm) var(--space-xl);
   }
 

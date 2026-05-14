@@ -32,9 +32,3 @@ Feature: Sheets – Dashboard Builder Workspace
     When I click Done Editing in the dashboard header
     Then no widget should be selected
 
-  Scenario: Switching between sheets uses data cache (no re-query)
-    Given sheets exist with chart widgets on multiple sheets
-    When I switch to the second sheet
-    Then the ask engine should have called 1 time
-    When I switch back to the first sheet
-    Then the ask engine should have called 1 time

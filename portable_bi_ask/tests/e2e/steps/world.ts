@@ -238,7 +238,7 @@ export class BrowserWorld {
     });
   }
 
-  async installSheetsViewProbe(): Promise<void> {
+  async installDashboardWorkspaceProbe(): Promise<void> {
     await this.page.evaluate(() => {
       const w = window as unknown as {
         __sheetsViewProbeInstalled?: boolean;

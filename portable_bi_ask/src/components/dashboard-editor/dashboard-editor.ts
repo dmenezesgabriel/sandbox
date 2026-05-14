@@ -3,7 +3,7 @@ import '../ask-input';
 import '../ask-result';
 import '../dashboard-editor-header';
 import '../sheet-editor';
-import '../sheets-view';
+import '../dashboard-workspace';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
@@ -157,12 +157,12 @@ export class DashboardEditor extends LitElement {
     }
     return html`
       <div id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" tabindex="0">
-        <sheets-view
+        <dashboard-workspace
           .config=${this.config}
           .isNew=${this.isNew}
           .slug=${this.slug}
           .editMode=${this._editMode}
-        ></sheets-view>
+        ></dashboard-workspace>
       </div>
     `;
   }

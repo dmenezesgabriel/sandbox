@@ -1,4 +1,3 @@
-import '../sheets-manager';
 import '../sheet-canvas';
 import '../sheet-editor';
 import '../ui-button';
@@ -20,8 +19,8 @@ import type {
   CellValue,
   DashboardConfig,
   DashboardFilterConfig,
+  DashboardSheet,
   Filters,
-  Sheet,
   WidgetConfig,
 } from '../../types';
 import { escapeSqlString, quoteIdent, toRows } from '../../utils';
@@ -29,9 +28,9 @@ import {
   applySqlFilters,
   exportFileBaseName,
   filterSheetData,
-  sanitizePersistedSheets,
-  storageKeyForSheets,
-} from './sheets-view-model';
+  sanitizePersistedDashboardLayouts,
+  storageKeyForDashboard,
+} from './dashboard-workspace-model';
 
 type SheetsAskEventDetail = {
   sheetId: string;
@@ -44,7 +43,7 @@ type SheetsDataLoadedEventDetail = {
   source: 'cache' | 'query';
 };
 
-export class SheetsView extends LitElement {
+export class DashboardWorkspace extends LitElement {
   static override readonly properties = {
     config: { type: Object },
     isNew: { type: Boolean },
@@ -64,7 +63,7 @@ export class SheetsView extends LitElement {
   config: DashboardConfig;
   isNew: boolean;
   slug: string;
-  sheets: Sheet[];
+  sheets: DashboardSheet[];
   activeSheetId: string | null;
   editMode: boolean;
   selectedWidgetId: string | null;
@@ -132,8 +131,8 @@ export class SheetsView extends LitElement {
     }
   }
 
-  private get _activeSheet(): Sheet | undefined {
-    return this.sheets.find((s) => s.id === this.activeSheetId);
+  private get _activeDashboard(): DashboardSheet | undefined {
+    return this.sheets.find((dashboard) => dashboard.id === this.activeSheetId);
   }
 
   private async _ensureDataReady(): Promise<void> {
@@ -168,7 +167,7 @@ export class SheetsView extends LitElement {
   }
 
   private _getFilterDefs(): DashboardFilterConfig[] {
-    return this._activeSheet?.filters ?? this.config.filters;
+    return this._activeDashboard?.filters ?? this.config.filters;
   }
 
   private async _executeSqlQuery(widget: WidgetConfig): Promise<{
@@ -231,12 +230,6 @@ export class SheetsView extends LitElement {
     return isSql ? this._executeSqlQuery(widget) : this._executeAskQuery(widget);
   }
 
-  private _onSheetSelect(e: CustomEvent<{ id: string }>): void {
-    this.activeSheetId = e.detail.id;
-    this.selectedWidgetId = null;
-    this._syncSheetData();
-  }
-
   private _syncSheetData(): void {
     if (!this.activeSheetId) return;
     if (this._dataCache[this.activeSheetId]) {
@@ -247,38 +240,15 @@ export class SheetsView extends LitElement {
     }
   }
 
-  private _onSheetDelete(e: CustomEvent<{ id: string }>): void {
-    delete this._dataCache[e.detail.id];
-    this.sheets = this.sheets.filter((s) => s.id !== e.detail.id);
-    if (this.activeSheetId === e.detail.id) {
-      this.activeSheetId = this.sheets[0]?.id ?? null;
-      this._syncSheetData();
-    }
-    this._persistSheets();
-  }
-
-  private _onSheetDuplicate(e: CustomEvent<{ sheet: Sheet }>): void {
-    const copy: Sheet = {
-      ...JSON.parse(JSON.stringify(e.detail.sheet)),
-      id: crypto.randomUUID(),
-      name: `${e.detail.sheet.name} (Copy)`,
-      widgets: e.detail.sheet.widgets.map((w) => ({ ...w, id: crypto.randomUUID() })),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    this.sheets = [...this.sheets, copy];
-    this._persistSheets();
-  }
-
   private _onWidgetSelect(e: CustomEvent<{ id: string }>): void {
     this.selectedWidgetId = e.detail.id;
   }
 
   private _onWidgetDelete(e: CustomEvent<{ id: string }>): void {
-    if (!this._activeSheet) return;
-    const idx = this._activeSheet.widgets.findIndex((w) => w.id === e.detail.id);
-    const widgets = this._activeSheet.widgets.filter((w) => w.id !== e.detail.id);
-    const layout = this._activeSheet.layout.filter((_, i) => i !== idx);
+    if (!this._activeDashboard) return;
+    const idx = this._activeDashboard.widgets.findIndex((w) => w.id === e.detail.id);
+    const widgets = this._activeDashboard.widgets.filter((w) => w.id !== e.detail.id);
+    const layout = this._activeDashboard.layout.filter((_, i) => i !== idx);
     this._updateActiveSheet({ widgets, layout });
     this.selectedWidgetId = null;
     if (this.activeSheetId) {
@@ -294,8 +264,8 @@ export class SheetsView extends LitElement {
   }
 
   private _onEditWidget(): void {
-    if (!this._activeSheet || !this.selectedWidgetId) return;
-    const widget = this._activeSheet.widgets.find((w) => w.id === this.selectedWidgetId);
+    if (!this._activeDashboard || !this.selectedWidgetId) return;
+    const widget = this._activeDashboard.widgets.find((w) => w.id === this.selectedWidgetId);
     if (widget) {
       this._editorTrigger = document.activeElement as HTMLElement;
       this._editingWidget = widget;
@@ -305,21 +275,21 @@ export class SheetsView extends LitElement {
 
   private _onWidgetSave(e: CustomEvent<{ widget: WidgetConfig; mode: 'add' | 'edit' }>): void {
     const { widget, mode } = e.detail;
-    if (!this._activeSheet) return;
+    if (!this._activeDashboard) return;
 
     if (mode === 'add') {
       const existingGridItems = migrateToGridLayout(
-        this._activeSheet.layout,
-        this._activeSheet.widgets.map((w) => w.id),
+        this._activeDashboard.layout,
+        this._activeDashboard.widgets.map((w) => w.id),
       );
       const pos = findBestPosition(widget.type, existingGridItems);
-      const layout = [...this._activeSheet.layout, { x: pos.x, y: pos.y, w: pos.w, h: pos.h }];
+      const layout = [...this._activeDashboard.layout, { x: pos.x, y: pos.y, w: pos.w, h: pos.h }];
       this._updateActiveSheet({
-        widgets: [...this._activeSheet.widgets, widget],
+        widgets: [...this._activeDashboard.widgets, widget],
         layout,
       });
     } else {
-      const widgets = this._activeSheet.widgets.map((w) => (w.id === widget.id ? widget : w));
+      const widgets = this._activeDashboard.widgets.map((w) => (w.id === widget.id ? widget : w));
       this._updateActiveSheet({ widgets });
     }
 
@@ -340,7 +310,7 @@ export class SheetsView extends LitElement {
     this.updateComplete.then(() => trigger?.focus());
   }
 
-  private _onLayoutChange(e: CustomEvent<{ sheet: Sheet }>): void {
+  private _onLayoutChange(e: CustomEvent<{ sheet: DashboardSheet }>): void {
     const { sheet } = e.detail;
     this._updateActiveSheet({ layout: sheet.layout });
     this._persistSheets();
@@ -391,7 +361,7 @@ export class SheetsView extends LitElement {
     return result;
   }
 
-  private _updateActiveSheet(update: Partial<Sheet>): void {
+  private _updateActiveSheet(update: Partial<DashboardSheet>): void {
     this.sheets = this.sheets.map((s) =>
       s.id === this.activeSheetId ? { ...s, ...update, updatedAt: new Date().toISOString() } : s,
     );
@@ -412,10 +382,10 @@ export class SheetsView extends LitElement {
   private static readonly STORAGE_VERSION = 3;
 
   private _persistSheets(): void {
-    const key = storageKeyForSheets(this.slug);
+    const key = storageKeyForDashboard(this.slug);
     localStorage.setItem(
       key,
-      JSON.stringify({ version: SheetsView.STORAGE_VERSION, data: this.sheets }),
+      JSON.stringify({ version: DashboardWorkspace.STORAGE_VERSION, data: this.sheets }),
     );
   }
 
@@ -426,21 +396,24 @@ export class SheetsView extends LitElement {
         this._initDefaultSheet();
         return;
       }
-      const key = storageKeyForSheets(this.slug);
+      const key = storageKeyForDashboard(this.slug);
       const stored = localStorage.getItem(key);
       if (stored) {
         const raw = JSON.parse(stored);
-        let parsed: Sheet[];
-        if (raw && raw.version === SheetsView.STORAGE_VERSION && Array.isArray(raw.data)) {
-          parsed = raw.data as Sheet[];
+        let parsed: DashboardSheet[];
+        if (raw && raw.version === DashboardWorkspace.STORAGE_VERSION && Array.isArray(raw.data)) {
+          parsed = raw.data as DashboardSheet[];
         } else {
           parsed = [];
         }
         if (parsed.length) {
-          this.sheets = sanitizePersistedSheets(parsed);
-          this.activeSheetId = this.sheets[0]?.id ?? null;
-          this._loadWidgetData();
-          return;
+          const [firstSheet] = sanitizePersistedDashboardLayouts(parsed);
+          if (firstSheet) {
+            this.sheets = [firstSheet];
+            this.activeSheetId = firstSheet.id;
+            this._loadWidgetData();
+            return;
+          }
         }
       }
     } catch {
@@ -459,7 +432,7 @@ export class SheetsView extends LitElement {
   }
 
   private async _loadWidgetData(): Promise<void> {
-    if (!this._activeSheet) return;
+    if (!this._activeDashboard) return;
     const loadingSheetId = this.activeSheetId;
 
     const newData: Record<
@@ -467,7 +440,7 @@ export class SheetsView extends LitElement {
       { labels: string[]; values: number[]; rows?: Record<string, CellValue>[] }
     > = {};
 
-    for (const widget of this._activeSheet.widgets) {
+    for (const widget of this._activeDashboard.widgets) {
       if (widget.query) {
         try {
           const result = await this._executeQuery(widget);
@@ -504,25 +477,25 @@ export class SheetsView extends LitElement {
   }
 
   private _onExportYaml(): void {
-    if (!this._activeSheet) return;
-    const yaml = sheetToYaml(this._activeSheet);
+    if (!this._activeDashboard) return;
+    const yaml = sheetToYaml(this._activeDashboard);
     const blob = new Blob([yaml], { type: 'text/yaml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${exportFileBaseName(this._activeSheet.name)}.yaml`;
+    a.download = `${exportFileBaseName(this._activeDashboard.name)}.yaml`;
     a.click();
     URL.revokeObjectURL(url);
   }
 
   private _onExportJson(): void {
-    if (!this._activeSheet) return;
-    const json = sheetToJson(this._activeSheet);
+    if (!this._activeDashboard) return;
+    const json = sheetToJson(this._activeDashboard);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${exportFileBaseName(this._activeSheet.name)}.json`;
+    a.download = `${exportFileBaseName(this._activeDashboard.name)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -546,7 +519,7 @@ export class SheetsView extends LitElement {
 
     try {
       const text = await file.text();
-      let sheet: Sheet;
+      let sheet: DashboardSheet;
 
       if (file.name.endsWith('.json')) {
         sheet = jsonToSheet(text);
@@ -555,9 +528,12 @@ export class SheetsView extends LitElement {
       }
 
       this._importError = '';
-      this.sheets = [...this.sheets, sheet];
+      this.sheets = [sheet];
       this.activeSheetId = sheet.id;
+      this.selectedWidgetId = null;
+      this.crossFilters = {};
       this.sheetData = {};
+      this._dataCache = {};
       this._persistSheets();
       this._refreshWidgetData();
     } catch (err) {
@@ -566,8 +542,8 @@ export class SheetsView extends LitElement {
     }
   }
 
-  private _renderToolbar(sheet: Sheet | undefined): TemplateResult | typeof nothing {
-    if (!this.editMode || !sheet) return nothing;
+  private _renderToolbar(dashboard: DashboardSheet | undefined): TemplateResult | typeof nothing {
+    if (!this.editMode || !dashboard) return nothing;
     return html`
       <ui-button
         .variant=${'primary'}
@@ -614,20 +590,11 @@ export class SheetsView extends LitElement {
   }
 
   override render(): TemplateResult {
-    const sheet = this._activeSheet;
+    const dashboard = this._activeDashboard;
 
     return html`
-      <sheets-manager
-        .sheets=${this.sheets}
-        .activeSheetId=${this.activeSheetId}
-        .editMode=${this.editMode}
-        @sheet-select=${this._onSheetSelect}
-        @sheet-delete=${this._onSheetDelete}
-        @sheet-duplicate=${this._onSheetDuplicate}
-      ></sheets-manager>
-
       <div class="sheets-toolbar-bar">
-        ${this._renderToolbar(sheet)} ${sheet ? html`` : nothing}
+        ${this._renderToolbar(dashboard)} ${dashboard ? html`` : nothing}
         <ui-button
           .variant=${'secondary'}
           .size=${'sm'}
@@ -675,7 +642,7 @@ export class SheetsView extends LitElement {
       </div>
 
       <sheet-canvas
-        .sheet=${sheet ?? { id: '', name: '', type: 'sheet', widgets: [], layout: [] }}
+        .sheet=${dashboard ?? { id: '', name: '', type: 'sheet', widgets: [], layout: [] }}
         .data=${this._getFilteredData()}
         .filters=${this.filters}
         .selectedWidgetId=${this.selectedWidgetId}
@@ -691,6 +658,6 @@ export class SheetsView extends LitElement {
   }
 }
 
-if (!customElements.get('sheets-view')) {
-  customElements.define('sheets-view', SheetsView);
+if (!customElements.get('dashboard-workspace')) {
+  customElements.define('dashboard-workspace', DashboardWorkspace);
 }

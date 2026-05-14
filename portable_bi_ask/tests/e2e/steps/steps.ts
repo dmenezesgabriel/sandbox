@@ -14,7 +14,7 @@ Given('I open the dashboard editor', async function (this: BrowserWorld) {
   await this.page.evaluate(() => {
     window.location.hash = '#/dashboard/portable-bi-dashboard';
   });
-  await this.page.waitForSelector('sheets-view', { timeout: 10000 });
+  await this.page.waitForSelector('dashboard-workspace', { timeout: 10000 });
 });
 
 Then(
@@ -196,81 +196,4 @@ Given('I am in edit mode with a selected widget', async function (this: BrowserW
 Then('no widget should be selected', async function (this: BrowserWorld) {
   const selected = await this.getSelectedCount();
   assert.equal(selected, 0, `Expected 0 selected widgets, got ${selected}`);
-});
-
-Given('sheets exist with chart widgets on multiple sheets', async function (this: BrowserWorld) {
-  await this.injectSheets([
-    {
-      id: 'sheet-a',
-      name: 'Sales Overview',
-      type: 'dashboard',
-      widgets: [
-        {
-          id: 'w1',
-          type: 'chart',
-          title: 'Revenue by Region',
-          query: 'show me sales by region',
-          chartType: 'bar',
-        },
-        {
-          id: 'w2',
-          type: 'chart',
-          title: 'Monthly Trend',
-          query: 'show me monthly sales trend',
-          chartType: 'line',
-        },
-      ],
-      layout: [
-        { x: 16, y: 16, w: 400, h: 240 },
-        { x: 432, y: 16, w: 400, h: 240 },
-      ],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      id: 'sheet-b',
-      name: 'Category Analysis',
-      type: 'sheet',
-      widgets: [
-        {
-          id: 'w3',
-          type: 'chart',
-          title: 'Category Breakdown',
-          query: 'show me sales by category',
-          chartType: 'pie',
-        },
-      ],
-      layout: [{ x: 16, y: 16, w: 400, h: 300 }],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ]);
-  await this.page.reload();
-  await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
-  await this.installSheetsViewProbe();
-  await this.page.evaluate(() => {
-    window.location.hash = '#/dashboard/portable-bi-dashboard';
-  });
-  await this.waitForWidgets();
-  await this.waitForSheetDataLoaded('sheet-a');
-  await this.resetAskCallCount();
-});
-
-When('I switch to the second sheet', async function (this: BrowserWorld) {
-  await this.clickSheetTab('Category Analysis');
-  await this.waitForWidgets();
-  await this.page.waitForTimeout(500);
-});
-
-Then(
-  'the ask engine should have called {int} time',
-  async function (this: BrowserWorld, expected: number) {
-    const count = await this.getAskCallCount();
-    assert.equal(count, expected, `Expected ${expected} ask calls, got ${count}`);
-  },
-);
-
-When('I switch back to the first sheet', async function (this: BrowserWorld) {
-  await this.clickSheetTab('Sales Overview');
-  await this.page.waitForTimeout(500);
 });

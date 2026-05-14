@@ -494,7 +494,7 @@ export interface WidgetConfig {
   backgroundColor?: string;
 }
 
-export interface Sheet {
+export interface DashboardSheet {
   id: string;
   name: string;
   type: 'sheet' | 'dashboard';
@@ -504,3 +504,5 @@ export interface Sheet {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type Sheet = DashboardSheet;

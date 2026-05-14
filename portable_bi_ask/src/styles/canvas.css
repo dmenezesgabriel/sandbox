@@ -5,99 +5,13 @@
 
 /* ── Sheets view shell ─────────────────────────────────────────────── */
 
-sheets-view {
+dashboard-workspace {
   display: block;
   margin: var(--space-xl) var(--page-padding) var(--page-padding);
   animation: fade-in-up 0.35s ease-out;
 }
 
-/* ── Sheet tab bar (sheets-manager) ───────────────────────────────── */
-
-.sheets-manager {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  align-items: center;
-  padding: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.sheets-list {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-
-.sheet-tab {
-  display: flex;
-  gap: 0.35rem;
-  align-items: center;
-  padding: 0.45rem 0.9rem;
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  color: var(--color-text-secondary);
-  font-family: var(--font-body);
-  font-size: var(--text-base);
-  cursor: pointer;
-  user-select: none;
-  transition: all var(--transition-fast);
-}
-
-.sheet-tab:hover {
-  border-color: var(--color-accent-subtle);
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-  box-shadow: var(--shadow-sm);
-}
-
-.sheet-tab.active {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
-  color: var(--color-text-on-accent);
-  box-shadow: 0 2px 8px rgb(201 97 63 / 25%);
-}
-
-.sheet-name {
-  font-size: 0.82rem;
-  font-weight: 600;
-}
-
-.sheet-actions {
-  display: flex;
-  gap: 0.15rem;
-  margin-left: 0.3rem;
-}
-
-.sheet-btn {
-  padding: 0.1rem 0.25rem;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: inherit;
-  font-size: 0.75rem;
-  cursor: pointer;
-  opacity: 0.4;
-  transition:
-    opacity var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.sheet-tab.active .sheet-btn {
-  color: var(--color-text-on-accent);
-  opacity: 0.7;
-}
-
-.sheet-tab:not(.active) .sheet-btn:hover {
-  background: rgb(0 0 0 / 6%);
-  opacity: 1;
-}
-
-.sheet-tab.active .sheet-btn:hover {
-  background: rgb(255 255 255 / 15%);
-  opacity: 1;
-}
+/* ── Sheets toolbar ──────────────────────────────────────────────── */
 
 .sheets-toolbar-bar {
   display: flex;
