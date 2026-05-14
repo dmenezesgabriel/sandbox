@@ -125,6 +125,10 @@ export class SheetsView extends LitElement {
     if (changedProps.has('slug') || changedProps.has('isNew')) {
       this._loadSheets();
     }
+
+    if (changedProps.has('editMode') && !this.editMode) {
+      this.selectedWidgetId = null;
+    }
   }
 
   private get _activeSheet(): Sheet | undefined {
@@ -263,13 +267,6 @@ export class SheetsView extends LitElement {
     };
     this.sheets = [...this.sheets, copy];
     this._persistSheets();
-  }
-
-  private _onEditModeToggle(e: CustomEvent<{ editMode: boolean }>): void {
-    this.editMode = e.detail.editMode;
-    if (!this.editMode) {
-      this.selectedWidgetId = null;
-    }
   }
 
   private _onWidgetSelect(e: CustomEvent<{ id: string }>): void {
@@ -626,7 +623,6 @@ export class SheetsView extends LitElement {
         @sheet-select=${this._onSheetSelect}
         @sheet-delete=${this._onSheetDelete}
         @sheet-duplicate=${this._onSheetDuplicate}
-        @edit-mode-toggle=${this._onEditModeToggle}
       ></sheets-manager>
 
       <div class="sheets-toolbar-bar">

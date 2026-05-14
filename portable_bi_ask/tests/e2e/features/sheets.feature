@@ -5,7 +5,7 @@ Feature: Sheets – Dashboard Builder Workspace
 
   Background:
     Given the app is loaded
-    And I navigate to the Dashboard tab
+    And I open the dashboard editor
 
   Scenario: Dashboard tab shows the default dashboard from YAML config
     Then I should see widgets rendered on the canvas
@@ -23,13 +23,13 @@ Feature: Sheets – Dashboard Builder Workspace
 
   Scenario: Clicking a chart widget in edit mode selects it
     Given a sheet exists with chart widgets
-    When I click "Edit" to enter edit mode
+    When I click the Edit button in the dashboard header
     And I click on a widget content area
     Then the widget should be selected
 
   Scenario: Exiting edit mode deselects all widgets
     Given I am in edit mode with a selected widget
-    When I click "Done Editing" to exit edit mode
+    When I click Done Editing in the dashboard header
     Then no widget should be selected
 
   Scenario: Switching between sheets uses data cache (no re-query)

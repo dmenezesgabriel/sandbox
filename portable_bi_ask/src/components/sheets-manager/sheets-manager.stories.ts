@@ -12,7 +12,6 @@ type SheetsManagerArgs = {
   editMode: boolean;
   onSheetSelect: (id: string) => void;
   onSheetDelete: (id: string) => void;
-  onEditModeToggle: (editMode: boolean) => void;
   onSheetDuplicate: (sheet: Sheet) => void;
 };
 
@@ -32,7 +31,6 @@ const meta = {
     editMode,
     onSheetSelect,
     onSheetDelete,
-    onEditModeToggle,
     onSheetDuplicate,
   }: SheetsManagerArgs) =>
     html`<sheets-manager
@@ -41,8 +39,6 @@ const meta = {
       .editMode=${editMode}
       @sheet-select=${(e: CustomEvent<{ id: string }>) => onSheetSelect(e.detail.id)}
       @sheet-delete=${(e: CustomEvent<{ id: string }>) => onSheetDelete(e.detail.id)}
-      @edit-mode-toggle=${(e: CustomEvent<{ editMode: boolean }>) =>
-        onEditModeToggle(e.detail.editMode)}
       @sheet-duplicate=${(e: CustomEvent<{ sheet: Sheet }>) => onSheetDuplicate(e.detail.sheet)}
     ></sheets-manager>`,
   argTypes: {
@@ -56,7 +52,9 @@ const meta = {
     },
     editMode: {
       control: 'boolean',
-      description: 'When `true`, shows duplicate (⧉) and delete (✕) buttons on each tab.',
+      description:
+        'When `true`, shows duplicate (⧉) and delete (✕) action buttons on each tab. ' +
+        'The Edit toggle button is no longer in this component — it lives in `dashboard-editor-header`.',
       table: { defaultValue: { summary: 'false' } },
     },
     onSheetSelect: {
@@ -67,11 +65,6 @@ const meta = {
     onSheetDelete: {
       action: 'sheet-delete',
       description: 'Fired when the ✕ delete button is clicked. `detail.id` is the sheet ID.',
-      table: { category: 'Events' },
-    },
-    onEditModeToggle: {
-      action: 'edit-mode-toggle',
-      description: 'Fired when Edit / Done Editing is clicked. `detail.editMode` is the new state.',
       table: { category: 'Events' },
     },
     onSheetDuplicate: {
@@ -87,7 +80,6 @@ const meta = {
     editMode: false,
     onSheetSelect: fn(),
     onSheetDelete: fn(),
-    onEditModeToggle: fn(),
     onSheetDuplicate: fn(),
   },
   parameters: {
@@ -96,7 +88,9 @@ const meta = {
       description: {
         component:
           'Tab bar for navigating between dashboard sheets. ' +
-          'Shows duplicate and delete controls per tab when `editMode` is enabled.',
+          'Each tab shows only the sheet name. ' +
+          'Duplicate (⧉) and delete (✕) controls appear per tab when `editMode` is enabled. ' +
+          'The Edit toggle button is owned by `dashboard-editor-header`, not this component.',
       },
     },
   },
@@ -107,7 +101,11 @@ type Story = StoryObj<SheetsManagerArgs>;
 
 export const Default: Story = {
   parameters: {
-    docs: { description: { story: 'Three sheets — Overview tab active, edit controls hidden.' } },
+    docs: {
+      description: {
+        story: 'Three title-only tabs — Overview active, action buttons hidden.',
+      },
+    },
   },
 };
 
@@ -116,7 +114,9 @@ export const EditMode: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Edit mode enabled — duplicate (⧉) and delete (✕) buttons visible on each tab.',
+        story:
+          'Edit mode enabled — duplicate (⧉) and delete (✕) buttons visible on each tab. ' +
+          'The Edit toggle that controls this mode lives in `dashboard-editor-header`.',
       },
     },
   },
@@ -126,16 +126,6 @@ export const SingleSheet: Story = {
   args: { sheets: [SHEETS[0]], activeSheetId: 'sheet-1' },
   parameters: {
     docs: { description: { story: 'Only one tab — minimum viable state.' } },
-  },
-};
-
-export const ToggleEditMode: Story = {
-  name: 'Interaction — Toggle Edit Mode',
-  tags: ['!autodocs'],
-  play: async ({ canvas, args }) => {
-    const editBtn = canvas.getByRole('button', { name: /^edit$/i });
-    await userEvent.click(editBtn);
-    await expect(args.onEditModeToggle).toHaveBeenCalledWith(true);
   },
 };
 

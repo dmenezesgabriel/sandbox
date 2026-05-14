@@ -31,7 +31,21 @@ export default defineConfig({
         test: {
           environment: 'node',
           include: ['src/**/*.spec.ts', 'tests/integration/**/*.test.ts'],
+          exclude: ['src/components/**/*.spec.ts'],
           testTimeout: 30_000,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'components',
+          include: ['src/components/**/*.spec.ts'],
+          browser: {
+            enabled: true,
+            headless: true,
+            provider: playwright({}),
+            instances: [{ browser: 'chromium' }],
+          },
         },
       },
       {

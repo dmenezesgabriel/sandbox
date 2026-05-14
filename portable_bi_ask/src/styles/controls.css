@@ -1,7 +1,9 @@
 /* ==========================================================================
-   Buttons
-   Shared button styles across the application.
+   Controls — Buttons + Forms
+   Shared interactive primitive patterns across the application.
    ========================================================================== */
+
+/* ── Button base ───────────────────────────────────────────────────── */
 
 .ui-button,
 .primary-button,
@@ -132,10 +134,9 @@
   transform: translateY(0);
 }
 
-/* ── Sheet action buttons ──────────────────────────────────────────── */
+/* ── Sheet / canvas action buttons ────────────────────────────────── */
 
 .btn-new-sheet,
-.btn-edit-mode,
 .btn-add-widget,
 .btn-edit-widget {
   padding: 0.45rem var(--space-base);
@@ -158,25 +159,6 @@
 .btn-new-sheet:hover {
   background: var(--color-accent-hover);
   box-shadow: 0 2px 8px rgb(201 97 63 / 30%);
-}
-
-.btn-edit-mode {
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  color: var(--color-text-secondary);
-}
-
-.btn-edit-mode:hover {
-  border-color: var(--color-accent-subtle);
-  background: var(--color-surface-hover);
-  color: var(--color-text);
-}
-
-.btn-edit-mode.active {
-  border-color: var(--color-warning);
-  background: var(--color-warning);
-  color: var(--color-text-on-accent);
-  box-shadow: 0 2px 8px rgb(200 150 62 / 30%);
 }
 
 .btn-add-widget {
@@ -226,7 +208,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* ── Modal/editor buttons ──────────────────────────────────────────── */
+/* ── Modal / editor buttons ────────────────────────────────────────── */
 
 .btn-cancel {
   padding: 0.6rem var(--space-lg);
@@ -334,4 +316,193 @@
 .widget-delete:hover {
   background: var(--color-danger-bg);
   color: var(--color-danger);
+}
+
+/* ── Form groups ───────────────────────────────────────────────────── */
+
+.form-group {
+  margin-bottom: var(--space-lg);
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.4rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.65rem var(--space-sm);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.field-error {
+  margin-top: 0.35rem;
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+/* ── Filter bar ───────────────────────────────────────────────────── */
+
+#filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-base);
+  align-items: center;
+  margin: var(--space-xl) var(--page-padding) 0;
+}
+
+#filter-bar label {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+#filter-bar select {
+  padding: 0.35em 1.2em 0.35em 0.7em;
+  padding-right: 2em;
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237c808a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 0.5em center;
+  background-repeat: no-repeat;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  cursor: pointer;
+  appearance: none;
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+#filter-bar select:hover {
+  border-color: var(--color-accent-subtle);
+}
+
+#filter-bar select:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Text field atom ───────────────────────────────────────────────── */
+
+.ui-text-field {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.65rem var(--space-sm);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  transition:
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.ui-text-field::placeholder {
+  color: var(--color-text-muted);
+}
+
+.ui-text-field:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: var(--focus-ring);
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.ui-text-field--prominent {
+  flex: 1;
+  padding: 0.75em var(--space-base);
+  border-radius: var(--radius-md);
+  font-size: var(--text-lg);
+}
+
+.ui-text-field.input-prefilled {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgb(201 97 63 / 20%);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+/* ── Editor tabs (modal sub-navigation) ────────────────────────────── */
+
+.editor-tabs button {
+  flex: 1;
+  padding: 0.6em var(--space-base);
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.editor-tabs button:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.editor-tabs button.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* ── Widget color picker ────────────────────────────────────────────── */
+
+.widget-color-picker input[type='color'] {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
 }

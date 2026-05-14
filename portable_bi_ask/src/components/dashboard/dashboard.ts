@@ -115,7 +115,7 @@ export class Dashboard extends LitElement {
     }
 
     return html`
-      <top-nav .showTabs=${false}></top-nav>
+      <top-nav></top-nav>
       <dashboard-list
         @dashboard-select=${(e: CustomEvent<{ slug: string }>) => {
           this._navigate({ view: 'editor', slug: e.detail.slug });

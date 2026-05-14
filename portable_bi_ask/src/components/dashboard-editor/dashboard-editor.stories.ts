@@ -36,7 +36,7 @@ const meta = {
     },
     slug: {
       control: 'text',
-      description: 'URL slug identifying the dashboard; shown in the top-nav back-link.',
+      description: 'URL slug identifying the dashboard; used by the top-nav back-link.',
       table: { defaultValue: { summary: '""' } },
     },
     isNew: {
@@ -56,9 +56,10 @@ const meta = {
     docs: {
       description: {
         component:
-          'Template-level composition for the dashboard workspace. Renders the top navigation, ' +
-          'sheet workspace template, and Ask Data flow together so layout and state relationships can be reviewed in one place. ' +
-          'DuckDB is initialised on-demand when the user first submits a natural-language query.',
+          'Template-level composition for the dashboard workspace. ' +
+          'Renders the global top nav (brand + back link), the dashboard editor header ' +
+          '(title, mode switcher, edit toggle), and the active panel (canvas or Ask Data). ' +
+          'Mode and edit state are owned internally and driven by the header component events.',
       },
     },
   },
@@ -71,14 +72,16 @@ export const DashboardTab: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Editor opened on a new dashboard — empty canvas with Editor tab active.',
+        story:
+          'New dashboard opened in Editor mode — empty canvas visible, ' +
+          'header shows "Editor" button active and an "Edit" toggle.',
       },
     },
   },
 };
 
-export const AskDataTab: Story = {
-  name: 'Ask Data Tab (shell)',
+export const AskDataConfig: Story = {
+  name: 'Ask Data config (shell)',
   args: {
     config: {
       ...EMPTY_CONFIG,
@@ -92,8 +95,9 @@ export const AskDataTab: Story = {
     docs: {
       description: {
         story:
-          'Ask Data panel with example questions listed. ' +
-          'Submitting a query will initialise DuckDB — use with a real data source in a live environment.',
+          'Dashboard with example questions configured. ' +
+          'Switch to Ask Data mode using the header mode buttons to see the ask interface. ' +
+          'Submitting a query will initialise DuckDB — use with a real data source.',
       },
     },
   },
@@ -103,6 +107,8 @@ export const NoConfig: Story = {
   args: { config: null },
   globals: { a11y: { manual: true } },
   parameters: {
-    docs: { description: { story: '`config` is `null` — renders an empty nav shell.' } },
+    docs: {
+      description: { story: '`config` is `null` — renders the nav and header with empty title.' },
+    },
   },
 };

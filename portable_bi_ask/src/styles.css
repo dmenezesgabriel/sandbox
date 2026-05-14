@@ -1,12 +1,12 @@
 /* ==========================================================================
    Styles Entry Point
    Import cascade follows ITCSS-like ordering:
-     01. Tokens    — Design tokens (custom properties)
-     02. Reset     — Minimal reset for cross-browser consistency
-     03. Base      — Default element styles & typography
+     01. Tokens     — Design tokens (custom properties)
+     02. Reset      — Minimal reset for cross-browser consistency
+     03. Base       — Default element styles & typography
      04. Animations — Shared @keyframes
-     05. Objects    — Layout, structural patterns
-     06. Components — Feature-specific styles
+     05. Objects    — Layout, structural patterns, control primitives
+     06. Components — Feature-area styles grouped by context boundary
    ========================================================================== */
 
 /* 01. Tokens */
@@ -23,17 +23,11 @@
 
 /* 05. Objects */
 @import url('./styles/layout.css');
-@import url('./styles/buttons.css');
-@import url('./styles/forms.css');
+@import url('./styles/controls.css');
 
 /* 06. Components */
-@import url('./styles/topnav.css');
-@import url('./styles/kpi.css');
-@import url('./styles/charts.css');
-@import url('./styles/tables.css');
+@import url('./styles/navigation.css');
+@import url('./styles/canvas.css');
 @import url('./styles/ask.css');
-@import url('./styles/sheets.css');
-@import url('./styles/widgets.css');
-@import url('./styles/modals.css');
-@import url('./styles/loading.css');
+@import url('./styles/feedback.css');
 @import url('./styles/dashboard-list.css');

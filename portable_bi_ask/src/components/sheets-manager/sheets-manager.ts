@@ -40,17 +40,6 @@ export class SheetsManager extends LitElement {
     }
   }
 
-  private _toggleEditMode(): void {
-    this.editMode = !this.editMode;
-    this.dispatchEvent(
-      new CustomEvent('edit-mode-toggle', {
-        detail: { editMode: this.editMode },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-  }
-
   private _duplicateSheet(e: Event, sheet: Sheet): void {
     e.stopPropagation();
     this.dispatchEvent(
@@ -68,7 +57,6 @@ export class SheetsManager extends LitElement {
                 class="sheet-tab ${sheet.id === this.activeSheetId ? 'active' : ''}"
                 @click=${() => this._selectSheet(sheet.id)}
               >
-                <span class="sheet-icon">📊</span>
                 <span class="sheet-name">${sheet.name}</span>
                 ${this.editMode
                   ? html`
@@ -93,15 +81,6 @@ export class SheetsManager extends LitElement {
               </div>
             `,
           )}
-        </div>
-
-        <div class="sheets-toolbar">
-          <button
-            class="btn-edit-mode ${this.editMode ? 'active' : ''}"
-            @click=${this._toggleEditMode}
-          >
-            ${this.editMode ? 'Done Editing' : 'Edit'}
-          </button>
         </div>
       </div>
     `;

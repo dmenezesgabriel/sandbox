@@ -144,7 +144,7 @@ export class BrowserWorld {
   }
 
   async clickEditToggle(): Promise<void> {
-    await this.page.click('.btn-edit-mode');
+    await this.page.click('.editor-edit-btn');
   }
 
   async clickSheetTab(name: string): Promise<void> {

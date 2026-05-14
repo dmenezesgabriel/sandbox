@@ -1,6 +1,7 @@
 import '../ask-clarification';
 import '../ask-input';
 import '../ask-result';
+import '../dashboard-editor-header';
 import '../sheet-editor';
 import '../sheets-view';
 
@@ -15,6 +16,7 @@ import type {
   ClarificationChoice,
   DashboardConfig,
 } from '../../types';
+import type { DashboardMode } from '../dashboard-editor-header/dashboard-editor-header';
 
 function isAskSuccess(result: AskResult): result is AskSuccessResult {
   return 'rows' in result && 'sql' in result && 'chartType' in result;
@@ -26,6 +28,7 @@ export class DashboardEditor extends LitElement {
     slug: { type: String },
     isNew: { type: Boolean },
     _activeTab: { state: true },
+    _editMode: { state: true },
     _askQuestion: { state: true },
     _askResult: { state: true },
     _askLoading: { state: true },
@@ -37,7 +40,8 @@ export class DashboardEditor extends LitElement {
   slug = '';
   isNew = false;
 
-  private _activeTab: 'dashboard' | 'askData' = 'dashboard';
+  private _activeTab: DashboardMode = 'dashboard';
+  private _editMode = false;
   private _askQuestion = '';
   private _askResult: AskSuccessResult | null = null;
   private _askLoading = false;
@@ -153,24 +157,33 @@ export class DashboardEditor extends LitElement {
     }
     return html`
       <div id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" tabindex="0">
-        <sheets-view .config=${this.config} .isNew=${this.isNew} .slug=${this.slug}></sheets-view>
+        <sheets-view
+          .config=${this.config}
+          .isNew=${this.isNew}
+          .slug=${this.slug}
+          .editMode=${this._editMode}
+        ></sheets-view>
       </div>
     `;
   }
 
   override render(): TemplateResult {
     const c = this.config;
-    const subtitle = c?.subtitle ?? '';
     return html`
-      <top-nav
-        .activeTab=${this._activeTab}
-        .subtitle=${subtitle}
-        .dashboardSlug=${this.slug}
-        .showTabs=${true}
-        @tab-change=${(e: CustomEvent<'dashboard' | 'askData'>) => {
+      <top-nav .dashboardSlug=${this.slug}></top-nav>
+
+      <dashboard-editor-header
+        .title=${c?.title ?? ''}
+        .subtitle=${c?.subtitle ?? ''}
+        .mode=${this._activeTab}
+        .editMode=${this._editMode}
+        @mode-change=${(e: CustomEvent<DashboardMode>) => {
           this._activeTab = e.detail;
         }}
-      ></top-nav>
+        @edit-mode-toggle=${(e: CustomEvent<{ editMode: boolean }>) => {
+          this._editMode = e.detail.editMode;
+        }}
+      ></dashboard-editor-header>
 
       ${this._renderTabContent()}
     `;

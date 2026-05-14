@@ -1,5 +1,6 @@
 /* ==========================================================================
-   Loading, Skeleton & Spinner States
+   Feedback — Loading States, Skeletons, Spinners, Modals
+   Transient overlay UI: progress indicators and dialogs.
    ========================================================================== */
 
 /* ── Fixed loading indicator ───────────────────────────────────────── */
@@ -244,4 +245,87 @@ app-spinner {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* ── Sheet editor modal ────────────────────────────────────────────── */
+
+.sheet-editor {
+  width: 450px;
+  max-width: 90vw;
+  border: none;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
+  padding: 0;
+  animation: fade-in 0.2s ease;
+}
+
+.sheet-editor::backdrop {
+  background: rgb(26 35 46 / 50%);
+  animation: fade-in 0.15s ease;
+}
+
+.sheet-editor .editor-header {
+  padding: var(--space-lg) var(--space-xl);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.sheet-editor .editor-header h3 {
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.editor-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.editor-body {
+  max-height: 400px;
+  padding: var(--space-xl);
+  overflow-y: auto;
+}
+
+.editor-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  padding: var(--space-base) var(--space-xl);
+  border-top: 1px solid var(--color-border-light);
+}
+
+/* ── Generic modal ─────────────────────────────────────────────────── */
+
+.modal-content {
+  width: 380px;
+  max-width: 90vw;
+  border: none;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-xl);
+  padding: var(--space-xl);
+  animation: fade-in-up 0.25s ease;
+}
+
+.modal-content::backdrop {
+  background: rgb(26 35 46 / 50%);
+  animation: fade-in 0.15s ease;
+}
+
+.modal-content h3 {
+  margin: 0 0 var(--space-lg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--space-sm);
+  justify-content: flex-end;
+  margin-top: var(--space-lg);
 }

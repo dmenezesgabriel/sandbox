@@ -2,39 +2,21 @@ import './index';
 
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
 import { html } from 'lit';
-import { expect, fn, userEvent } from 'storybook/test';
-
-import type { ActiveTab } from './top-nav';
+import { expect, userEvent } from 'storybook/test';
 
 type TopNavArgs = {
-  activeTab: ActiveTab;
   brand: string;
   subtitle: string;
-  showTabs: boolean;
   dashboardSlug: string;
-  onTabChange: (tab: ActiveTab) => void;
 };
 
 const meta = {
   title: 'Organisms/Top Nav',
   component: 'top-nav',
   tags: ['autodocs'],
-  render: ({ activeTab, brand, subtitle, showTabs, dashboardSlug, onTabChange }: TopNavArgs) =>
-    html`<top-nav
-      .activeTab=${activeTab}
-      .brand=${brand}
-      .subtitle=${subtitle}
-      .showTabs=${showTabs}
-      .dashboardSlug=${dashboardSlug}
-      @tab-change=${(e: CustomEvent<ActiveTab>) => onTabChange(e.detail)}
-    ></top-nav>`,
+  render: ({ brand, subtitle, dashboardSlug }: TopNavArgs) =>
+    html`<top-nav .brand=${brand} .subtitle=${subtitle} .dashboardSlug=${dashboardSlug}></top-nav>`,
   argTypes: {
-    activeTab: {
-      control: 'select',
-      options: ['dashboard', 'askData'],
-      description: 'Currently active tab.',
-      table: { defaultValue: { summary: 'dashboard' } },
-    },
     brand: {
       control: 'text',
       description: 'Brand name shown in the wordmark.',
@@ -45,37 +27,26 @@ const meta = {
       description: 'Optional subtitle displayed after the brand name.',
       table: { defaultValue: { summary: '""' } },
     },
-    showTabs: {
-      control: 'boolean',
-      description: 'Whether to render the Editor / Ask Data tab switcher.',
-      table: { defaultValue: { summary: 'true' } },
-    },
     dashboardSlug: {
       control: 'text',
-      description: 'When non-empty the back-arrow button is shown.',
+      description: 'When non-empty, a back-arrow button is rendered to the left of the wordmark.',
       table: { defaultValue: { summary: '""' } },
-    },
-    onTabChange: {
-      action: 'tab-change',
-      description: 'Fired when the user clicks a tab. `detail` is the new `ActiveTab` value.',
-      table: { category: 'Events' },
     },
   },
   args: {
-    activeTab: 'dashboard',
     brand: 'DataTalks',
     subtitle: 'Your Data, Any Data, Instantly Explained',
-    showTabs: true,
-    dashboardSlug: 'portable-bi-dashboard',
-    onTabChange: fn(),
+    dashboardSlug: '',
   },
   parameters: {
     layout: 'fullscreen',
     docs: {
       description: {
         component:
-          'Primary navigation bar. Renders a brand wordmark, optional back arrow when inside a dashboard, ' +
-          'an optional subtitle, and the Editor / Ask Data tab switcher.',
+          'Global navigation bar. Renders the brand mark, wordmark, and an optional subtitle. ' +
+          'When `dashboardSlug` is non-empty a back-to-list arrow button appears. ' +
+          'Mode switching (Editor / Ask Data) and edit controls are no longer in this component — ' +
+          'they live in `dashboard-editor-header`.',
       },
     },
   },
@@ -84,39 +55,40 @@ const meta = {
 export default meta;
 type Story = StoryObj<TopNavArgs>;
 
-export const EditorActive: Story = {
-  name: 'Editor Tab Active',
-  parameters: {
-    docs: { description: { story: 'Default state — Editor tab selected.' } },
-  },
-};
-
-export const AskDataActive: Story = {
-  name: 'Ask Data Tab Active',
-  args: { activeTab: 'askData' },
+export const Default: Story = {
+  name: 'List Page (No Back Button)',
   parameters: {
     docs: {
-      description: { story: 'Ask Data tab selected; indicator shifts to the right button.' },
+      description: {
+        story: 'Nav on the dashboard-list page — brand and subtitle only.',
+      },
     },
   },
 };
 
-export const LandingNav: Story = {
-  name: 'Landing (No Tabs)',
-  args: { showTabs: false, dashboardSlug: '', subtitle: '' },
+export const InDashboard: Story = {
+  name: 'Inside a Dashboard',
+  args: {
+    dashboardSlug: 'sales-overview',
+    subtitle: '',
+  },
   parameters: {
     docs: {
-      description: { story: 'Nav on the dashboard-list page — no tabs or back button.' },
+      description: {
+        story: 'Nav when a dashboard is open — back arrow visible, no subtitle.',
+      },
     },
   },
 };
 
-export const TabSwitch: Story = {
-  name: 'Interaction — Switch to Ask Data',
+export const ClickBack: Story = {
+  name: 'Interaction — Back Button',
   tags: ['!autodocs'],
-  play: async ({ canvas, args }) => {
-    const tab = canvas.getByRole('tab', { name: 'Ask Data' });
-    await userEvent.click(tab);
-    await expect(args.onTabChange).toHaveBeenCalledWith('askData');
+  args: { dashboardSlug: 'sales-overview', subtitle: '' },
+  play: async ({ canvas }) => {
+    const btn = canvas.getByRole('button', { name: 'Back to Dashboards' });
+    await expect(btn).toBeInTheDocument();
+    await userEvent.click(btn);
+    // Navigation is a side-effect (hash change); verify the button is accessible.
   },
 };

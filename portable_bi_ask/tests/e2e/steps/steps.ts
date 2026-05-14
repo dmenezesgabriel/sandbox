@@ -10,7 +10,7 @@ Given('the app is loaded', async function (this: BrowserWorld) {
   await this.page.waitForSelector('app-dashboard', { timeout: 10000 });
 });
 
-Given('I navigate to the Dashboard tab', async function (this: BrowserWorld) {
+Given('I open the dashboard editor', async function (this: BrowserWorld) {
   await this.page.evaluate(() => {
     window.location.hash = '#/dashboard/portable-bi-dashboard';
   });
@@ -41,12 +41,12 @@ When('I enter the sheet name {string}', async function (this: BrowserWorld, name
   await this.fillNewSheetName(name);
 });
 
-When('I click {string} to enter edit mode', async function (this: BrowserWorld, _label: string) {
+When('I click the Edit button in the dashboard header', async function (this: BrowserWorld) {
   await this.clickEditToggle();
   await this.page.waitForTimeout(300);
 });
 
-When('I click {string} to exit edit mode', async function (this: BrowserWorld, _label: string) {
+When('I click Done Editing in the dashboard header', async function (this: BrowserWorld) {
   await this.clickEditToggle();
   await this.page.waitForTimeout(300);
 });
