@@ -1,5 +1,0 @@
-{
-  "*": "prettier --ignore-unknown --write",
-  "src/**/*.{js,jsx,ts,tsx}": "eslint --fix",
-  "src/**/*.css": "stylelint --fix"
-}

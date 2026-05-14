@@ -14,6 +14,8 @@ export default defineConfig({
     },
   },
   test: {
+    maxWorkers: 1,
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       include: ['src/components/**/*.ts'],
@@ -29,6 +31,7 @@ export default defineConfig({
       {
         extends: true,
         test: {
+          name: 'unit',
           environment: 'node',
           include: ['src/**/*.spec.ts', 'tests/integration/**/*.test.ts'],
           exclude: ['src/components/**/*.spec.ts'],
