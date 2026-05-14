@@ -2,10 +2,18 @@ import '../widget';
 
 import { html, LitElement, nothing as renderNothing, type TemplateResult } from 'lit';
 
-import type { CellValue, Filters, Sheet, WidgetConfig } from '../../types';
-
-const GRID_COLS = 12;
-const ROW_HEIGHT = 40;
+import {
+  COMPONENT_RULES,
+  GAP_PX,
+  GRID_COLS,
+  type GridItemLayout,
+  gridToPixels,
+  migrateToGridLayout,
+  normalizeLayout,
+  resolveCollisions,
+  ROW_PX,
+} from '../../grid-layout-engine';
+import type { CellValue, Filters, Sheet } from '../../types';
 
 export class SheetCanvas extends LitElement {
   static override readonly properties = {
@@ -14,11 +22,10 @@ export class SheetCanvas extends LitElement {
     filters: { type: Object },
     selectedWidgetId: { type: String },
     editMode: { type: Boolean },
-    _canvasHeight: { state: true },
-    _dragState: { state: true },
-    _resizeState: { state: true },
-    _dragOffset: { state: true },
-    _previewLayout: { state: true },
+    _workingLayout: { state: true },
+    _draggingId: { state: true },
+    _resizingId: { state: true },
+    _containerWidth: { state: true },
   };
 
   sheet: Sheet;
@@ -26,30 +33,42 @@ export class SheetCanvas extends LitElement {
   filters: Filters;
   selectedWidgetId: string | null;
   editMode: boolean;
-  private _canvasHeight: number;
-  private _resizeObserver: ResizeObserver | null = null;
-  private _dragState: {
+
+  // Reactive state
+  private _workingLayout: GridItemLayout[] | null = null;
+  private _draggingId: string | null = null;
+  private _resizingId: string | null = null;
+  private _containerWidth: number = 1200;
+
+  // Non-reactive private fields
+  private _committedLayout: GridItemLayout[] = [];
+  private _dragStartInfo: {
     id: string;
-    startX: number;
-    startY: number;
-    startLeft: number;
-    startTop: number;
+    pointerOffsetX: number;
+    pointerOffsetY: number;
+    startItem: GridItemLayout;
   } | null = null;
-  private _resizeState: {
+  private _resizeStartInfo: {
     id: string;
     handle: string;
-    startX: number;
-    startY: number;
-    startW: number;
-    startH: number;
-    startLeft: number;
-    startTop: number;
+    startPointerX: number;
+    startPointerY: number;
+    startItem: GridItemLayout;
+    prevColSpan: number;
+    prevRowSpan: number;
   } | null = null;
-  private _dragOffset: { x: number; y: number } = { x: 0, y: 0 };
-  private _previewLayout: { id: string; x: number; y: number; w: number; h: number } | null = null;
-  private _boundMouseMove: ((e: MouseEvent) => void) | null = null;
-  private _boundMouseUp: (() => void) | null = null;
-  private _rafId: number | null = null;
+  private _dragPixelLeft: number = 0;
+  private _dragPixelTop: number = 0;
+  private _resizePixelW: number = 0;
+  private _resizePixelH: number = 0;
+  private _prevGridCell: { col: number; row: number } | null = null;
+  private _latestPointer: { x: number; y: number } = { x: 0, y: 0 };
+  private _frameRequested: boolean = false;
+
+  private _resizeObserver: ResizeObserver | null = null;
+  private _observedCanvas: HTMLElement | null = null;
+  private _boundPointerMove: ((e: PointerEvent) => void) | null = null;
+  private _boundPointerUp: (() => void) | null = null;
 
   constructor() {
     super();
@@ -58,61 +77,60 @@ export class SheetCanvas extends LitElement {
     this.filters = {};
     this.selectedWidgetId = null;
     this.editMode = false;
-    this._canvasHeight = 400;
   }
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
     return this;
   }
 
-  private _getColWidth(): number {
-    return this.getBoundingClientRect().width / GRID_COLS;
+  private _getItemForWidget(widgetId: string): GridItemLayout | undefined {
+    const layout = this._workingLayout ?? this._committedLayout;
+    return (
+      layout.find((i) => i.id === widgetId) ?? this._committedLayout.find((i) => i.id === widgetId)
+    );
   }
 
-  private _snapX(px: number): number {
-    const colW = this._getColWidth();
-    return Math.round(px / colW) * colW;
-  }
-
-  private _snapY(px: number): number {
-    return Math.round(px / ROW_HEIGHT) * ROW_HEIGHT;
-  }
-
-  private _getWidgetPosition(index: number): {
-    left: string;
-    top: string;
-    width: string;
-    height: string;
-  } {
-    const layout = this.sheet.layout?.[index];
-    if (layout && layout.x !== undefined) {
-      return {
-        left: `${layout.x}px`,
-        top: `${layout.y}px`,
-        width: `${layout.w}px`,
-        height: `${layout.h}px`,
-      };
+  private _getWidgetStyle(widgetId: string): string {
+    if (widgetId === this._draggingId) {
+      const item = this._committedLayout.find((i) => i.id === widgetId);
+      if (!item) return 'position: absolute;';
+      const px = gridToPixels(item, this._containerWidth);
+      return [
+        'position: absolute;',
+        `left: ${this._dragPixelLeft}px;`,
+        `top: ${this._dragPixelTop}px;`,
+        `width: ${px.width}px;`,
+        `height: ${px.height}px;`,
+        'z-index: 100;',
+        'will-change: transform;',
+      ].join(' ');
     }
-    const cols = 4;
-    const h = ROW_HEIGHT * 6;
-    const row = Math.floor(index / cols);
-    const col = index % cols;
-    const cellW = 100 / cols;
-    return {
-      left: `${col * cellW}%`,
-      top: `${row * (h + 8)}px`,
-      width: `${cellW}%`,
-      height: `${h}px`,
-    };
-  }
 
-  private _getWidgetStyle(widget: WidgetConfig): string {
-    if (this._previewLayout && this._previewLayout.id === widget.id) {
-      return `position: absolute; left: ${this._previewLayout.x}px; top: ${this._previewLayout.y}px; width: ${this._previewLayout.w}px; height: ${this._previewLayout.h}px;`;
+    if (widgetId === this._resizingId) {
+      const item = this._committedLayout.find((i) => i.id === widgetId);
+      if (!item) return 'position: absolute;';
+      const px = gridToPixels(item, this._containerWidth);
+      return [
+        'position: absolute;',
+        `left: ${px.left}px;`,
+        `top: ${px.top}px;`,
+        `width: ${this._resizePixelW}px;`,
+        `height: ${this._resizePixelH}px;`,
+        'z-index: 100;',
+      ].join(' ');
     }
-    const idx = this.sheet.widgets.findIndex((w) => w.id === widget.id);
-    const pos = this._getWidgetPosition(idx);
-    return `position: absolute; left: ${pos.left}; top: ${pos.top}; width: ${pos.width}; height: ${pos.height};`;
+
+    const item = this._getItemForWidget(widgetId);
+    if (!item) return 'position: absolute;';
+    const px = gridToPixels(item, this._containerWidth);
+    return [
+      'position: absolute;',
+      `left: ${px.left}px;`,
+      `top: ${px.top}px;`,
+      `width: ${px.width}px;`,
+      `height: ${px.height}px;`,
+      'transition: left 120ms ease, top 120ms ease, width 120ms ease, height 120ms ease;',
+    ].join(' ');
   }
 
   private _renderGridLines(): TemplateResult | typeof renderNothing {
@@ -127,7 +145,7 @@ export class SheetCanvas extends LitElement {
     }
 
     for (let i = 1; i < rows; i++) {
-      const top = `${i * ROW_HEIGHT}px`;
+      const top = `${i * ROW_PX}px`;
       lines.push(html`<div class="grid-line grid-line-h" style="top: ${top}"></div>`);
     }
 
@@ -173,276 +191,292 @@ export class SheetCanvas extends LitElement {
     );
   }
 
-  private _onMouseDown(e: MouseEvent): void {
+  private _getCanvasElement(): HTMLElement | null {
+    return this.querySelector('.sheet-canvas');
+  }
+
+  private _getCanvasMetrics(): { width: number; left: number; top: number } {
+    const canvasEl = this._getCanvasElement();
+    const rect = canvasEl?.getBoundingClientRect() ?? this.getBoundingClientRect();
+    const styles = canvasEl ? window.getComputedStyle(canvasEl) : null;
+    const paddingLeft = styles ? Number.parseFloat(styles.paddingLeft) || 0 : 0;
+    const paddingTop = styles ? Number.parseFloat(styles.paddingTop) || 0 : 0;
+    const width = canvasEl?.clientWidth ?? this._containerWidth;
+    return {
+      width,
+      left: rect.left + paddingLeft,
+      top: rect.top + paddingTop,
+    };
+  }
+
+  private _updateContainerWidth(): void {
+    const canvasEl = this._getCanvasElement();
+    const width = canvasEl?.clientWidth ?? 0;
+    if (width > 0 && width !== this._containerWidth) {
+      this._containerWidth = width;
+    }
+  }
+
+  private _onPointerDown(e: PointerEvent): void {
     if (!this.editMode) return;
     const target = e.target as HTMLElement;
     const handle = target.closest('.resize-handle');
-    const widgetWrapper = target.closest('.widget-wrapper');
+    const widgetWrapper = target.closest('.widget-wrapper') as HTMLElement | null;
 
     if (!widgetWrapper) return;
 
+    const id = widgetWrapper.getAttribute('data-widget-id')!;
+    const committedItem = this._committedLayout.find((i) => i.id === id);
+    if (!committedItem) return;
+
     if (handle) {
-      const id = widgetWrapper.getAttribute('data-widget-id')!;
-      const rect = widgetWrapper.getBoundingClientRect();
-      this._resizeState = {
+      const px = gridToPixels(committedItem, this._containerWidth);
+      this._resizePixelW = px.width;
+      this._resizePixelH = px.height;
+      this._resizeStartInfo = {
         id,
         handle: handle.getAttribute('data-handle')!,
-        startX: e.clientX,
-        startY: e.clientY,
-        startW: rect.width,
-        startH: rect.height,
-        startLeft: rect.left,
-        startTop: rect.top,
+        startPointerX: e.clientX,
+        startPointerY: e.clientY,
+        startItem: { ...committedItem },
+        prevColSpan: committedItem.w,
+        prevRowSpan: committedItem.h,
       };
+      this._resizingId = id;
       e.preventDefault();
       e.stopPropagation();
     } else if (!target.closest('.widget-delete') && !target.closest('.widget-title')) {
-      const id = widgetWrapper.getAttribute('data-widget-id')!;
-      const wrapper = widgetWrapper as HTMLElement;
-      this._dragState = {
+      const px = gridToPixels(committedItem, this._containerWidth);
+      const wrapperRect = widgetWrapper.getBoundingClientRect();
+      this._dragPixelLeft = px.left;
+      this._dragPixelTop = px.top;
+      this._dragStartInfo = {
         id,
-        startX: e.clientX,
-        startY: e.clientY,
-        startLeft: parseFloat(wrapper.style.left) || wrapper.offsetLeft,
-        startTop: parseFloat(wrapper.style.top) || wrapper.offsetTop,
+        pointerOffsetX: e.clientX - wrapperRect.left,
+        pointerOffsetY: e.clientY - wrapperRect.top,
+        startItem: { ...committedItem },
       };
-      this._dragOffset = { x: e.clientX - wrapper.offsetLeft, y: e.clientY - wrapper.offsetTop };
-      wrapper.classList.add('dragging');
+      this._draggingId = id;
+      this._prevGridCell = null;
       e.preventDefault();
       e.stopPropagation();
     }
   }
 
-  private _scheduleUpdate(): void {
-    if (this._rafId !== null) return;
-    this._rafId = requestAnimationFrame(() => {
-      this._rafId = null;
-      this.requestUpdate();
-    });
+  private _onPointerMove(e: PointerEvent): void {
+    if (!this._dragStartInfo && !this._resizeStartInfo) return;
+    this._latestPointer = { x: e.clientX, y: e.clientY };
+    if (!this._frameRequested) {
+      this._frameRequested = true;
+      requestAnimationFrame(() => this._processFrame());
+    }
   }
 
-  private _onMouseMove(e: MouseEvent): void {
-    if (!this.editMode) return;
-    this._handleDrag(e);
-    this._handleResize(e);
-  }
+  private _processFrame(): void {
+    this._frameRequested = false;
 
-  private _handleDrag(e: MouseEvent): void {
-    if (!this._dragState) return;
-    const widgetEl = this.querySelector(`[data-widget-id="${this._dragState.id}"]`) as HTMLElement;
-    if (!widgetEl) return;
-    const canvasRect = this.getBoundingClientRect();
-    const newX = e.clientX - canvasRect.left - this._dragOffset.x;
-    const newY = e.clientY - canvasRect.top - this._dragOffset.y;
-    widgetEl.style.left = `${Math.max(0, newX)}px`;
-    widgetEl.style.top = `${Math.max(0, newY)}px`;
-    this._scheduleUpdate();
-  }
+    if (this._dragStartInfo) {
+      const info = this._dragStartInfo;
+      const { width: canvasWidth, left: canvasLeft, top: canvasTop } = this._getCanvasMetrics();
+      const newLeft = Math.max(0, this._latestPointer.x - canvasLeft - info.pointerOffsetX);
+      const newTop = Math.max(0, this._latestPointer.y - canvasTop - info.pointerOffsetY);
+      this._dragPixelLeft = newLeft;
+      this._dragPixelTop = newTop;
 
-  private _handleResize(e: MouseEvent): void {
-    if (!this._resizeState) return;
-    const widgetEl = this.querySelector(
-      `[data-widget-id="${this._resizeState.id}"]`,
-    ) as HTMLElement;
-    if (!widgetEl) return;
-    const dx = e.clientX - this._resizeState.startX;
-    const dy = e.clientY - this._resizeState.startY;
-    const handle = this._resizeState.handle;
-
-    let newW = this._resizeState.startW;
-    let newH = this._resizeState.startH;
-    let newX = this._resizeState.startLeft;
-    let newY = this._resizeState.startTop;
-
-    if (handle.includes('e')) {
-      newW = Math.max(20, this._resizeState.startW + dx);
-    }
-    if (handle.includes('s')) {
-      newH = Math.max(20, this._resizeState.startH + dy);
-    }
-    if (handle.includes('w')) {
-      newW = Math.max(20, this._resizeState.startW - dx);
-      newX = this._resizeState.startLeft + this._resizeState.startW - newW;
-    }
-    if (handle.includes('n')) {
-      newH = Math.max(20, this._resizeState.startH - dy);
-      newY = this._resizeState.startTop + this._resizeState.startH - newH;
-    }
-
-    widgetEl.style.left = `${newX - this.getBoundingClientRect().left}px`;
-    widgetEl.style.top = `${newY - this.getBoundingClientRect().top}px`;
-    widgetEl.style.width = `${newW}px`;
-    widgetEl.style.height = `${newH}px`;
-    this._scheduleUpdate();
-  }
-
-  private _onMouseUp(): void {
-    if (this._dragState) {
-      const widgetEl = this.querySelector(
-        `[data-widget-id="${this._dragState.id}"]`,
-      ) as HTMLElement;
-      if (widgetEl) {
-        widgetEl.classList.remove('dragging');
-        const rawX = parseFloat(widgetEl.style.left) || 0;
-        const rawY = parseFloat(widgetEl.style.top) || 0;
-        const snappedX = this._snapX(rawX);
-        const snappedY = this._snapY(rawY);
-        widgetEl.style.left = `${snappedX}px`;
-        widgetEl.style.top = `${snappedY}px`;
-        this._updateLayout(this._dragState.id, {
-          x: snappedX,
-          y: snappedY,
-          w: widgetEl.offsetWidth,
-          h: widgetEl.offsetHeight,
-        });
+      // Apply to DOM directly without Lit rerender
+      const draggedEl = this.querySelector(`[data-widget-id="${info.id}"]`) as HTMLElement | null;
+      if (draggedEl) {
+        draggedEl.style.left = `${newLeft}px`;
+        draggedEl.style.top = `${newTop}px`;
       }
-    }
 
-    if (this._resizeState) {
-      const widgetEl = this.querySelector(
-        `[data-widget-id="${this._resizeState.id}"]`,
-      ) as HTMLElement;
-      if (widgetEl) {
-        const colW = this._getColWidth();
-        const rawW = parseFloat(widgetEl.style.width) || this._resizeState.startW;
-        const rawH = parseFloat(widgetEl.style.height) || this._resizeState.startH;
-        const snappedW = Math.round(rawW / colW) * colW;
-        const snappedH = this._snapY(rawH);
-        widgetEl.style.width = `${snappedW}px`;
-        widgetEl.style.height = `${snappedH}px`;
-        this._updateLayout(this._resizeState.id, {
-          w: snappedW,
-          h: snappedH,
-        });
-      }
-    }
+      // Calculate grid cell for preview using item center
+      const committedItem = this._committedLayout.find((i) => i.id === info.id);
+      if (committedItem) {
+        const colW = canvasWidth / GRID_COLS;
+        const rawCol = Math.round(newLeft / colW);
+        const rawRow = Math.round(newTop / ROW_PX);
+        const newCell = {
+          col: Math.max(0, Math.min(GRID_COLS - 1, rawCol)),
+          row: Math.max(0, rawRow),
+        };
 
-    this._dragState = null;
-    this._resizeState = null;
-    this._previewLayout = null;
-    this._emitLayoutChange();
-  }
-
-  private _updateLayout(
-    id: string,
-    update: { x?: number; y?: number; w?: number; h?: number },
-  ): void {
-    const idx = this.sheet.widgets.findIndex((w) => w.id === id);
-    if (idx === -1) return;
-    if (!this.sheet.layout[idx]) {
-      this.sheet.layout[idx] = { x: 0, y: 0, w: 400, h: 300 };
-    }
-    const layout = this.sheet.layout[idx];
-    if (update.x !== undefined) layout.x = update.x;
-    if (update.y !== undefined) layout.y = update.y;
-    if (update.w !== undefined) layout.w = update.w;
-    if (update.h !== undefined) layout.h = update.h;
-  }
-
-  private _isOverlapping(
-    a: { x?: number; y?: number; w?: number; h?: number },
-    b: { x?: number; y?: number; w?: number; h?: number },
-  ): boolean {
-    const aRight = (a.x || 0) + (a.w || 0);
-    const aBottom = (a.y || 0) + (a.h || 0);
-    const bRight = (b.x || 0) + (b.w || 0);
-    const bBottom = (b.y || 0) + (b.h || 0);
-    return (
-      (a.x || 0) < bRight && aRight > (b.x || 0) && (a.y || 0) < bBottom && aBottom > (b.y || 0)
-    );
-  }
-
-  private _detectOverlaps(): void {
-    const layout = this.sheet.layout;
-    if (!layout?.length) return;
-    const warnings: string[] = [];
-    for (let i = 0; i < layout.length; i++) {
-      const a = layout[i];
-      if (!a) continue;
-      for (let j = i + 1; j < layout.length; j++) {
-        const b = layout[j];
-        if (!b) continue;
-        if (this._isOverlapping(a, b)) {
-          const aName = this.sheet.widgets[i]?.title || `widget #${i}`;
-          const bName = this.sheet.widgets[j]?.title || `widget #${j}`;
-          warnings.push(`"${aName}" overlaps "${bName}"`);
+        const prevCell = this._prevGridCell;
+        if (!prevCell || newCell.col !== prevCell.col || newCell.row !== prevCell.row) {
+          this._prevGridCell = newCell;
+          const colSpan = info.startItem.w;
+          const candX = Math.max(0, Math.min(GRID_COLS - colSpan, newCell.col));
+          const candY = Math.max(0, newCell.row);
+          const updatedLayout = this._committedLayout.map((i) =>
+            i.id === info.id ? { ...i, x: candX, y: candY } : i,
+          );
+          this._workingLayout = resolveCollisions(updatedLayout, info.id);
         }
       }
     }
-    if (warnings.length) {
-      console.warn(`[canvas] Layout overlap detected:\n  ${warnings.join('\n  ')}`);
+
+    if (this._resizeStartInfo) {
+      const info = this._resizeStartInfo;
+      const dx = this._latestPointer.x - info.startPointerX;
+      const dy = this._latestPointer.y - info.startPointerY;
+      const colW = this._containerWidth / GRID_COLS;
+
+      const widgetType = this.sheet.widgets.find((w) => w.id === info.id)?.type;
+      const rules = widgetType ? COMPONENT_RULES[widgetType] : null;
+      const minW = rules?.minW ?? 1;
+      const minH = rules?.minH ?? 1;
+      const maxW = rules?.maxW ?? GRID_COLS;
+      const maxH = rules?.maxH ?? 100;
+
+      const newColSpan = Math.max(
+        minW,
+        Math.min(maxW, Math.round((info.startItem.w * colW + dx) / colW)),
+      );
+      const newRowSpan = Math.max(
+        minH,
+        Math.min(maxH, Math.round((info.startItem.h * ROW_PX + dy) / ROW_PX)),
+      );
+
+      this._resizePixelW = newColSpan * colW - GAP_PX;
+      this._resizePixelH = newRowSpan * ROW_PX - GAP_PX;
+
+      // Apply to DOM directly
+      const resizedEl = this.querySelector(`[data-widget-id="${info.id}"]`) as HTMLElement | null;
+      if (resizedEl) {
+        resizedEl.style.width = `${this._resizePixelW}px`;
+        resizedEl.style.height = `${this._resizePixelH}px`;
+      }
+
+      // If span changed, update working layout
+      if (newColSpan !== info.prevColSpan || newRowSpan !== info.prevRowSpan) {
+        info.prevColSpan = newColSpan;
+        info.prevRowSpan = newRowSpan;
+        const updatedLayout = this._committedLayout.map((i) =>
+          i.id === info.id ? { ...i, w: newColSpan, h: newRowSpan } : i,
+        );
+        this._workingLayout = resolveCollisions(updatedLayout, info.id);
+      }
+    }
+  }
+
+  private _onPointerUp(): void {
+    if (this._dragStartInfo) {
+      const finalLayout = normalizeLayout(this._workingLayout ?? this._committedLayout);
+      this._committedLayout = finalLayout;
+      this._workingLayout = null;
+      this._draggingId = null;
+      this._dragStartInfo = null;
+      this._prevGridCell = null;
+      this._emitLayoutChange();
+    }
+
+    if (this._resizeStartInfo) {
+      const finalLayout = normalizeLayout(this._workingLayout ?? this._committedLayout);
+      this._committedLayout = finalLayout;
+      this._workingLayout = null;
+      this._resizingId = null;
+      this._resizeStartInfo = null;
+      this._emitLayoutChange();
     }
   }
 
   private _emitLayoutChange(): void {
-    this._detectOverlaps();
+    const layout = this._committedLayout.map(({ x, y, w, h }) => ({ x, y, w, h }));
+    const updatedSheet = { ...this.sheet, layout };
     this.dispatchEvent(
       new CustomEvent('layout-change', {
-        detail: { sheet: this.sheet },
+        detail: { sheet: updatedSheet },
         bubbles: true,
         composed: true,
       }),
     );
   }
 
+  private _computeCanvasHeight(): number {
+    const layout = this._workingLayout ?? this._committedLayout;
+    const maxRow = layout.reduce((m, i) => Math.max(m, i.y + i.h), 0);
+    return Math.max(400, maxRow * ROW_PX + 80);
+  }
+
   override connectedCallback(): void {
     super.connectedCallback();
-    this._boundMouseMove = this._onMouseMove.bind(this);
-    this._boundMouseUp = this._onMouseUp.bind(this);
-    window.addEventListener('mousemove', this._boundMouseMove);
-    window.addEventListener('mouseup', this._boundMouseUp);
-    this._resizeObserver = new ResizeObserver(() => {
-      this._canvasHeight = this._computeCanvasHeight();
-    });
-    this._resizeObserver.observe(this.parentElement ?? document.body);
+    this._boundPointerMove = this._onPointerMove.bind(this);
+    this._boundPointerUp = this._onPointerUp.bind(this);
+    window.addEventListener('pointermove', this._boundPointerMove);
+    window.addEventListener('pointerup', this._boundPointerUp);
+    this._resizeObserver = new ResizeObserver(() => this._updateContainerWidth());
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._resizeObserver?.disconnect();
-    if (this._rafId !== null) {
-      cancelAnimationFrame(this._rafId);
+    this._observedCanvas = null;
+    if (this._boundPointerMove) {
+      window.removeEventListener('pointermove', this._boundPointerMove);
     }
-    if (this._boundMouseMove) {
-      window.removeEventListener('mousemove', this._boundMouseMove);
-    }
-    if (this._boundMouseUp) {
-      window.removeEventListener('mouseup', this._boundMouseUp);
+    if (this._boundPointerUp) {
+      window.removeEventListener('pointerup', this._boundPointerUp);
     }
   }
 
   override updated(changedProps: Map<string, unknown>): void {
     if (changedProps.has('sheet')) {
-      this._canvasHeight = this._computeCanvasHeight();
-      this._detectOverlaps();
+      this._committedLayout = migrateToGridLayout(
+        this.sheet.layout,
+        this.sheet.widgets.map((w) => w.id),
+        this._containerWidth || 1200,
+      );
+      this._workingLayout = null;
+      this._draggingId = null;
+      this._resizingId = null;
+    }
+
+    const canvasEl = this._getCanvasElement();
+    if (canvasEl && canvasEl !== this._observedCanvas) {
+      this._resizeObserver?.disconnect();
+      this._resizeObserver?.observe(canvasEl);
+      this._observedCanvas = canvasEl;
+      this._updateContainerWidth();
     }
   }
 
-  private _computeCanvasHeight(): number {
-    const padding = 56;
-    if (!this.sheet.layout?.length) return 400;
-    const maxBottom = Math.max(...this.sheet.layout.map((l) => (l.y || 0) + (l.h || 0)));
-    return Math.max(400, maxBottom + padding);
-  }
-
   override render(): TemplateResult {
+    const canvasHeight = this._computeCanvasHeight();
+
+    // Ghost placeholder for drag target position
+    let ghostTemplate: TemplateResult | typeof renderNothing = renderNothing;
+    if (this._draggingId && this._workingLayout) {
+      const ghostItem = this._workingLayout.find((i) => i.id === this._draggingId);
+      if (ghostItem) {
+        const px = gridToPixels(ghostItem, this._containerWidth);
+        ghostTemplate = html`
+          <div
+            class="drag-ghost"
+            style="left: ${px.left}px; top: ${px.top}px; width: ${px.width}px; height: ${px.height}px;"
+          ></div>
+        `;
+      }
+    }
+
     return html`
       <div
         class="sheet-canvas ${this.editMode ? 'edit-mode' : ''}"
-        style="min-height: ${this._canvasHeight}px;"
-        @mousedown=${this._onMouseDown}
+        style="min-height: ${canvasHeight}px;"
+        @pointerdown=${this._onPointerDown}
       >
-        ${this._renderGridLines()}
+        ${this._renderGridLines()} ${ghostTemplate}
         ${this.sheet.widgets.map((widget) => {
           const widgetData = this.data[widget.id];
+          const isDragging = this._draggingId === widget.id;
+          const isResizing = this._resizingId === widget.id;
           return html`
             <div
               class="widget-wrapper ${this.editMode ? 'edit-mode' : ''} ${this.selectedWidgetId ===
               widget.id
                 ? 'selected'
-                : ''}"
+                : ''} ${isDragging ? 'is-dragging' : ''} ${isResizing ? 'is-resizing' : ''}"
               data-widget-id=${widget.id}
-              style=${this._getWidgetStyle(widget)}
+              style=${this._getWidgetStyle(widget.id)}
             >
               <app-widget
                 .config=${widget}

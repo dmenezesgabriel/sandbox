@@ -1,5 +1,6 @@
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
+import { findBestPosition, type GridItemLayout, migrateToGridLayout } from './grid-layout-engine';
 import type { ChartType2, DashboardConfig, Position, Sheet, WidgetConfig } from './types';
 
 function mapChartType(type: string): ChartType2 {
@@ -21,45 +22,75 @@ function mapChartType(type: string): ChartType2 {
 export function configToSheet(config: DashboardConfig): Sheet {
   const widgets: WidgetConfig[] = [];
   const layout: Position[] = [];
+  const accumulatedGridItems: GridItemLayout[] = [];
+
+  const addWidget = (widget: WidgetConfig, configLayoutId: string | undefined): void => {
+    widgets.push(widget);
+
+    // Try to find a matching position in config.layout by id
+    let gridPos: { x: number; y: number; w: number; h: number } | null = null;
+
+    if (config.layout) {
+      const configPos = (config.layout as Array<Position & { id?: string }>).find(
+        (p) => p.id === configLayoutId,
+      );
+      if (configPos) {
+        const migrated = migrateToGridLayout([configPos], [widget.id], 1200);
+        if (migrated[0]) {
+          gridPos = { x: migrated[0].x, y: migrated[0].y, w: migrated[0].w, h: migrated[0].h };
+        }
+      }
+    }
+
+    if (!gridPos) {
+      gridPos = findBestPosition(widget.type, accumulatedGridItems);
+    }
+
+    accumulatedGridItems.push({ id: widget.id, ...gridPos });
+    layout.push({ x: gridPos.x, y: gridPos.y, w: gridPos.w, h: gridPos.h });
+  };
 
   for (const kpi of config.kpis) {
-    widgets.push({
-      id: kpi.id,
-      type: 'kpi',
-      title: kpi.title,
-      query: kpi.query,
-      queryType: 'sql',
-      kpiConfig: kpi,
-    });
-    const pos = findLayout(config.layout, kpi.id, widgets.length - 1);
-    layout.push(pos);
+    addWidget(
+      {
+        id: kpi.id,
+        type: 'kpi',
+        title: kpi.title,
+        query: kpi.query,
+        queryType: 'sql',
+        kpiConfig: kpi,
+      },
+      kpi.id,
+    );
   }
 
   for (const chart of config.charts) {
-    widgets.push({
-      id: chart.id,
-      type: 'chart',
-      title: chart.title ?? chart.id,
-      query: chart.query,
-      queryType: 'sql',
-      chartType: mapChartType(chart.type),
-      options: chart.options as Record<string, unknown>,
-    });
-    const pos = findLayout(config.layout, chart.id, widgets.length - 1);
-    layout.push(pos);
+    addWidget(
+      {
+        id: chart.id,
+        type: 'chart',
+        title: chart.title ?? chart.id,
+        query: chart.query,
+        queryType: 'sql',
+        chartType: mapChartType(chart.type as string),
+        options: chart.options as Record<string, unknown>,
+      },
+      chart.id,
+    );
   }
 
   for (const table of config.tables) {
-    widgets.push({
-      id: table.id,
-      type: 'table',
-      title: table.title,
-      query: table.query,
-      queryType: 'sql',
-      columns: table.columns,
-    });
-    const pos = findLayout(config.layout, table.id, widgets.length - 1);
-    layout.push(pos);
+    addWidget(
+      {
+        id: table.id,
+        type: 'table',
+        title: table.title,
+        query: table.query,
+        queryType: 'sql',
+        columns: table.columns,
+      },
+      table.id,
+    );
   }
 
   return {
@@ -71,27 +102,6 @@ export function configToSheet(config: DashboardConfig): Sheet {
     filters: config.filters,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  };
-}
-
-function findLayout(layout: Position[] | undefined, id: string, fallbackIndex: number): Position {
-  if (layout) {
-    const match = layout.find((p) => 'id' in p && (p as Record<string, unknown>).id === id) as
-      | (Position & { id?: string })
-      | undefined;
-    if (match) {
-      const pos: Position = { x: match.x!, y: match.y!, w: match.w!, h: match.h! };
-      return pos;
-    }
-  }
-  const cols = 4;
-  const row = Math.floor(fallbackIndex / cols);
-  const col = fallbackIndex % cols;
-  return {
-    x: col * 300 + 16,
-    y: row * 220 + 16,
-    w: 280,
-    h: 200,
   };
 }
 
@@ -166,6 +176,7 @@ export function yamlToSheet(yaml: string): Sheet {
   const widgets: WidgetConfig[] = [];
   const layout: Position[] = [];
   const layoutDefs = (parsed.layout as Record<string, unknown>[]) ?? [];
+  const accumulatedGridItems: GridItemLayout[] = [];
 
   const addWidget = (
     item: Record<string, unknown>,
@@ -174,7 +185,7 @@ export function yamlToSheet(yaml: string): Sheet {
   ): void => {
     const id = String(item.id);
     const bgColor = item.backgroundColor ? String(item.backgroundColor) : undefined;
-    widgets.push({
+    const widget: WidgetConfig = {
       id,
       type,
       title: String(item.title ?? ''),
@@ -182,18 +193,37 @@ export function yamlToSheet(yaml: string): Sheet {
       queryType: 'sql',
       backgroundColor: bgColor,
       ...extra,
-    });
+    };
+    widgets.push(widget);
+
     const layoutDef = layoutDefs.find((l) => String(l.id) === id);
+    let gridPos: { x: number; y: number; w: number; h: number };
+
     if (layoutDef) {
-      layout.push({
+      const rawPos = {
         x: Number(layoutDef.x) || 0,
         y: Number(layoutDef.y) || 0,
-        w: Number(layoutDef.w) || 280,
-        h: Number(layoutDef.h) || 200,
-      });
+        w: Number(layoutDef.w) || 6,
+        h: Number(layoutDef.h) || 4,
+      };
+      // Detect if this is pixel-based or grid-based
+      const migrated = migrateToGridLayout([rawPos], [id], 1200);
+      gridPos = migrated[0]
+        ? { x: migrated[0].x, y: migrated[0].y, w: migrated[0].w, h: migrated[0].h }
+        : findBestPosition(type, accumulatedGridItems);
     } else {
-      layout.push({ x: 16, y: 16 + widgets.length * 220, w: 280, h: 200 });
+      gridPos = findBestPosition(type, accumulatedGridItems);
     }
+
+    const gridItem: GridItemLayout = {
+      id,
+      x: gridPos.x,
+      y: gridPos.y,
+      w: gridPos.w,
+      h: gridPos.h,
+    };
+    accumulatedGridItems.push(gridItem);
+    layout.push({ x: gridPos.x, y: gridPos.y, w: gridPos.w, h: gridPos.h });
   };
 
   const kpis = (parsed.kpis as Record<string, unknown>[]) ?? [];

@@ -205,9 +205,30 @@ sheets-view {
   border: 2px solid transparent;
   animation: fade-in-up 0.3s ease-out both;
   transition:
+    left 120ms ease,
+    top 120ms ease,
+    width 120ms ease,
+    height 120ms ease,
     border-color var(--transition-fast),
     box-shadow var(--transition-fast),
     opacity var(--transition-fast);
+}
+
+/* No transitions on dragging/resizing items */
+.widget-wrapper.is-dragging,
+.widget-wrapper.is-resizing {
+  transition: none;
+  will-change: transform;
+}
+
+/* Drag ghost placeholder (target drop zone) */
+.drag-ghost {
+  position: absolute;
+  border: 2px dashed var(--color-accent);
+  border-radius: var(--radius-lg);
+  background: rgb(201 97 63 / 6%);
+  pointer-events: none;
+  z-index: 50;
 }
 
 .widget-wrapper:nth-child(2) {

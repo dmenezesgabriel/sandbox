@@ -8,6 +8,7 @@ import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { AskDataEngine } from '../../ask-data';
 import { DASHBOARD_CONFIG } from '../../dashboard-config';
 import { duckDBManager } from '../../db';
+import { findBestPosition, migrateToGridLayout } from '../../grid-layout-engine';
 import {
   configToSheet,
   jsonToSheet,
@@ -307,12 +308,12 @@ export class SheetsView extends LitElement {
     if (!this._activeSheet) return;
 
     if (mode === 'add') {
-      const colWidth = 280;
-      const rowHeight = 40;
-      const layout = [
-        ...this._activeSheet.layout,
-        { x: 16, y: 16, w: colWidth * 3, h: rowHeight * 6 },
-      ];
+      const existingGridItems = migrateToGridLayout(
+        this._activeSheet.layout,
+        this._activeSheet.widgets.map((w) => w.id),
+      );
+      const pos = findBestPosition(widget.type, existingGridItems);
+      const layout = [...this._activeSheet.layout, { x: pos.x, y: pos.y, w: pos.w, h: pos.h }];
       this._updateActiveSheet({
         widgets: [...this._activeSheet.widgets, widget],
         layout,
