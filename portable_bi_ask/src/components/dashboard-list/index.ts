@@ -1,1 +1,1 @@
-export * from './dashboard-list';
+export * from '../../features/dashboard/ui/dashboard-list';

@@ -1,1 +1,1 @@
-export * from './widget-editor';
+export * from '../../features/dashboard/ui/widget-editor';

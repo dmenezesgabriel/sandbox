@@ -1,0 +1,21 @@
+import { createDefaultDashboardSeed } from '../../../app-config';
+import type { DashboardConfig } from '../../../types';
+
+export function createEmptyDashboardConfig(title = 'New Dashboard'): DashboardConfig {
+  const seed = createDefaultDashboardSeed();
+  return {
+    title,
+    subtitle: seed.subtitle,
+    dataSources: seed.dataSources,
+    askData: seed.askData,
+    filters: seed.filters,
+    kpis: [],
+    charts: [],
+    tables: [],
+    layout: [],
+    relationships: [],
+  };
+}
+
+// Default used when rendering a new dashboard before the user has saved anything.
+export const DASHBOARD_CONFIG: DashboardConfig = createEmptyDashboardConfig('New Dashboard');

@@ -1,2 +1,1 @@
-import './styles.css';
-import './components/dashboard';
+import './app/main';

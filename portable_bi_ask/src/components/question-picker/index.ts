@@ -1,1 +1,1 @@
-export { QuestionPicker } from './question-picker';
+export * from '../../features/dashboard/ui/question-picker';

@@ -1,1 +1,1 @@
-export * from './dashboard-canvas';
+export * from '../../features/dashboard/ui/dashboard-canvas';
