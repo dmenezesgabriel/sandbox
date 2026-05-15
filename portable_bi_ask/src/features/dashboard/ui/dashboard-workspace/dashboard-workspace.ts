@@ -63,6 +63,7 @@ export class DashboardWorkspace extends LitElement {
     _showEditor: { state: true },
     _showPicker: { state: true },
     _showOverflow: { state: true },
+    _overflowMenuAlign: { state: true },
     _importError: { state: true },
   };
 
@@ -85,6 +86,7 @@ export class DashboardWorkspace extends LitElement {
   private _showPicker: boolean = false;
   private _editorTrigger: HTMLElement | null = null;
   private _showOverflow = false;
+  private _overflowMenuAlign: 'left' | 'right' = 'left';
   private _importError = '';
   private _askEngine: AskDataEngine;
   private _dataReady: boolean = false;
@@ -558,6 +560,11 @@ export class DashboardWorkspace extends LitElement {
 
   private _toggleOverflow(e: MouseEvent): void {
     e.stopPropagation();
+    if (!this._showOverflow) {
+      const btn = e.currentTarget as HTMLElement;
+      const rect = btn.getBoundingClientRect();
+      this._overflowMenuAlign = rect.right + 160 > window.innerWidth ? 'right' : 'left';
+    }
     this._showOverflow = !this._showOverflow;
   }
 
@@ -664,6 +671,10 @@ export class DashboardWorkspace extends LitElement {
     }
   }
 
+  private get _overflowMenuStyle(): string {
+    return this._overflowMenuAlign === 'right' ? 'right: 0' : 'left: 0';
+  }
+
   override render(): TemplateResult {
     const dashboard = this._activeDashboard;
 
@@ -683,7 +694,7 @@ export class DashboardWorkspace extends LitElement {
 
           ${this._showOverflow
             ? html`
-                <div class="toolbar-overflow-menu" role="menu">
+                <div class="toolbar-overflow-menu" role="menu" style=${this._overflowMenuStyle}>
                   <button
                     role="menuitem"
                     @click=${() => {

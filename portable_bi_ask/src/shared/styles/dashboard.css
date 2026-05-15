@@ -57,7 +57,6 @@ dashboard-workspace {
 .toolbar-overflow-menu {
   position: absolute;
   top: calc(100% + 0.35rem);
-  right: 0;
   z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
