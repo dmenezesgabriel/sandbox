@@ -1,5 +1,5 @@
-import '../../../../components/ui-button';
-import '../../../../components/ui-text-field';
+import '../../../../shared/ui/ui-button';
+import '../../../../shared/ui/ui-text-field';
 
 import { html, LitElement, type TemplateResult } from 'lit';
 import { Sparkles } from 'lucide';

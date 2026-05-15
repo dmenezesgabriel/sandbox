@@ -1,4 +1,4 @@
-import '../../../../components/ui-button';
+import '../../../../shared/ui/ui-button';
 
 import Chart from 'chart.js/auto';
 import { html, LitElement, nothing, type PropertyValues, type TemplateResult } from 'lit';

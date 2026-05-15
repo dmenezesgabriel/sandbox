@@ -1,43 +1,88 @@
-import { html, LitElement, nothing, type TemplateResult } from 'lit';
+import { html, nothing, type TemplateResult } from 'lit';
+import { BarChart2, FileText, HelpCircle, MessageSquare, Table2, TrendingUp } from 'lucide';
 
 import type { QuestionConfig } from '../../../../shared/types/index';
+import { CollectionList } from '../../../../shared/ui/collection-list/collection-list';
+import { icon } from '../../../../shared/utils/icons';
 import { deleteQuestion, questionList } from '../../data/question-registry';
-import { addQuestion } from '../../data/question-registry';
-import { createEmptyQuestionConfig } from '../../model/question-config';
 
-const TYPE_ICONS: Record<string, string> = {
-  chart: '📊',
-  table: '⊞',
-  kpi: '◈',
-  text: '¶',
-};
-
-export class QuestionList extends LitElement {
-  static override readonly properties = {
-    _viewMode: { state: true },
-  };
-
-  private _viewMode: 'grid' | 'list' = 'grid';
-
-  override createRenderRoot(): HTMLElement | DocumentFragment {
-    return this;
+export class QuestionList extends CollectionList {
+  public override get title(): string {
+    return 'Questions';
   }
 
-  private _handleCreate(): void {
-    const q = addQuestion(createEmptyQuestionConfig());
+  protected override get subtitle(): string {
+    return 'Reusable data questions and visualizations';
+  }
+
+  protected override get createDialogTitle(): string {
+    return 'Create New Question';
+  }
+
+  protected override get createNameLabel(): string {
+    return 'Name';
+  }
+
+  protected override get createNamePlaceholder(): string {
+    return 'Enter question name';
+  }
+
+  protected override get createButtonLabel(): string {
+    return 'New Question';
+  }
+
+  protected override get itemCount(): number {
+    return questionList().length;
+  }
+
+  protected override get itemCountLabel(): string {
+    return 'question';
+  }
+
+  protected override _titleIcon(): TemplateResult {
+    return icon(MessageSquare, { size: 32 });
+  }
+
+  protected override _handleCreate(): void {
     this.dispatchEvent(
-      new CustomEvent<string>('question-create', {
-        detail: q.slug,
+      new CustomEvent('question-create', {
+        detail: { name: this._newItemName.trim() },
         bubbles: true,
         composed: true,
       }),
     );
   }
 
+  protected override _renderGridItems(): TemplateResult {
+    const questions = questionList();
+    if (questions.length === 0) {
+      return html`
+        <div class="question-list-empty">
+          <p>No questions yet. Create your first question to get started.</p>
+        </div>
+      `;
+    }
+    return html` <div class="question-cards">${questions.map((q) => this._renderCard(q))}</div> `;
+  }
+
+  protected override _renderListItems(): TemplateResult {
+    const questions = questionList();
+    if (questions.length === 0) {
+      return html`
+        <div class="question-list-empty">
+          <p>No questions yet. Create your first question to get started.</p>
+        </div>
+      `;
+    }
+    return html`
+      <div class="question-cards list-mode">${questions.map((q) => this._renderCard(q))}</div>
+    `;
+  }
+
   private _handleSelect(slug: string): void {
     this.dispatchEvent(
-      new CustomEvent<string>('question-select', {
-        detail: slug,
+      new CustomEvent('question-select', {
+        detail: { slug },
         bubbles: true,
         composed: true,
       }),
@@ -51,16 +96,25 @@ export class QuestionList extends LitElement {
     deleteQuestion(q.slug);
     this.requestUpdate();
     this.dispatchEvent(
-      new CustomEvent<string>('question-delete', {
-        detail: q.slug,
+      new CustomEvent('question-delete', {
+        detail: { slug: q.slug },
         bubbles: true,
         composed: true,
       }),
     );
   }
 
+  private _getTypeIcon(type: string): TemplateResult {
+    const iconMap: Record<string, Parameters<typeof icon>[0]> = {
+      chart: BarChart2,
+      table: Table2,
+      kpi: TrendingUp,
+      text: FileText,
+    };
+    return icon(iconMap[type] ?? HelpCircle, { size: 20 });
+  }
+
   private _renderCard(q: QuestionConfig): TemplateResult {
-    const icon = TYPE_ICONS[q.type] ?? '?';
     const isReadOnly = q.source === 'yaml';
 
     return html`
@@ -69,15 +123,17 @@ export class QuestionList extends LitElement {
         role="button"
         tabindex="0"
         @click=${() => this._handleSelect(q.slug)}
-        @keydown=${(e: KeyboardEvent) => e.key === 'Enter' && this._handleSelect(q.slug)}
+        @keydown=${(e: KeyboardEvent) => {
+          if (e.key === 'Enter') this._handleSelect(q.slug);
+        }}
       >
-        <div class="question-card-icon" aria-hidden="true">${icon}</div>
+        <div class="question-card-icon" aria-hidden="true">${this._getTypeIcon(q.type)}</div>
         <div class="question-card-body">
           <span class="question-card-title">${q.title}</span>
           ${q.description
             ? html`<span class="question-card-desc">${q.description}</span>`
             : nothing}
-          <span class="question-card-meta">${q.type}${isReadOnly ? ' · read-only' : ''}</span>
+          <span class="question-card-meta"> ${q.type}${isReadOnly ? ' · read-only' : ''} </span>
         </div>
         ${!isReadOnly
           ? html`
@@ -91,64 +147,6 @@ export class QuestionList extends LitElement {
               </button>
             `
           : nothing}
-      </div>
-    `;
-  }
-
-  private _renderCards(): TemplateResult {
-    const gridClass = `question-cards${this._viewMode === 'list' ? ' list-mode' : ''}`;
-    return html`
-      <div class="${gridClass}">${questionList().map((q) => this._renderCard(q))}</div>
-    `;
-  }
-
-  override render(): TemplateResult {
-    const questions = questionList();
-
-    return html`
-      <div class="question-list-page">
-        <div class="question-list-header">
-          <div class="question-list-title-group">
-            <h1 class="question-list-heading">Questions</h1>
-            <span class="question-list-count">${questions.length}</span>
-          </div>
-          <div class="question-list-actions">
-            <button
-              class="question-list-view-btn ${this._viewMode === 'grid' ? 'active' : ''}"
-              @click=${() => {
-                this._viewMode = 'grid';
-              }}
-              aria-label="Grid view"
-              title="Grid view"
-            >
-              ⊞
-            </button>
-            <button
-              class="question-list-view-btn ${this._viewMode === 'list' ? 'active' : ''}"
-              @click=${() => {
-                this._viewMode = 'list';
-              }}
-              aria-label="List view"
-              title="List view"
-            >
-              ≡
-            </button>
-            <button class="question-list-create-btn" @click=${this._handleCreate}>
-              New Question
-            </button>
-          </div>
-        </div>
-
-        ${questions.length === 0
-          ? html`
-              <div class="question-list-empty">
-                <p>No questions yet.</p>
-                <button class="question-list-create-btn" @click=${this._handleCreate}>
-                  Create your first question
-                </button>
-              </div>
-            `
-          : this._renderCards()}
       </div>
     `;
   }

@@ -24,7 +24,12 @@ export class QuestionPicker extends LitElement {
   override updated(changed: Map<string, unknown>): void {
     if (changed.has('open')) {
       if (this.open) {
-        this.updateComplete.then(() => this._dialogRef.value?.showModal());
+        this._filter = '';
+        try {
+          this._dialogRef.value?.showModal();
+        } catch (err) {
+          console.error('[question-picker] showModal failed:', err);
+        }
       } else {
         this._dialogRef.value?.close();
       }
@@ -47,6 +52,10 @@ export class QuestionPicker extends LitElement {
   }
 
   private _close(): void {
+    this._dialogRef.value?.close();
+  }
+
+  private _onNativeClose(): void {
     this.dispatchEvent(new CustomEvent('picker-close', { bubbles: true, composed: true }));
   }
 
@@ -58,7 +67,7 @@ export class QuestionPicker extends LitElement {
       <dialog
         class="qpicker-modal"
         aria-labelledby="qpicker-title"
-        @close=${this._close}
+        @close=${this._onNativeClose}
         ${ref(this._dialogRef)}
       >
         <div class="qpicker-header">

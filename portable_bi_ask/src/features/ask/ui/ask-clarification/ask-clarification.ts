@@ -1,4 +1,4 @@
-import '../../../../components/ui-button';
+import '../../../../shared/ui/ui-button';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 

@@ -27,6 +27,7 @@
 
 /* 06. Components */
 @import url('./navigation.css');
+@import url('./collection.css');
 @import url('./dashboard.css');
 @import url('./ask.css');
 @import url('./feedback.css');

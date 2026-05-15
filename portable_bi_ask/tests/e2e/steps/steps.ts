@@ -200,6 +200,11 @@ Then('no widget should be selected', async function (this: BrowserWorld) {
 
 // ── Question steps ────────────────────────────────────────────────────────────
 
+When('I enter the question name {string}', async function (this: BrowserWorld, name: string) {
+  const input = this.page.locator('.modal-content input[type="text"]');
+  await input.fill(name);
+});
+
 When('I navigate to {string}', async function (this: BrowserWorld, hash: string) {
   await this.navigateToHash(hash);
 });

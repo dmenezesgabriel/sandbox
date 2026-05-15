@@ -1,5 +1,5 @@
 import '../../../question/ui/question-editor-panel';
-import '../../../../components/ui-button';
+import '../../../../shared/ui/ui-button';
 
 import { html, LitElement, type TemplateResult } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';

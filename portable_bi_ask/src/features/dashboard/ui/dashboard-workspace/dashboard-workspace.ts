@@ -1,11 +1,10 @@
 import '../dashboard-canvas';
 import '../question-picker';
 import '../widget-editor';
-import '../../../../components/ui-button';
+import '../../../../shared/ui/ui-button';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
-import { findBestPosition, migrateToGridLayout } from '../../../../grid-layout-engine';
 import { duckDBManager } from '../../../../infra/db/db';
 import type {
   CellValue,
@@ -26,6 +25,7 @@ import {
   jsonToDashboard,
   yamlToDashboard,
 } from '../../model/dashboard-yaml';
+import { findBestPosition, migrateToGridLayout } from '../../model/grid-layout-engine';
 import {
   applySqlFilters,
   exportFileBaseName,

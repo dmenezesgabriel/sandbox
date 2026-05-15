@@ -2,6 +2,7 @@ import '../widget';
 
 import { html, LitElement, nothing as renderNothing, type TemplateResult } from 'lit';
 
+import type { CellValue, Dashboard, Filters } from '../../../../shared/types/index';
 import {
   COMPONENT_RULES,
   GAP_PX,
@@ -12,8 +13,7 @@ import {
   normalizeLayout,
   resolveCollisions,
   ROW_PX,
-} from '../../../../grid-layout-engine';
-import type { CellValue, Dashboard, Filters } from '../../../../shared/types/index';
+} from '../../model/grid-layout-engine';
 
 export class DashboardCanvas extends LitElement {
   static override readonly properties = {

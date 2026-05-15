@@ -269,7 +269,6 @@
   gap: 0;
   align-items: stretch;
   height: 100%;
-  margin-left: auto;
 }
 
 .topnav-section-link {
@@ -277,7 +276,7 @@
   display: flex;
   align-items: center;
   padding: 0 var(--space-lg);
-  color: var(--color-text-muted);
+  color: var(--topnav-text);
   font-family: var(--font-body);
   font-size: var(--text-sm);
   font-weight: 500;
@@ -288,11 +287,11 @@
 }
 
 .topnav-section-link:hover {
-  color: var(--color-text);
+  color: var(--topnav-text-active);
 }
 
 .topnav-section-link.active {
-  color: var(--color-text);
+  color: var(--topnav-text-active);
 }
 
 .topnav-section-link.active::after {

@@ -1,7 +1,7 @@
 import '../../features/question/ui/question-editor';
 import '../../features/question/ui/question-list';
 import '../../components/top-nav';
-import '../../components/ui-button';
+import '../../shared/ui/ui-button';
 import '../../features/dashboard/ui/dashboard-editor';
 import '../../features/dashboard/ui/dashboard-list';
 
@@ -9,6 +9,8 @@ import { html, LitElement, type TemplateResult } from 'lit';
 
 import { addDashboard, getDashboardBySlug } from '../../features/dashboard/data/dashboard-registry';
 import { createEmptyDashboardConfig } from '../../features/dashboard/model/dashboard-config';
+import { addQuestion } from '../../features/question/data/question-registry';
+import { createEmptyQuestionConfig } from '../../features/question/model/question-config';
 import { parseHash, type Route, routeToHash } from '../routing/hash-routes';
 
 export class AppShell extends LitElement {
@@ -48,6 +50,14 @@ export class AppShell extends LitElement {
     this._navigate({ view: 'editor', slug, isNew: true });
   }
 
+  private _onQuestionCreate(e: CustomEvent<{ name: string }>): void {
+    const q = addQuestion({
+      ...createEmptyQuestionConfig(),
+      title: e.detail.name,
+    });
+    this._navigate({ view: 'question-editor', slug: q.slug, isNew: true });
+  }
+
   override render(): TemplateResult {
     const r = this._route;
 
@@ -55,10 +65,9 @@ export class AppShell extends LitElement {
       return html`
         <top-nav .activeSection=${'questions'}></top-nav>
         <question-list
-          @question-select=${(e: CustomEvent<string>) =>
-            this._navigate({ view: 'question-editor', slug: e.detail })}
-          @question-create=${(e: CustomEvent<string>) =>
-            this._navigate({ view: 'question-editor', slug: e.detail, isNew: true })}
+          @question-select=${(e: CustomEvent<{ slug: string }>) =>
+            this._navigate({ view: 'question-editor', slug: e.detail.slug })}
+          @question-create=${(e: CustomEvent<{ name: string }>) => this._onQuestionCreate(e)}
         ></question-list>
       `;
     }

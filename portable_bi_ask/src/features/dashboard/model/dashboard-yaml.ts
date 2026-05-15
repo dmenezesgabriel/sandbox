@@ -1,10 +1,5 @@
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
 
-import {
-  findBestPosition,
-  type GridItemLayout,
-  migrateToGridLayout,
-} from '../../../grid-layout-engine';
 import type {
   ChartType2,
   Dashboard,
@@ -12,6 +7,7 @@ import type {
   Position,
   WidgetConfig,
 } from '../../../shared/types/index';
+import { findBestPosition, type GridItemLayout, migrateToGridLayout } from './grid-layout-engine';
 
 function mapChartType(type: string): ChartType2 {
   const map: Record<string, ChartType2> = {

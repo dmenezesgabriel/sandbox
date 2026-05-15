@@ -6,10 +6,10 @@ Feature: Questions — CRUD
   Scenario: Create a question and delete it from the collection page
     When I navigate to "#/questions"
     And I click "New Question"
-    Then I should be on a question editor page
-    When I set the question title to "Delete Me"
+    And I enter the question name "Delete Me"
     And I click "Create"
-    And I navigate to "#/questions"
+    Then I should be on a question editor page
+    When I navigate to "#/questions"
     Then I should see "Delete Me" in the question list
     When I delete the question "Delete Me" from the list
     Then I should not see "Delete Me" in the question list

@@ -18,13 +18,7 @@ export default defineConfig({
     fileParallelism: false,
     coverage: {
       provider: 'v8',
-      include: [
-        'src/app/**/*.ts',
-        'src/components/**/*.ts',
-        'src/features/**/*.ts',
-        'src/infra/**/*.ts',
-        'src/shared/**/*.ts',
-      ],
+      include: ['src/**/*.ts'],
       exclude: ['**/*.stories.ts', '**/index.ts'],
       watermarks: {
         statements: [50, 80],

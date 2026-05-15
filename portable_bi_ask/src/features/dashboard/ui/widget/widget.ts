@@ -279,6 +279,9 @@ export class Widget extends LitElement {
       }
     });
     this._resizeObserver.observe(this);
+    requestAnimationFrame(() => {
+      this._chartInstance?.resize();
+    });
   }
 
   override render(): TemplateResult {

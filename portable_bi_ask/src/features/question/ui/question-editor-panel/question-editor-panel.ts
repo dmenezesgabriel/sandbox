@@ -250,7 +250,13 @@ export class QuestionEditorPanel extends LitElement {
       options: this.config.options,
     };
 
-    return html` <widget .config=${widgetConfig} .data=${this._previewData}></widget> `;
+    return html`
+      <app-widget
+        .config=${widgetConfig}
+        .data=${this._previewData}
+        .editMode=${false}
+      ></app-widget>
+    `;
   }
 
   override render(): TemplateResult {

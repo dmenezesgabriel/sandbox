@@ -5,92 +5,6 @@
    question-editor.css, then question-picker.css.
    ========================================================================== */
 
-/* ── Question list page ──────────────────────────────────────────────────── */
-/* ==========================================================================
-   Question List Page
-   ========================================================================== */
-
-.question-list-page {
-  padding: var(--space-xl) var(--page-padding);
-  max-width: var(--content-max-width, 1280px);
-  margin: 0 auto;
-}
-
-/* Header row */
-
-.question-list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-lg);
-  margin-bottom: var(--space-xl);
-}
-
-.question-list-title-group {
-  display: flex;
-  gap: var(--space-sm);
-  align-items: baseline;
-}
-
-.question-list-heading {
-  margin: 0;
-  color: var(--color-text);
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: 700;
-}
-
-.question-list-count {
-  color: var(--color-text-muted);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-}
-
-.question-list-actions {
-  display: flex;
-  gap: var(--space-xs);
-  align-items: center;
-}
-
-.question-list-view-btn {
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  font-size: var(--text-md);
-  cursor: pointer;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.question-list-view-btn.active,
-.question-list-view-btn:hover {
-  background: var(--color-accent);
-  color: var(--color-text-on-accent);
-  border-color: var(--color-accent);
-}
-
-.question-list-create-btn {
-  padding: 0.45rem var(--space-md);
-  border: none;
-  border-radius: var(--radius-md);
-  background: var(--color-accent);
-  color: var(--color-text-on-accent);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity var(--transition-fast);
-}
-
-.question-list-create-btn:hover {
-  opacity: 0.88;
-}
-
-/* Card grid */
-
 .question-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -209,6 +123,10 @@
 /* ==========================================================================
    Question Editor Panel
    ========================================================================== */
+
+question-editor-panel {
+  display: contents;
+}
 
 .qep-layout {
   display: grid;
@@ -422,6 +340,13 @@
   flex-direction: column;
   gap: var(--space-sm);
   overflow: hidden;
+  min-height: 0;
+}
+
+/* stylelint-disable-next-line selector-type-no-unknown */
+.qep-preview app-widget {
+  flex: 1;
+  min-height: 320px;
 }
 
 .qep-preview-label {
@@ -590,11 +515,16 @@
    Question Picker Modal
    ========================================================================== */
 
+.qpicker-modal:not([open]) {
+  display: none;
+}
+
 .qpicker-modal {
   display: flex;
   width: min(480px, 90vw);
   max-height: 70vh;
   flex-direction: column;
+  margin: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-bg);

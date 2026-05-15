@@ -1,4 +1,4 @@
-import type { WidgetType } from './shared/types/index';
+import type { WidgetType } from '../../../shared/types/index';
 
 export const GRID_COLS = 12;
 export const ROW_PX = 40; // pixels per row unit
