@@ -1,5 +1,5 @@
-import { createDefaultDashboardSeed } from '../../../app-config';
-import type { DashboardConfig } from '../../../types';
+import { createDefaultDashboardSeed } from '../../../app/app-config';
+import type { DashboardConfig } from '../../../shared/types/index';
 
 export function createEmptyDashboardConfig(title = 'New Dashboard'): DashboardConfig {
   const seed = createDefaultDashboardSeed();

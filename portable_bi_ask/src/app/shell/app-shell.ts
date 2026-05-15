@@ -1,5 +1,5 @@
-import '../../components/question-editor';
-import '../../components/question-list';
+import '../../features/question/ui/question-editor';
+import '../../features/question/ui/question-list';
 import '../../components/top-nav';
 import '../../components/ui-button';
 import '../../features/dashboard/ui/dashboard-editor';

@@ -3,7 +3,7 @@ import './index';
 import type { Meta, StoryObj } from '@storybook/web-components-vite';
 import { html } from 'lit';
 
-import type { DashboardConfig } from '../../../../types';
+import type { DashboardConfig } from '../../../../shared/types/index';
 
 type DashboardWorkspaceArgs = {
   config: DashboardConfig;

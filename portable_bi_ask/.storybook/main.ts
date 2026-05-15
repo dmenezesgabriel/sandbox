@@ -21,8 +21,8 @@ const config: StorybookConfig = {
         );
     config.resolve.alias = [
       ...existingAliases,
-      { find: 'chrono-node/en', replacement: root('../src/shims/chrono-node/en.ts') },
-      { find: 'chrono-node/pt', replacement: root('../src/shims/chrono-node/pt.ts') },
+      { find: 'chrono-node/en', replacement: root('../src/infra/shims/chrono-node/en.ts') },
+      { find: 'chrono-node/pt', replacement: root('../src/infra/shims/chrono-node/pt.ts') },
     ];
     // Suppress "unable to find package.json" warnings for packages that ship
     // non-standard layouts or are only used in tests/server code.

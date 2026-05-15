@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { DataSourceConfig } from '../../../types';
+import type { DataSourceConfig } from '../../../shared/types/index';
 import { dashboardRegistry } from '../data/dashboard-registry';
 import { createEmptyDashboardConfig } from './dashboard-config';
 

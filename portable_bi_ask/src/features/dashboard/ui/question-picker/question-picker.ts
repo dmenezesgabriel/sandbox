@@ -1,8 +1,8 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';
 
-import { questionList } from '../../../../question-registry';
-import type { QuestionConfig } from '../../../../types';
+import type { QuestionConfig } from '../../../../shared/types/index';
+import { questionList } from '../../../question/data/question-registry';
 
 const TYPE_ICONS: Record<string, string> = {
   chart: '📊',

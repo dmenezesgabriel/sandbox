@@ -1,0 +1,33 @@
+/* ==========================================================================
+   Styles Entry Point
+   Import cascade follows ITCSS-like ordering:
+     01. Tokens     — Design tokens (custom properties)
+     02. Reset      — Minimal reset for cross-browser consistency
+     03. Base       — Default element styles & typography
+     04. Animations — Shared @keyframes
+     05. Objects    — Layout, structural patterns, control primitives
+     06. Components — Feature-area styles grouped by context boundary
+   ========================================================================== */
+
+/* 01. Tokens */
+@import url('./tokens.css');
+
+/* 02. Reset */
+@import url('./reset.css');
+
+/* 03. Base */
+@import url('./base.css');
+
+/* 04. Animations */
+@import url('./animations.css');
+
+/* 05. Objects */
+@import url('./layout.css');
+@import url('./controls.css');
+
+/* 06. Components */
+@import url('./navigation.css');
+@import url('./dashboard.css');
+@import url('./ask.css');
+@import url('./feedback.css');
+@import url('./questions.css');

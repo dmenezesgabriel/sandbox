@@ -5,8 +5,8 @@ import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';
 import { LayoutGrid, List, Plus } from 'lucide';
 
-import { icon } from '../../../../icons';
-import type { DashboardConfig } from '../../../../types';
+import type { DashboardConfig } from '../../../../shared/types/index';
+import { icon } from '../../../../shared/utils/icons';
 import { dashboardList } from '../../data/dashboard-registry';
 
 type ViewMode = 'grid' | 'list';

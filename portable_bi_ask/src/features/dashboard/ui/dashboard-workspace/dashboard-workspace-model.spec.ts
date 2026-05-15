@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { DashboardFilterConfig } from '../../../../types';
+import type { DashboardFilterConfig } from '../../../../shared/types/index';
 import {
   applySqlFilters,
   exportFileBaseName,

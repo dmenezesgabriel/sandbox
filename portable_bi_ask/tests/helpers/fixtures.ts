@@ -1,5 +1,5 @@
-import { DASHBOARD_CONFIG } from '../../src/dashboard-config.ts';
-import type { DashboardConfig } from '../../src/types.ts';
+import { DASHBOARD_CONFIG } from '../../src/features/dashboard/model/dashboard-config.ts';
+import type { DashboardConfig } from '../../src/shared/types/index.ts';
 import type { NodeDuckDBManager } from './node-duckdb.ts';
 
 // Test config mirrors production field definitions but uses in-memory table

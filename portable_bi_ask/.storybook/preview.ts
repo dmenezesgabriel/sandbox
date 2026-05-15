@@ -1,4 +1,4 @@
-import '../src/styles.css';
+import '../src/shared/styles/styles.css';
 import type { Preview } from '@storybook/web-components-vite';
 
 const preview: Preview = {

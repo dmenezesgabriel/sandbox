@@ -1,15 +1,59 @@
 # Frontend target structure and migration guardrails
 
-This document locks the frontend target structure for the refactor backlog in `issues/`.
+This document reflects the **final** state after Issues 01–08.
+All compatibility shims have been removed. Import paths point directly to canonical locations.
 
-## Validated current-state constraints
+## Migration completed (Issue 08)
 
-- `src/main.ts` is the browser entry and currently imports `./styles.css` plus `./components/dashboard`.
-- `src/components/dashboard/dashboard.ts` is the current app shell and hash router, even though it sits under `components/dashboard`.
+### Shims removed
+
+- `src/types.ts` (re-exported from `src/shared/types/index`)
+- `src/utils.ts` (re-exported from `src/shared/utils/utils`)
+- `src/icons.ts` (re-exported from `src/shared/utils/icons`)
+- `src/db.ts` (re-exported from `src/infra/db/db`)
+- `src/data-source-manager.ts` (re-exported from `src/infra/data-sources/data-source-manager`)
+- `src/query-port.ts` (re-exported from `src/infra/query/query-port`)
+- `src/styles.css` (CSS redirect to `src/shared/styles/styles.css`)
+- 18 ask-model top-level shims (`src/catalog-builder.ts`, `src/ask-data.ts`, `src/ask-orchestrator.ts`, etc.)
+- `src/question-config.ts`, `src/question-registry.ts`, `src/question-yaml.ts`
+- `src/dashboard-config.ts`, `src/dashboard-registry.ts`, `src/dashboard-yaml.ts`
+- 12 `src/components/*/index.ts` shims (dashboard-_, question-_, widget*, ask-* component shims)
+
+### Directories removed
+
+- `src/styles/` (superseded by `src/shared/styles/`)
+- `src/components/dashboard-canvas/`, `src/components/dashboard-editor-header/`, `src/components/dashboard-editor/`, `src/components/dashboard-list/`, `src/components/dashboard-workspace/`, `src/components/dashboard/`
+- `src/components/question-picker/`, `src/components/widget-editor/`, `src/components/widget/`
+- `src/components/question-editor/`, `src/components/question-editor-panel/`, `src/components/question-list/`
+- `src/components/ask-clarification/`, `src/components/ask-input/`, `src/components/ask-result/`
+
+### Canonical import rules (post-Issue 08)
+
+| What you need                       | Import from                                |
+| ----------------------------------- | ------------------------------------------ |
+| All shared types                    | `…/shared/types/index`                     |
+| Utilities (formatValue, norm, etc.) | `…/shared/utils/utils`                     |
+| Icon helper                         | `…/shared/utils/icons`                     |
+| DuckDB manager                      | `…/infra/db/db`                            |
+| Data source manager                 | `…/infra/data-sources/data-source-manager` |
+| Query port type                     | `…/infra/query/query-port`                 |
+
+## Remaining src/ root files (not shims)
+
+These files live at `src/` root and were not moved in the 01-08 refactor:
+
+- `src/app-config.ts` — default dashboard seed config, used by `features/dashboard/model/dashboard-config.ts`
+- `src/grid-layout-engine.ts` + `src/grid-layout-engine.spec.ts` — grid layout utilities, used by dashboard UI
+- `src/main.ts` — thin re-export of `src/app/main.ts`
+- `src/env.d.ts` — Vite env type declaration
+
+These are candidates for future relocation (app-config → app/, grid-layout-engine → features/dashboard/model/).
+
+## Original validated constraints (now historical)
+
 - `vite.config.ts` does not provide an `@` alias for runtime code.
 - `vitest.config.ts` does provide `@ -> ./src`, so test-only imports must not be treated as runtime-safe.
 - `.storybook/main.ts` loads stories from `../src/**/*.stories.*` and hard-codes shim aliases under `src/shims/**`.
-- The repo still has many flat top-level `src/*.ts` domain files, so migration work must allow staged moves with temporary compatibility exports.
 
 ## Locked top-level structure
 
@@ -161,12 +205,82 @@ Minimum expectations:
 - grep or inspect moved imports for accidental runtime `@` usage
 - run the most relevant targeted tests for the boundary being moved
 
-## Current-to-target mapping guide
+## Current-to-target mapping guide (historical)
 
-These current files anchor the first migration steps:
+This section was used to plan migration in Issues 01–07. All moves are now complete.
 
-- `src/main.ts` -> future `src/app/main.ts`
-- `src/components/dashboard/dashboard.ts` -> app shell/routing first, then dashboard feature internals later
-- flat top-level files such as `src/dashboard-registry.ts`, `src/question-registry.ts`, `src/ask-orchestrator.ts`, `src/db.ts`, and `src/query-port.ts` -> future `features/*`, `infra/*`, or `shared/*` homes depending on ownership
+## Final directory tree snapshot (post-Issue 08)
 
-Use this guide to stage moves without changing runtime behavior before Issue 08 cleanup.
+Generated 2026-05-14 from `find src -type f -name "*.ts" -o -name "*.css" | sort`:
+
+```text
+src/
+  app-config.ts                        # seed config for default dashboard (future: src/app/)
+  env.d.ts                             # Vite env types
+  grid-layout-engine.spec.ts           # grid layout tests (future: src/features/dashboard/model/)
+  grid-layout-engine.ts                # grid layout logic (future: src/features/dashboard/model/)
+  main.ts                              # thin re-export of src/app/main.ts
+  app/
+    main.ts                            # browser entry point
+    routing/
+      hash-routes.ts
+    shell/
+      app-shell.ts
+  components/                          # cross-feature shared UI components
+    design-system.stories.ts
+    skeleton-loader/
+    spinner/
+    top-nav/
+    ui-button/
+    ui-text-field/
+  features/
+    ask/
+      index.ts
+      model/                           # ask domain logic (18 files + specs)
+        ask-data.ts, catalog-builder.ts, date-question-text.ts,
+        date-range-parser.ts, diagnostic-runner.ts, field-search.ts,
+        intent-cue-detector.ts, intent-describer.ts, month-catalog.ts,
+        narrative-generator.ts, question-parser.ts, result-analysis.ts,
+        result-analyzer.ts, semantic-field-matcher.ts, semantic-modeling.ts,
+        sql-planner.ts, sql-renderer.ts, term-matcher.ts,
+        value-filter-resolver.ts, vocabulary.ts
+      orchestration/
+        ask-orchestrator.ts, ask-orchestrator.spec.ts
+        create-dashboard-orchestrator.ts
+      ui/
+        ask-clarification/, ask-input/, ask-result/
+    dashboard/
+      index.ts
+      data/
+        dashboard-registry.ts, dashboard-registry.spec.ts
+      model/
+        dashboard-config.ts, dashboard-config.spec.ts, dashboard-yaml.ts
+      ui/
+        dashboard/, dashboard-canvas/, dashboard-editor/,
+        dashboard-editor-header/, dashboard-list/, dashboard-workspace/,
+        question-picker/, widget/, widget-editor/
+    question/
+      index.ts
+      data/
+        question-registry.ts, question-registry.spec.ts
+      model/
+        question-config.ts, question-yaml.ts, question-yaml.spec.ts
+      ui/
+        question-editor/, question-editor-panel/, question-list/
+  infra/
+    data-sources/
+      data-source-manager.ts, data-source-manager.spec.ts
+    db/
+      db.ts, db.spec.ts
+    query/
+      query-port.ts
+    shims/
+      chrono-node/en.ts, chrono-node/pt.ts
+  shared/
+    styles/
+      styles.css (+ 11 partial CSS files)
+    types/
+      ask.ts, dashboard.ts, data-source.ts, question.ts, index.ts
+    utils/
+      icons.ts, utils.ts, utils.spec.ts
+```

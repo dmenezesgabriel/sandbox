@@ -18,7 +18,13 @@ export default defineConfig({
     fileParallelism: false,
     coverage: {
       provider: 'v8',
-      include: ['src/components/**/*.ts', 'src/features/dashboard/**/*.ts'],
+      include: [
+        'src/app/**/*.ts',
+        'src/components/**/*.ts',
+        'src/features/**/*.ts',
+        'src/infra/**/*.ts',
+        'src/shared/**/*.ts',
+      ],
       exclude: ['**/*.stories.ts', '**/index.ts'],
       watermarks: {
         statements: [50, 80],
@@ -34,7 +40,12 @@ export default defineConfig({
           name: 'unit',
           environment: 'node',
           include: ['src/**/*.spec.ts', 'tests/integration/**/*.test.ts'],
-          exclude: ['src/components/**/*.spec.ts', 'src/features/dashboard/ui/**/*.spec.ts'],
+          exclude: [
+            'src/components/**/*.spec.ts',
+            'src/features/dashboard/ui/**/*.spec.ts',
+            'src/features/question/ui/**/*.spec.ts',
+            'src/features/ask/ui/**/*.spec.ts',
+          ],
           testTimeout: 30_000,
         },
       },
@@ -42,7 +53,12 @@ export default defineConfig({
         extends: true,
         test: {
           name: 'components',
-          include: ['src/components/**/*.spec.ts', 'src/features/dashboard/ui/**/*.spec.ts'],
+          include: [
+            'src/components/**/*.spec.ts',
+            'src/features/dashboard/ui/**/*.spec.ts',
+            'src/features/question/ui/**/*.spec.ts',
+            'src/features/ask/ui/**/*.spec.ts',
+          ],
           browser: {
             enabled: true,
             headless: true,

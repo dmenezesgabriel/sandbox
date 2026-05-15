@@ -1,7 +1,7 @@
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 import { ArrowLeft } from 'lucide';
 
-import { icon } from '../../icons';
+import { icon } from '../../shared/utils/icons';
 
 export class TopNav extends LitElement {
   static override readonly properties = {

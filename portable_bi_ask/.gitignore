@@ -1,6 +1,7 @@
 .playwright-cli
 node_modules
 dist
+.cache
 _
 reports
 coverage

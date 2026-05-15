@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { WidgetConfig } from '../../../../types';
+import type { WidgetConfig } from '../../../../shared/types/index';
 import { buildWidgetChartConfig, getWidgetChartJsType } from './widget-model';
 
 const baseConfig: WidgetConfig = {

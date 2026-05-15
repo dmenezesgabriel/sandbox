@@ -5,7 +5,7 @@ import type {
   Filters,
   QuestionConfig,
   WidgetConfig,
-} from '../../../../types';
+} from '../../../../shared/types/index';
 
 export type WidgetDataMap = Record<
   string,

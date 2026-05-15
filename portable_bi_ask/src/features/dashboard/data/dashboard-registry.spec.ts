@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
-import type { DashboardConfig } from '../../../types';
+import type { DashboardConfig } from '../../../shared/types/index';
 import { createEmptyDashboardConfig } from '../model/dashboard-config';
 import { dashboardRegistry, titleToSlug } from './dashboard-registry';
 

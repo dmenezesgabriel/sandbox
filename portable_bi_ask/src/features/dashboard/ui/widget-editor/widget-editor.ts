@@ -1,4 +1,4 @@
-import '../../../../components/question-editor-panel';
+import '../../../question/ui/question-editor-panel';
 import '../../../../components/ui-button';
 
 import { html, LitElement, type TemplateResult } from 'lit';
@@ -10,7 +10,7 @@ import type {
   QuestionConfig,
   WidgetConfig,
   WidgetType,
-} from '../../../../types';
+} from '../../../../shared/types/index';
 
 function widgetToQuestionConfig(w: WidgetConfig): QuestionConfig {
   return {

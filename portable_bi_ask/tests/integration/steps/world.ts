@@ -1,6 +1,6 @@
 import { Before, setWorldConstructor } from '@cucumber/cucumber';
-import { AskDataEngine } from '../../../src/ask-data.ts';
-import type { AskResult, CatalogField } from '../../../src/types.ts';
+import { AskDataEngine } from '../../../src/features/ask/model/ask-data.ts';
+import type { AskResult, CatalogField } from '../../../src/shared/types/index.ts';
 import { TEST_CONFIG, setupTestDatabase } from '../../helpers/fixtures.ts';
 import { NodeDuckDBManager } from '../../helpers/node-duckdb.ts';
 

@@ -4,8 +4,8 @@ import '../../../../components/spinner';
 import { Chart, registerables } from 'chart.js';
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
-import type { CellValue, Filters, ValueFormat, WidgetConfig } from '../../../../types';
-import { formatValue } from '../../../../utils';
+import type { CellValue, Filters, ValueFormat, WidgetConfig } from '../../../../shared/types/index';
+import { formatValue } from '../../../../shared/utils/utils';
 import { buildWidgetChartConfig } from './widget-model';
 
 Chart.register(...registerables);

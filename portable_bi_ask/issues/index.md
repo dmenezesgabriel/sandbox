@@ -12,6 +12,10 @@ This directory contains the ordered issue backlog for reorganizing the frontend 
 6. [`06-infra-and-runtime-boundary.md`](./06-infra-and-runtime-boundary.md) — move DuckDB/runtime/shim concerns into infra.
 7. [`07-shared-types-and-utils.md`](./07-shared-types-and-utils.md) — split shared types/utilities only after feature ownership is clearer.
 8. [`08-import-cleanup-and-docs.md`](./08-import-cleanup-and-docs.md) — remove transition layers, normalize imports, and document the final structure.
+9. [`09-app-config-to-app-boundary.md`](./09-app-config-to-app-boundary.md) — move app-config.ts into src/app/ where it belongs.
+10. [`10-grid-layout-engine-to-dashboard.md`](./10-grid-layout-engine-to-dashboard.md) — move grid-layout-engine into the dashboard feature model.
+11. [`11-shared-ui-components.md`](./11-shared-ui-components.md) — move cross-feature ui-button and ui-text-field into src/shared/ui/.
+12. [`12-vitest-coverage-glob-unification.md`](./12-vitest-coverage-glob-unification.md) — replace per-boundary coverage globs with a unified src/\*_/_.ts pattern.
 
 ## Dependency summary
 
@@ -23,6 +27,10 @@ This directory contains the ordered issue backlog for reorganizing the frontend 
 - 06 can begin after 01, but is safest after 05 when import ownership is clearer.
 - 07 depends on 03-06.
 - 08 depends on 01-07.
+- 09 depends on 01-08. Single-importer move, fully isolated.
+- 10 depends on 01-08. Single-feature move, fully isolated.
+- 11 depends on 01-08. Can run independently of 09 and 10.
+- 12 depends on 01-08. Recommended after 09-11 so the glob reflects the settled layout.
 
 ## Global rules carried across all issues
 

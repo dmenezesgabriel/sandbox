@@ -13,7 +13,7 @@ import {
   resolveCollisions,
   ROW_PX,
 } from '../../../../grid-layout-engine';
-import type { CellValue, Dashboard, Filters } from '../../../../types';
+import type { CellValue, Dashboard, Filters } from '../../../../shared/types/index';
 
 export class DashboardCanvas extends LitElement {
   static override readonly properties = {

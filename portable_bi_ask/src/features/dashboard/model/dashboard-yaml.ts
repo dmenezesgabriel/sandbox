@@ -11,7 +11,7 @@ import type {
   DashboardConfig,
   Position,
   WidgetConfig,
-} from '../../../types';
+} from '../../../shared/types/index';
 
 function mapChartType(type: string): ChartType2 {
   const map: Record<string, ChartType2> = {

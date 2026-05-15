@@ -1,7 +1,7 @@
 import { Given, Then, When } from '@cucumber/cucumber';
 import { strict as assert } from 'assert';
 
-import type { AskSuccessResult } from '../../../src/types.ts';
+import type { AskSuccessResult } from '../../../src/shared/types/index.ts';
 import type { AskWorld } from './world.ts';
 
 function success(world: AskWorld): AskSuccessResult {

@@ -1,6 +1,6 @@
 import { parse as parseYaml } from 'yaml';
 
-import type { DashboardConfig } from '../../../types';
+import type { DashboardConfig } from '../../../shared/types/index';
 import portableBiDashboardYaml from './dashboards/portable-bi-dashboard.yaml?raw';
 
 export function titleToSlug(title: string): string {

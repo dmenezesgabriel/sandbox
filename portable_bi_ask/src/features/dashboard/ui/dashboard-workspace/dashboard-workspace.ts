@@ -5,9 +5,8 @@ import '../../../../components/ui-button';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
-import { AskDataEngine } from '../../../../ask-data';
-import { duckDBManager } from '../../../../db';
 import { findBestPosition, migrateToGridLayout } from '../../../../grid-layout-engine';
+import { duckDBManager } from '../../../../infra/db/db';
 import type {
   CellValue,
   Dashboard,
@@ -16,8 +15,9 @@ import type {
   Filters,
   QuestionConfig,
   WidgetConfig,
-} from '../../../../types';
-import { escapeSqlString, quoteIdent, toRows } from '../../../../utils';
+} from '../../../../shared/types/index';
+import { escapeSqlString, quoteIdent, toRows } from '../../../../shared/utils/utils';
+import { AskDataEngine } from '../../../ask/model/ask-data';
 import { DASHBOARD_CONFIG } from '../../model/dashboard-config';
 import {
   configToDashboard,

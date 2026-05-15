@@ -1,21 +1,21 @@
-import '../../../../components/ask-clarification';
-import '../../../../components/ask-input';
-import '../../../../components/ask-result';
+import '../../../ask/ui/ask-clarification';
+import '../../../ask/ui/ask-input';
+import '../../../ask/ui/ask-result';
 import '../dashboard-editor-header';
 import '../widget-editor';
 import '../dashboard-workspace';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
-import { AskOrchestrator } from '../../../../ask-orchestrator';
-import { createDashboardOrchestrator } from '../../../../create-dashboard-orchestrator';
 import type {
   AskResult,
   AskSuccessResult,
   Clarification,
   ClarificationChoice,
   DashboardConfig,
-} from '../../../../types';
+} from '../../../../shared/types/index';
+import { AskOrchestrator } from '../../../ask/orchestration/ask-orchestrator';
+import { createDashboardOrchestrator } from '../../../ask/orchestration/create-dashboard-orchestrator';
 import type { DashboardMode } from '../dashboard-editor-header/dashboard-editor-header';
 
 function isAskSuccess(result: AskResult): result is AskSuccessResult {
