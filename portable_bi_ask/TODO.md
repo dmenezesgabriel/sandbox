@@ -9,3 +9,6 @@
 - Natural Language-to-SQL (NL2SQL)
 - https://github.com/hkustdial/nl2sql_handbook
 - https://promethium.ai/guides/text-to-sql-basics-benefits/
+
+- pre-commit: lint, format, unit tests
+- pre-push: integration, e2e
