@@ -180,7 +180,7 @@ export class DashboardEditor extends LitElement {
   override render(): TemplateResult {
     const c = this.config;
     return html`
-      <top-nav .dashboardSlug=${this.slug}></top-nav>
+      <top-nav></top-nav>
 
       <dashboard-editor-header
         .title=${c?.title ?? ''}

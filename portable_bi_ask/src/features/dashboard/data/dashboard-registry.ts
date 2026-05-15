@@ -10,9 +10,10 @@ export function titleToSlug(title: string): string {
     .replace(/^-|-$/g, '');
 }
 
-interface DashboardEntry {
+export interface DashboardEntry {
   slug: string;
   config: DashboardConfig;
+  source: 'yaml' | 'user';
 }
 
 const yamlModules: string[] = [portableBiDashboardYaml];
@@ -20,7 +21,7 @@ const yamlModules: string[] = [portableBiDashboardYaml];
 const staticEntries: DashboardEntry[] = yamlModules.map((yaml) => {
   const config = parseYaml(yaml) as DashboardConfig;
   const slug = titleToSlug(config.title);
-  return { slug, config };
+  return { slug, config, source: 'yaml' };
 });
 
 const PERSIST_KEY = 'persisted_dashboards_v1';
@@ -30,7 +31,7 @@ function loadPersistedDashboards(): DashboardEntry[] {
     const raw = localStorage.getItem(PERSIST_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Array<{ slug: string; config: DashboardConfig }>;
-    return parsed.map((p) => ({ slug: p.slug, config: p.config }));
+    return parsed.map((p) => ({ slug: p.slug, config: p.config, source: 'user' as const }));
   } catch {
     return [];
   }
@@ -70,14 +71,28 @@ export function addDashboard(config: DashboardConfig): string {
     slug = `${base}-${i++}`;
   }
 
-  const entry: DashboardEntry = { slug, config };
+  const entry: DashboardEntry = { slug, config, source: 'user' };
 
   dashboardList.push(entry);
   dashboardRegistry[slug] = entry.config;
 
   // only persist user-added dashboards (those not in staticEntries)
-  const persistedOnly = dashboardList.filter((e) => !staticEntries.find((s) => s.slug === e.slug));
+  const persistedOnly = dashboardList.filter((e) => e.source === 'user');
   savePersistedDashboards(persistedOnly);
 
   return slug;
+}
+
+export function deleteDashboard(slug: string): void {
+  const idx = dashboardList.findIndex((e) => e.slug === slug);
+  if (idx === -1) return;
+  const entry = dashboardList[idx];
+  if (entry.source === 'yaml') {
+    console.warn(`Cannot delete YAML-seeded dashboard: "${slug}"`);
+    return;
+  }
+  dashboardList.splice(idx, 1);
+  delete dashboardRegistry[slug];
+  const persistedOnly = dashboardList.filter((e) => e.source === 'user');
+  savePersistedDashboards(persistedOnly);
 }

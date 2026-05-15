@@ -1,10 +1,9 @@
 import { html, type TemplateResult } from 'lit';
 import { LayoutGrid } from 'lucide';
 
-import type { DashboardConfig } from '../../../../shared/types/index';
 import { CollectionList } from '../../../../shared/ui/collection-list/collection-list';
 import { icon } from '../../../../shared/utils/icons';
-import { dashboardList } from '../../data/dashboard-registry';
+import { type DashboardEntry, dashboardList, deleteDashboard } from '../../data/dashboard-registry';
 
 export class DashboardList extends CollectionList {
   public override get title(): string {
@@ -59,58 +58,71 @@ export class DashboardList extends CollectionList {
     );
   }
 
-  protected override _renderGridItems(): TemplateResult {
-    return html`
-      <div class="dashboard-grid">
-        ${dashboardList.map(
-          ({ slug, config }: { slug: string; config: DashboardConfig }) => html`
-            <button class="dashboard-card" @click=${() => this._onSelect(slug)}>
-              <div class="dashboard-card-icon">${icon(LayoutGrid, { size: 28 })}</div>
-              <div class="dashboard-card-body">
-                <h3 class="dashboard-card-title">${config.title}</h3>
-                <p class="dashboard-card-desc">${config.subtitle}</p>
-                <div class="dashboard-card-meta">
-                  <span>${config.kpis.length} KPIs</span>
-                  <span>${config.charts.length} charts</span>
-                  <span>${config.tables.length} tables</span>
-                </div>
-              </div>
-              <span class="dashboard-card-arrow">→</span>
-            </button>
-          `,
-        )}
-      </div>
-    `;
+  private _onDelete(entry: DashboardEntry): void {
+    if (!confirm(`Delete "${entry.config.title}"? This cannot be undone.`)) return;
+    deleteDashboard(entry.slug);
+    this.requestUpdate();
+    this.dispatchEvent(
+      new CustomEvent('dashboard-delete', {
+        detail: { slug: entry.slug },
+        bubbles: true,
+        composed: true,
+      }),
+    );
   }
 
   protected override _renderListItems(): TemplateResult {
+    if (dashboardList.length === 0) {
+      return html`
+        <div class="collection-list-empty">
+          <p>No dashboards yet. Create your first dashboard to get started.</p>
+        </div>
+      `;
+    }
     return html`
-      <div class="dashboard-list-table">
-        <div class="dashboard-list-header">
-          <span class="dashboard-list-col dashboard-list-col-name">Name</span>
-          <span class="dashboard-list-col dashboard-list-col-desc">Description</span>
-          <span class="dashboard-list-col dashboard-list-col-meta">Widgets</span>
-          <span class="dashboard-list-col dashboard-list-col-action"></span>
+      <div class="collection-list-table">
+        <div class="collection-list-header">
+          <span class="collection-list-col collection-list-col-name">Name</span>
+          <span class="collection-list-col collection-list-col-desc">Description</span>
+          <span class="collection-list-col collection-list-col-meta">Widgets</span>
+          <span class="collection-list-col collection-list-col-actions"></span>
         </div>
         ${dashboardList.map(
-          ({ slug, config }: { slug: string; config: DashboardConfig }) => html`
-            <button class="dashboard-list-row" @click=${() => this._onSelect(slug)}>
-              <span class="dashboard-list-col dashboard-list-col-name">
-                <span class="dashboard-list-row-icon">${icon(LayoutGrid, { size: 16 })}</span>
-                <span class="dashboard-list-row-title">${config.title}</span>
+          (entry: DashboardEntry) => html`
+            <div
+              class="collection-list-row"
+              role="button"
+              tabindex="0"
+              @click=${() => this._onSelect(entry.slug)}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') this._onSelect(entry.slug);
+              }}
+            >
+              <span class="collection-list-col collection-list-col-name">
+                <span class="collection-list-row-icon">${icon(LayoutGrid, { size: 16 })}</span>
+                <span class="collection-list-row-title">${entry.config.title}</span>
               </span>
-              <span class="dashboard-list-col dashboard-list-col-desc">${config.subtitle}</span>
-              <span class="dashboard-list-col dashboard-list-col-meta">
-                <span>${config.kpis.length}</span> KPIs
-                <span class="dashboard-list-sep">·</span>
-                <span>${config.charts.length}</span> charts
-                <span class="dashboard-list-sep">·</span>
-                <span>${config.tables.length}</span> tables
+              <span class="collection-list-col collection-list-col-desc"
+                >${entry.config.subtitle}</span
+              >
+              <span class="collection-list-col collection-list-col-meta">
+                <span>${entry.config.kpis.length}</span> KPIs
+                <span class="collection-list-sep">·</span>
+                <span>${entry.config.charts.length}</span> charts
+                <span class="collection-list-sep">·</span>
+                <span>${entry.config.tables.length}</span> tables
               </span>
-              <span class="dashboard-list-col dashboard-list-col-action">
-                <span class="dashboard-list-row-arrow">→</span>
+              <span
+                class="collection-list-col collection-list-col-actions"
+                @click=${(e: Event) => e.stopPropagation()}
+              >
+                ${this._renderRowActions(
+                  () => this._onSelect(entry.slug),
+                  () => this._onSelect(entry.slug),
+                  entry.source !== 'yaml' ? () => this._onDelete(entry) : null,
+                )}
               </span>
-            </button>
+            </div>
           `,
         )}
       </div>

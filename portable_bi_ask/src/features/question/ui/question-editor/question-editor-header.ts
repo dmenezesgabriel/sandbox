@@ -1,7 +1,6 @@
-import { html, LitElement, nothing, type TemplateResult } from 'lit';
-import { ArrowLeft } from 'lucide';
+import '../../../../shared/ui/app-breadcrumb';
 
-import { icon } from '../../../../shared/utils/icons';
+import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
 export class QuestionEditorHeader extends LitElement {
   static override readonly properties = {
@@ -55,25 +54,22 @@ export class QuestionEditorHeader extends LitElement {
 
     return html`
       <div class="qeh-header">
-        <div class="qeh-left">
-          <button
-            class="qeh-back-btn"
-            @click=${() =>
-              this.dispatchEvent(
-                new CustomEvent('question-back', { bubbles: true, composed: true }),
-              )}
-            aria-label="Back to Questions"
-          >
-            ${icon(ArrowLeft, { size: 18 })} Questions
-          </button>
-          <h1 class="qeh-title">${this.title || 'Untitled Question'}</h1>
-          ${this.isDirty
-            ? html`<span class="qeh-dirty-dot" title="Unsaved changes"></span>`
-            : nothing}
-          ${this.isYaml ? html`<span class="qeh-badge">read-only</span>` : nothing}
-        </div>
+        <app-breadcrumb
+          .items=${[
+            { label: 'Questions', href: '#/questions' },
+            { label: this.title || 'Untitled Question' },
+          ]}
+        ></app-breadcrumb>
+        <div class="qeh-header-main">
+          <div class="qeh-left">
+            <h1 class="qeh-title">${this.title || 'Untitled Question'}</h1>
+            ${this.isDirty
+              ? html`<span class="qeh-dirty-dot" title="Unsaved changes"></span>`
+              : nothing}
+          </div>
 
-        ${rightPanel}
+          ${rightPanel}
+        </div>
       </div>
     `;
   }

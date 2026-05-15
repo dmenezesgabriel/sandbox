@@ -2,6 +2,7 @@ import './index';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { AppBreadcrumb } from '../../../../shared/ui/app-breadcrumb/app-breadcrumb';
 import { DashboardEditorHeader } from './dashboard-editor-header';
 
 function mount(
@@ -76,6 +77,40 @@ describe('DashboardEditorHeader', () => {
       await el.updateComplete;
       expect(el.querySelector('.editor-edit-btn')?.textContent?.trim()).toBe('Done Editing');
       expect(el.querySelector('.editor-edit-btn')?.classList.contains('active')).toBe(true);
+      cleanup(el);
+    });
+  });
+
+  describe('breadcrumb', () => {
+    it('renders <app-breadcrumb> element', async () => {
+      const el = mount({ title: 'Sales Overview' });
+      await el.updateComplete;
+      expect(el.querySelector('app-breadcrumb')).not.toBeNull();
+      cleanup(el);
+    });
+
+    it('first breadcrumb item has label "Dashboards" and href "#/"', async () => {
+      const el = mount({ title: 'Sales Overview' });
+      await el.updateComplete;
+      const bc = el.querySelector('app-breadcrumb') as AppBreadcrumb;
+      expect(bc.items[0].label).toBe('Dashboards');
+      expect(bc.items[0].href).toBe('#/');
+      cleanup(el);
+    });
+
+    it('last breadcrumb item label matches the title prop', async () => {
+      const el = mount({ title: 'Sales Overview' });
+      await el.updateComplete;
+      const bc = el.querySelector('app-breadcrumb') as AppBreadcrumb;
+      expect(bc.items[bc.items.length - 1].label).toBe('Sales Overview');
+      cleanup(el);
+    });
+
+    it('last breadcrumb item label is "Untitled Dashboard" when title is empty string', async () => {
+      const el = mount({ title: '' });
+      await el.updateComplete;
+      const bc = el.querySelector('app-breadcrumb') as AppBreadcrumb;
+      expect(bc.items[bc.items.length - 1].label).toBe('Untitled Dashboard');
       cleanup(el);
     });
   });

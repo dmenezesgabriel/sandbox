@@ -74,7 +74,7 @@ export class AppShell extends LitElement {
 
     if (r.view === 'question-editor') {
       return html`
-        <top-nav .activeSection=${'questions'} .dashboardSlug=${'_question_'}></top-nav>
+        <top-nav .activeSection=${'questions'}></top-nav>
         <question-editor .slug=${r.slug} .isNew=${r.isNew ?? false}></question-editor>
       `;
     }

@@ -39,6 +39,7 @@ export default defineConfig({
             'src/features/dashboard/ui/**/*.spec.ts',
             'src/features/question/ui/**/*.spec.ts',
             'src/features/ask/ui/**/*.spec.ts',
+            'src/shared/ui/**/*.spec.ts',
           ],
           testTimeout: 30_000,
         },
@@ -52,6 +53,7 @@ export default defineConfig({
             'src/features/dashboard/ui/**/*.spec.ts',
             'src/features/question/ui/**/*.spec.ts',
             'src/features/ask/ui/**/*.spec.ts',
+            'src/shared/ui/**/*.spec.ts',
           ],
           browser: {
             enabled: true,

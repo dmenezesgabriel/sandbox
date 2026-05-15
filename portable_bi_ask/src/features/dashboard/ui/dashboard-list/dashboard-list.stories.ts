@@ -7,22 +7,24 @@ import { expect, fn, userEvent, waitFor } from 'storybook/test';
 type DashboardListArgs = {
   onDashboardSelect: (slug: string) => void;
   onDashboardCreate: (name: string) => void;
+  onDashboardDelete: (slug: string) => void;
 };
 
 const meta = {
   title: 'Organisms/Dashboard List',
   component: 'dashboard-list',
   tags: ['autodocs'],
-  render: ({ onDashboardSelect, onDashboardCreate }: DashboardListArgs) =>
+  render: ({ onDashboardSelect, onDashboardCreate, onDashboardDelete }: DashboardListArgs) =>
     html`<dashboard-list
       @dashboard-select=${(e: CustomEvent<{ slug: string }>) => onDashboardSelect(e.detail.slug)}
       @dashboard-create=${(e: CustomEvent<{ name: string }>) => onDashboardCreate(e.detail.name)}
+      @dashboard-delete=${(e: CustomEvent<{ slug: string }>) => onDashboardDelete(e.detail.slug)}
     ></dashboard-list>`,
   argTypes: {
     onDashboardSelect: {
       action: 'dashboard-select',
       description:
-        'Fired when a dashboard card or row is clicked. `detail.slug` identifies the dashboard.',
+        'Fired when a dashboard row is clicked or a view/edit button is pressed. `detail.slug` identifies the dashboard.',
       table: { category: 'Events' },
     },
     onDashboardCreate: {
@@ -31,19 +33,25 @@ const meta = {
         'Fired after the user confirms the create-dashboard dialog. `detail.name` is the new name.',
       table: { category: 'Events' },
     },
+    onDashboardDelete: {
+      action: 'dashboard-delete',
+      description: 'Fired after a user-created dashboard is deleted. `detail.slug` identifies it.',
+      table: { category: 'Events' },
+    },
   },
   args: {
     onDashboardSelect: fn(),
     onDashboardCreate: fn(),
+    onDashboardDelete: fn(),
   },
   parameters: {
     layout: 'fullscreen',
     docs: {
       description: {
         component:
-          'Landing page listing all available dashboards. ' +
+          'Landing page listing all available dashboards as a CRUD table. ' +
           'Reads `dashboardList` from the registry (static YAML + localStorage). ' +
-          'Supports grid/list view toggle and a "New Dashboard" modal.',
+          'Each row has View, Edit, and Delete (user-created only) icon buttons.',
       },
     },
   },
@@ -52,19 +60,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<DashboardListArgs>;
 
-export const GridView: Story = {
+export const Default: Story = {
   parameters: {
-    docs: { description: { story: 'Default grid view showing dashboard cards.' } },
-  },
-};
-
-export const ListView: Story = {
-  name: 'Interaction — Switch to List View',
-  tags: ['!autodocs'],
-  play: async ({ canvas }) => {
-    const listBtn = canvas.getByTitle('List view');
-    await userEvent.click(listBtn);
-    await expect(canvas.getByText('Name')).toBeInTheDocument();
+    docs: { description: { story: 'List view showing the dashboard table.' } },
   },
 };
 
@@ -124,5 +122,35 @@ export const CancelCreateModalRestoresFocus: Story = {
       expect(canvas.queryByRole('dialog')).not.toBeInTheDocument();
       expect(newBtn).toHaveFocus();
     });
+  },
+};
+
+export const ViewItem: Story = {
+  name: 'Interaction — View Button Fires Select Event',
+  tags: ['!autodocs'],
+  play: async ({ canvas, args }) => {
+    const viewBtn = canvas.getAllByTitle('View')[0];
+    await userEvent.click(viewBtn);
+    await expect(args.onDashboardSelect).toHaveBeenCalledOnce();
+  },
+};
+
+export const EditItem: Story = {
+  name: 'Interaction — Edit Button Fires Select Event',
+  tags: ['!autodocs'],
+  play: async ({ canvas, args }) => {
+    const editBtn = canvas.getAllByTitle('Edit')[0];
+    await userEvent.click(editBtn);
+    await expect(args.onDashboardSelect).toHaveBeenCalledOnce();
+  },
+};
+
+export const DeleteReadOnlyHidden: Story = {
+  name: 'YAML-seeded dashboards have no delete button',
+  tags: ['!autodocs'],
+  play: async ({ canvas }) => {
+    // All seeded dashboards are YAML-sourced; no delete buttons should appear
+    const deleteButtons = canvas.queryAllByTitle('Delete');
+    await expect(deleteButtons).toHaveLength(0);
   },
 };

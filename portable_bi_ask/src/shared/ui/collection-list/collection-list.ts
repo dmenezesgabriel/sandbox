@@ -5,11 +5,9 @@ import '../../ui/ui-text-field';
 
 import { html, LitElement, nothing, type PropertyDeclarations, type TemplateResult } from 'lit';
 import { createRef, ref } from 'lit/directives/ref.js';
-import { LayoutGrid, List, Plus } from 'lucide';
+import { Eye, Pencil, Plus, Trash2 } from 'lucide';
 
 import { icon } from '../../utils/icons';
-
-type ViewMode = 'grid' | 'list';
 
 export abstract class CollectionList extends LitElement {
   // All reactive state for the scaffold lives here.
@@ -20,13 +18,11 @@ export abstract class CollectionList extends LitElement {
   //   };
   // Subclasses with NO additional reactive state omit `static properties` entirely.
   static override readonly properties: PropertyDeclarations = {
-    _viewMode: { state: true },
     _showCreateModal: { state: true },
     _newItemName: { state: true },
     _createNameError: { state: true },
   };
 
-  protected _viewMode: ViewMode = 'grid';
   protected _showCreateModal = false;
   protected _newItemName = '';
   protected _createNameError = '';
@@ -76,13 +72,8 @@ export abstract class CollectionList extends LitElement {
   // ── Abstract rendering ────────────────────────────────────────────────────
 
   /**
-   * Full grid-mode item list. Must include empty-state markup when there
-   * are no items. Must NOT include the `.collection-content` wrapper.
-   */
-  protected abstract _renderGridItems(): TemplateResult;
-
-  /**
-   * Full list-mode item view. Same rules as `_renderGridItems()`.
+   * Full item list. Must include empty-state markup when there are no items.
+   * Must NOT include the `.collection-content` wrapper.
    */
   protected abstract _renderListItems(): TemplateResult;
 
@@ -100,8 +91,35 @@ export abstract class CollectionList extends LitElement {
 
   // ── Concrete shared methods ───────────────────────────────────────────────
 
-  protected _setView(mode: ViewMode): void {
-    this._viewMode = mode;
+  /**
+   * Renders View, Edit, and (optionally) Delete icon buttons for a list row.
+   * Pass `null` for `onDelete` to suppress the delete button (read-only items).
+   */
+  protected _renderRowActions(
+    onView: () => void,
+    onEdit: () => void,
+    onDelete: (() => void) | null,
+  ): TemplateResult {
+    return html`
+      <div class="collection-list-actions">
+        <button class="collection-action-btn view" aria-label="View" title="View" @click=${onView}>
+          ${icon(Eye, { size: 16 })}
+        </button>
+        <button class="collection-action-btn edit" aria-label="Edit" title="Edit" @click=${onEdit}>
+          ${icon(Pencil, { size: 16 })}
+        </button>
+        ${onDelete !== null
+          ? html`<button
+              class="collection-action-btn delete"
+              aria-label="Delete"
+              title="Delete"
+              @click=${onDelete}
+            >
+              ${icon(Trash2, { size: 16 })}
+            </button>`
+          : nothing}
+      </div>
+    `;
   }
 
   protected _openCreateModal(): void {
@@ -161,35 +179,9 @@ export abstract class CollectionList extends LitElement {
 
         <div class="collection-toolbar">
           <div class="collection-toolbar-info">${countText}</div>
-          <div class="collection-view-toggle">
-            <button
-              class="collection-view-btn${this._viewMode === 'grid'
-                ? ' collection-view-btn-active'
-                : ''}"
-              aria-label="Grid view"
-              aria-pressed=${this._viewMode === 'grid'}
-              title="Grid view"
-              @click=${() => this._setView('grid')}
-            >
-              ${icon(LayoutGrid, { size: 16 })}
-            </button>
-            <button
-              class="collection-view-btn${this._viewMode === 'list'
-                ? ' collection-view-btn-active'
-                : ''}"
-              aria-label="List view"
-              aria-pressed=${this._viewMode === 'list'}
-              title="List view"
-              @click=${() => this._setView('list')}
-            >
-              ${icon(List, { size: 16 })}
-            </button>
-          </div>
         </div>
 
-        <div class="collection-content">
-          ${this._viewMode === 'grid' ? this._renderGridItems() : this._renderListItems()}
-        </div>
+        <div class="collection-content">${this._renderListItems()}</div>
 
         ${this._showCreateModal ? this._renderCreateModal() : nothing}
       </section>

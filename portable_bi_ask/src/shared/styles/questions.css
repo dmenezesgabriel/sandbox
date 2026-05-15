@@ -1,123 +1,7 @@
 /* ==========================================================================
-   Questions
-   Merged question management styles.
-   Source order preserved: question-list.css, question-editor-panel.css,
-   question-editor.css, then question-picker.css.
+   Questions — editor and picker styles.
+   Collection list styles live in collection.css (shared with dashboards).
    ========================================================================== */
-
-.question-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-lg);
-}
-
-.question-cards.list-mode {
-  grid-template-columns: 1fr;
-  gap: var(--space-sm);
-}
-
-/* Individual card */
-
-.question-card {
-  position: relative;
-  display: flex;
-  gap: var(--space-md);
-  align-items: flex-start;
-  padding: var(--space-md);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface);
-  cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.question-card:hover {
-  border-color: var(--color-accent);
-  box-shadow: 0 2px 12px rgb(0 0 0 / 6%);
-}
-
-.question-card:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.question-card-icon {
-  font-size: 1.4rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.question-card-body {
-  display: flex;
-  flex: 1;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.question-card-title {
-  overflow: hidden;
-  color: var(--color-text);
-  font-family: var(--font-body);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.question-card-desc {
-  overflow: hidden;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.question-card-meta {
-  color: var(--color-text-secondary);
-  font-size: var(--text-xs);
-  text-transform: capitalize;
-}
-
-.question-card-delete {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  display: none;
-  width: 1.4rem;
-  height: 1.4rem;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  cursor: pointer;
-}
-
-.question-card:hover .question-card-delete {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.question-card-delete:hover {
-  background: var(--color-danger-surface, #fee2e2);
-  color: var(--color-danger, #dc2626);
-}
-
-/* Empty state */
-
-.question-list-empty {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  align-items: center;
-  padding: var(--space-3xl) 0;
-  color: var(--color-text-muted);
-  text-align: center;
-}
 
 /* ── Question editor panel ───────────────────────────────────────────────── */
 /* ==========================================================================
@@ -384,12 +268,18 @@ question-editor-panel {
 
 .qeh-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-lg);
+  flex-direction: column;
+  gap: var(--space-xs);
   padding: var(--space-md) var(--page-padding);
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg);
+}
+
+.qeh-header-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
 }
 
 .qeh-left {
@@ -397,28 +287,6 @@ question-editor-panel {
   gap: var(--space-md);
   align-items: center;
   min-width: 0;
-}
-
-.qeh-back-btn {
-  display: flex;
-  gap: var(--space-xs);
-  align-items: center;
-  flex-shrink: 0;
-  padding: 0.3rem var(--space-sm);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition:
-    color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.qeh-back-btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
 }
 
 .qeh-title {
@@ -439,14 +307,6 @@ question-editor-panel {
   border-radius: 50%;
   background: var(--color-accent);
   flex-shrink: 0;
-}
-
-.qeh-badge {
-  padding: 0.15rem 0.45rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-hover);
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
 }
 
 .qeh-right {

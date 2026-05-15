@@ -76,10 +76,6 @@ export class QuestionEditor extends LitElement {
     window.location.hash = '#/questions';
   }
 
-  private _onBack(): void {
-    window.location.hash = '#/questions';
-  }
-
   override render(): TemplateResult {
     if (!this._config) {
       return html`<div class="qe-not-found">Question not found: ${this.slug}</div>`;
@@ -91,7 +87,6 @@ export class QuestionEditor extends LitElement {
         .isNew=${this.isNew}
         .isDirty=${this._isDirty}
         .isYaml=${this._config.source === 'yaml'}
-        @question-back=${this._onBack}
         @question-save=${this._onSave}
         @question-delete=${this._onDelete}
       ></question-editor-header>

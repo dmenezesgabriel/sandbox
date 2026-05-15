@@ -53,32 +53,6 @@ export class QuestionList extends CollectionList {
     );
   }
 
-  protected override _renderGridItems(): TemplateResult {
-    const questions = questionList();
-    if (questions.length === 0) {
-      return html`
-        <div class="question-list-empty">
-          <p>No questions yet. Create your first question to get started.</p>
-        </div>
-      `;
-    }
-    return html` <div class="question-cards">${questions.map((q) => this._renderCard(q))}</div> `;
-  }
-
-  protected override _renderListItems(): TemplateResult {
-    const questions = questionList();
-    if (questions.length === 0) {
-      return html`
-        <div class="question-list-empty">
-          <p>No questions yet. Create your first question to get started.</p>
-        </div>
-      `;
-    }
-    return html`
-      <div class="question-cards list-mode">${questions.map((q) => this._renderCard(q))}</div>
-    `;
-  }
-
   private _handleSelect(slug: string): void {
     this.dispatchEvent(
       new CustomEvent('question-select', {
@@ -89,9 +63,7 @@ export class QuestionList extends CollectionList {
     );
   }
 
-  private _handleDelete(e: Event, q: QuestionConfig): void {
-    e.stopPropagation();
-    if (q.source === 'yaml') return;
+  private _handleDelete(q: QuestionConfig): void {
     if (!confirm(`Delete "${q.title}"? This cannot be undone.`)) return;
     deleteQuestion(q.slug);
     this.requestUpdate();
@@ -111,42 +83,64 @@ export class QuestionList extends CollectionList {
       kpi: TrendingUp,
       text: FileText,
     };
-    return icon(iconMap[type] ?? HelpCircle, { size: 20 });
+    return icon(iconMap[type] ?? HelpCircle, { size: 16 });
   }
 
-  private _renderCard(q: QuestionConfig): TemplateResult {
-    const isReadOnly = q.source === 'yaml';
-
-    return html`
-      <div
-        class="question-card"
-        role="button"
-        tabindex="0"
-        @click=${() => this._handleSelect(q.slug)}
-        @keydown=${(e: KeyboardEvent) => {
-          if (e.key === 'Enter') this._handleSelect(q.slug);
-        }}
-      >
-        <div class="question-card-icon" aria-hidden="true">${this._getTypeIcon(q.type)}</div>
-        <div class="question-card-body">
-          <span class="question-card-title">${q.title}</span>
-          ${q.description
-            ? html`<span class="question-card-desc">${q.description}</span>`
-            : nothing}
-          <span class="question-card-meta"> ${q.type}${isReadOnly ? ' · read-only' : ''} </span>
+  protected override _renderListItems(): TemplateResult {
+    const questions = questionList();
+    if (questions.length === 0) {
+      return html`
+        <div class="collection-list-empty">
+          <p>No questions yet. Create your first question to get started.</p>
         </div>
-        ${!isReadOnly
-          ? html`
-              <button
-                class="question-card-delete"
-                title="Delete question"
-                aria-label="Delete ${q.title}"
-                @click=${(e: Event) => this._handleDelete(e, q)}
+      `;
+    }
+    return html`
+      <div class="collection-list-table">
+        <div class="collection-list-header">
+          <span class="collection-list-col collection-list-col-name">Name</span>
+          <span class="collection-list-col collection-list-col-desc">Description</span>
+          <span class="collection-list-col collection-list-col-meta">Type</span>
+          <span class="collection-list-col collection-list-col-actions"></span>
+        </div>
+        ${questions.map(
+          (q: QuestionConfig) => html`
+            <div
+              class="collection-list-row"
+              role="button"
+              tabindex="0"
+              @click=${() => this._handleSelect(q.slug)}
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === 'Enter') this._handleSelect(q.slug);
+              }}
+            >
+              <span class="collection-list-col collection-list-col-name">
+                <span class="collection-list-row-icon" aria-hidden="true"
+                  >${this._getTypeIcon(q.type)}</span
+                >
+                <span class="collection-list-row-title">${q.title}</span>
+              </span>
+              <span class="collection-list-col collection-list-col-desc"
+                >${q.description ?? nothing}</span
               >
-                ✕
-              </button>
-            `
-          : nothing}
+              <span class="collection-list-col collection-list-col-meta">
+                ${q.type}${q.source === 'yaml'
+                  ? html`<span class="collection-list-sep">·</span> read-only`
+                  : nothing}
+              </span>
+              <span
+                class="collection-list-col collection-list-col-actions"
+                @click=${(e: Event) => e.stopPropagation()}
+              >
+                ${this._renderRowActions(
+                  () => this._handleSelect(q.slug),
+                  () => this._handleSelect(q.slug),
+                  q.source !== 'yaml' ? () => this._handleDelete(q) : null,
+                )}
+              </span>
+            </div>
+          `,
+        )}
       </div>
     `;
   }
