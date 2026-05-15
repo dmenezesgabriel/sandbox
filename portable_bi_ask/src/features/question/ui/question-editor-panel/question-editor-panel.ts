@@ -9,6 +9,7 @@ import type {
   QuestionConfig,
   WidgetConfig,
 } from '../../../../shared/types/index';
+import { AskDataEngine } from '../../../ask/model/ask-data';
 
 const WIDGET_TYPES = ['chart', 'table', 'kpi', 'text'] as const;
 const CHART_TYPES = [
@@ -79,13 +80,34 @@ export class QuestionEditorPanel extends LitElement {
     try {
       const dsm = new DuckDBDataSourceManager(duckDBManager);
       await dsm.createViews(sources);
-      const table = await duckDBManager.query(query);
-      const rows = table
-        .toArray()
-        .map((r) => Object.fromEntries(table.schema.fields.map((f) => [f.name, r[f.name]])));
-      const labels = rows.map((r) => String(r['label'] ?? r[Object.keys(r)[0]] ?? ''));
-      const values = rows.map((r) => Number(r['value'] ?? r[Object.keys(r)[1]] ?? 0));
-      this._previewData = { labels, values, rows };
+      if (this.config?.queryType === 'nl') {
+        const engine = new AskDataEngine({ dataSources: sources }, duckDBManager);
+        await engine.initialize();
+        const result = await engine.ask(query, {});
+        if ('rows' in result && 'sql' in result) {
+          if (!result.rows.length) {
+            this._previewError = 'Natural language query returned no results.';
+          } else {
+            const labels = result.rows.map((r) =>
+              String(r.label ?? r.name ?? Object.values(r)[0] ?? ''),
+            );
+            const values = result.rows.map((r) =>
+              Number(r.value ?? Object.values(r).find((v) => typeof v === 'number') ?? 0),
+            );
+            this._previewData = { labels, values, rows: result.rows };
+          }
+        } else {
+          this._previewError = 'Natural language query returned no results.';
+        }
+      } else {
+        const table = await duckDBManager.query(query);
+        const rows = table
+          .toArray()
+          .map((r) => Object.fromEntries(table.schema.fields.map((f) => [f.name, r[f.name]])));
+        const labels = rows.map((r) => String(r['label'] ?? r[Object.keys(r)[0]] ?? ''));
+        const values = rows.map((r) => Number(r['value'] ?? r[Object.keys(r)[1]] ?? 0));
+        this._previewData = { labels, values, rows };
+      }
     } catch (err: unknown) {
       this._previewError = String(err);
     } finally {
