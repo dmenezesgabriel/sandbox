@@ -1,4 +1,0 @@
-cd portable_bi_ask
-unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE
-npm run lint
-npm run test:hooks

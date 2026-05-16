@@ -1,4 +1,7 @@
-import type { DataSourceManager } from '../../../infra/data-sources/data-source-manager';
+import type {
+  DataSourceEntry,
+  DataSourceManager,
+} from '../../../infra/data-sources/data-source-manager';
 import type {
   AskResult,
   Clarification,
@@ -12,7 +15,7 @@ export interface AskEngine {
 }
 
 export interface AskOrchestratorConfig {
-  dataSources: DashboardConfig['dataSources'];
+  dataSources: DataSourceEntry[];
   askData: DashboardConfig['askData'];
   relationships?: DashboardConfig['relationships'];
 }

@@ -14,16 +14,14 @@ function makeConfig(overrides: Partial<QuestionConfig> = {}): QuestionConfig {
     type: 'chart',
     chartType: 'bar',
     source: 'user',
-    dataSources: [{ name: 'sales', url: 'sales.csv' }],
+    dataSourceSlugs: ['superstore-sales'],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     ...overrides,
   };
 }
 
-function mount(
-  props: Partial<{ config: QuestionConfig; dataSources: unknown[] }> = {},
-): QuestionEditorPanel {
+function mount(props: Partial<{ config: QuestionConfig }> = {}): QuestionEditorPanel {
   const el = document.createElement('question-editor-panel') as QuestionEditorPanel;
   Object.assign(el, props);
   document.body.appendChild(el);
@@ -63,17 +61,17 @@ describe('QuestionEditorPanel', () => {
       cleanup(el);
     });
 
-    it('renders placeholder when no data sources are configured', async () => {
-      const el = mount({ config: makeConfig({ dataSources: [] }) });
+    it('renders placeholder when no datasource slugs are configured', async () => {
+      const el = mount({ config: makeConfig({ dataSourceSlugs: [] }) });
       await el.updateComplete;
 
       expect(el.querySelector('.qep-preview-placeholder')?.textContent).toContain(
-        'Add a data source',
+        'Link a datasource',
       );
       cleanup(el);
     });
 
-    it('renders "Run preview" placeholder when data sources are set but no preview yet', async () => {
+    it('renders "Run preview" placeholder when datasource slugs are set but no preview yet', async () => {
       const el = mount({ config: makeConfig() });
       await el.updateComplete;
 
@@ -97,6 +95,128 @@ describe('QuestionEditorPanel', () => {
       await el.updateComplete;
 
       expect(el.querySelector('.qep-layout')).toBeNull();
+      cleanup(el);
+    });
+  });
+
+  describe('_renderQuerySection()', () => {
+    it('renders ui-code-editor when queryType is "sql"', async () => {
+      const el = mount({ config: makeConfig({ queryType: 'sql', query: 'SELECT 1' }) });
+      await el.updateComplete;
+
+      expect(el.querySelector('ui-code-editor')).not.toBeNull();
+      expect(el.querySelector('textarea.qep-query-input')).toBeNull();
+      cleanup(el);
+    });
+
+    it('renders a textarea when queryType is "nl"', async () => {
+      const el = mount({ config: makeConfig({ queryType: 'nl', nlQuery: 'active users' }) });
+      await el.updateComplete;
+
+      expect(el.querySelector('textarea.qep-query-input')).not.toBeNull();
+      expect(el.querySelector('ui-code-editor')).toBeNull();
+      cleanup(el);
+    });
+
+    it('emits panel-change with updated query on ui-code-editor value-change', async () => {
+      const el = mount({ config: makeConfig({ queryType: 'sql', query: '' }) });
+      await el.updateComplete;
+
+      const received: QuestionConfig[] = [];
+      el.addEventListener('panel-change', (e) =>
+        received.push((e as CustomEvent<QuestionConfig>).detail),
+      );
+
+      const editor = el.querySelector('ui-code-editor')!;
+      editor.dispatchEvent(
+        new CustomEvent<string>('value-change', {
+          detail: 'SELECT 2',
+          bubbles: true,
+          composed: true,
+        }),
+      );
+
+      expect(received).toHaveLength(1);
+      expect(received[0].query).toBe('SELECT 2');
+      cleanup(el);
+    });
+
+    it('emits panel-change with updated nlQuery on NL textarea input', async () => {
+      const el = mount({ config: makeConfig({ queryType: 'nl', nlQuery: '' }) });
+      await el.updateComplete;
+
+      const received: QuestionConfig[] = [];
+      el.addEventListener('panel-change', (e) =>
+        received.push((e as CustomEvent<QuestionConfig>).detail),
+      );
+
+      const textarea = el.querySelector<HTMLTextAreaElement>('textarea.qep-query-input')!;
+      textarea.value = 'revenue by month';
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+      expect(received).toHaveLength(1);
+      expect(received[0].nlQuery).toBe('revenue by month');
+      cleanup(el);
+    });
+
+    it('SQL value-change does not touch nlQuery', async () => {
+      const el = mount({ config: makeConfig({ queryType: 'sql', query: '', nlQuery: 'kept' }) });
+      await el.updateComplete;
+
+      const received: QuestionConfig[] = [];
+      el.addEventListener('panel-change', (e) =>
+        received.push((e as CustomEvent<QuestionConfig>).detail),
+      );
+
+      const editor = el.querySelector('ui-code-editor')!;
+      editor.dispatchEvent(
+        new CustomEvent<string>('value-change', {
+          detail: 'SELECT 1',
+          bubbles: true,
+          composed: true,
+        }),
+      );
+
+      expect(received[0].nlQuery).toBe('kept');
+      cleanup(el);
+    });
+
+    it('NL textarea input does not touch query', async () => {
+      const el = mount({
+        config: makeConfig({ queryType: 'nl', nlQuery: '', query: 'SELECT kept' }),
+      });
+      await el.updateComplete;
+
+      const received: QuestionConfig[] = [];
+      el.addEventListener('panel-change', (e) =>
+        received.push((e as CustomEvent<QuestionConfig>).detail),
+      );
+
+      const textarea = el.querySelector<HTMLTextAreaElement>('textarea.qep-query-input')!;
+      textarea.value = 'new nl';
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+
+      expect(received[0].query).toBe('SELECT kept');
+      cleanup(el);
+    });
+
+    it('NL textarea shows nlQuery when set', async () => {
+      const el = mount({ config: makeConfig({ queryType: 'nl', nlQuery: 'top products' }) });
+      await el.updateComplete;
+
+      const textarea = el.querySelector<HTMLTextAreaElement>('textarea.qep-query-input')!;
+      expect(textarea.value).toBe('top products');
+      cleanup(el);
+    });
+
+    it('NL textarea is empty when nlQuery is undefined', async () => {
+      const el = mount({
+        config: makeConfig({ queryType: 'nl', nlQuery: undefined, query: 'SELECT 1' }),
+      });
+      await el.updateComplete;
+
+      const textarea = el.querySelector<HTMLTextAreaElement>('textarea.qep-query-input')!;
+      expect(textarea.value).toBe('');
       cleanup(el);
     });
   });

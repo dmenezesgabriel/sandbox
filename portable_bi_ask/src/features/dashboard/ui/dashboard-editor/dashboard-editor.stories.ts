@@ -14,7 +14,7 @@ type DashboardEditorArgs = {
 const EMPTY_CONFIG: DashboardConfig = {
   title: 'Sample Dashboard',
   subtitle: 'Your Data, Any Data, Instantly Explained',
-  dataSources: [],
+  dataSourceSlugs: [],
   askData: { defaultQuestion: 'Show me total sales' },
   filters: [],
   kpis: [],

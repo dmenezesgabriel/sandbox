@@ -1,0 +1,4 @@
+name: product
+description: Superstore product catalog
+type: csv
+url: 'https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/product.csv'

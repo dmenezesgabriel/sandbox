@@ -1,4 +1,5 @@
 .playwright-cli
+.vitest-attachments
 node_modules
 dist
 .cache
@@ -6,6 +7,8 @@ _
 reports
 coverage
 storybook-static
+.stryker-tmp
+
 
 context.md
 plan.md

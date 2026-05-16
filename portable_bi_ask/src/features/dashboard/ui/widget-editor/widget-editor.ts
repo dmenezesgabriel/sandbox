@@ -6,7 +6,6 @@ import { createRef, ref } from 'lit/directives/ref.js';
 
 import type {
   ChartType2,
-  DataSourceConfig,
   QuestionConfig,
   WidgetConfig,
   WidgetType,
@@ -24,7 +23,6 @@ function widgetToQuestionConfig(w: WidgetConfig): QuestionConfig {
     columns: w.columns,
     columnFormats: w.columnFormats,
     options: w.options,
-    dataSources: undefined,
     source: 'user',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -49,14 +47,14 @@ export class WidgetEditor extends LitElement {
   static override readonly properties = {
     widget: { type: Object },
     mode: { type: String },
-    dataSources: { type: Array },
+    dataSourceSlugs: { type: Array },
     _panelConfig: { state: true },
     _titleError: { state: true },
   };
 
   widget: WidgetConfig | null;
   mode: 'add' | 'edit';
-  dataSources: DataSourceConfig[];
+  dataSourceSlugs: string[];
   private _panelConfig: QuestionConfig | null = null;
   private _titleError = '';
   private _dialogRef = createRef<HTMLDialogElement>();
@@ -65,7 +63,7 @@ export class WidgetEditor extends LitElement {
     super();
     this.widget = null;
     this.mode = 'add';
-    this.dataSources = [];
+    this.dataSourceSlugs = [];
   }
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
@@ -81,6 +79,7 @@ export class WidgetEditor extends LitElement {
       type: 'chart',
       chartType: 'bar',
       queryType: 'sql',
+      dataSourceSlugs: [...this.dataSourceSlugs],
       source: 'user',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -171,7 +170,6 @@ export class WidgetEditor extends LitElement {
         <div class="editor-body">
           <question-editor-panel
             .config=${this._panelConfig}
-            .dataSources=${this.dataSources}
             .titleError=${this._titleError}
             @panel-change=${(e: CustomEvent<QuestionConfig>) => {
               this._panelConfig = e.detail;

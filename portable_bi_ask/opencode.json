@@ -16,6 +16,11 @@
         "--read-write"
       ],
       "enabled": true
+    },
+    "storybook": {
+      "type": "http",
+      "url": "http://localhost:6006/mcp",
+      "enabled": true
     }
   }
 }

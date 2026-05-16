@@ -6,7 +6,7 @@ export function createEmptyDashboardConfig(title = 'New Dashboard'): DashboardCo
   return {
     title,
     subtitle: seed.subtitle,
-    dataSources: seed.dataSources,
+    dataSourceSlugs: seed.dataSourceSlugs,
     askData: seed.askData,
     filters: seed.filters,
     kpis: [],

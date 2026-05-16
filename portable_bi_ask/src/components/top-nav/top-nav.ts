@@ -9,7 +9,7 @@ export class TopNav extends LitElement {
 
   brand = 'DataTalks';
   subtitle = '';
-  activeSection: 'dashboards' | 'questions' | '' = '';
+  activeSection: 'dashboards' | 'questions' | 'datasources' | '' = '';
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
     return this;
@@ -20,6 +20,8 @@ export class TopNav extends LitElement {
     const dashCurrent = this.activeSection === 'dashboards' ? 'page' : nothing;
     const questClass = `topnav-section-link${this.activeSection === 'questions' ? ' active' : ''}`;
     const questCurrent = this.activeSection === 'questions' ? 'page' : nothing;
+    const dsClass = `topnav-section-link${this.activeSection === 'datasources' ? ' active' : ''}`;
+    const dsCurrent = this.activeSection === 'datasources' ? 'page' : nothing;
 
     return html`
       <nav class="topnav" aria-label="Main navigation">
@@ -33,6 +35,7 @@ export class TopNav extends LitElement {
           <nav class="topnav-sections" aria-label="Sections">
             <a class="${dashClass}" href="#/" aria-current=${dashCurrent}> Dashboards </a>
             <a class="${questClass}" href="#/questions" aria-current=${questCurrent}> Questions </a>
+            <a class="${dsClass}" href="#/datasources" aria-current=${dsCurrent}> Datasources </a>
           </nav>
         </div>
         <div class="topnav-glow" aria-hidden="true"></div>

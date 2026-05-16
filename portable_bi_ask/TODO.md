@@ -12,3 +12,22 @@
 
 - pre-commit: lint, format, unit tests
 - pre-push: integration, e2e
+
+- dev containers
+- https://duckdb.org/docs/current/clients/wasm/instantiation (move to vite instead of jsdeliver)
+
+Browser SPA
+├─ window error / unhandledrejection
+├─ Web Vitals / performance
+├─ route changes
+├─ custom element lifecycle markers where useful
+├─ user interaction events
+└─ frontend logs / breadcrumbs
+↓
+Grafana Faro Web SDK
+↓
+Grafana Alloy / Faro receiver / collector
+↓
+Loki + Tempo + Prometheus/Mimir
+↓
+Grafana dashboards + alerts

@@ -1,6 +1,7 @@
 import { parse as parseYaml } from 'yaml';
 
 import type { DashboardConfig } from '../../../shared/types/index';
+import { migrateDashboards } from '../../datasource/model/datasource-migration';
 import portableBiDashboardYaml from './dashboards/portable-bi-dashboard.yaml?raw';
 
 export function titleToSlug(title: string): string {
@@ -31,7 +32,18 @@ function loadPersistedDashboards(): DashboardEntry[] {
     const raw = localStorage.getItem(PERSIST_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Array<{ slug: string; config: DashboardConfig }>;
-    return parsed.map((p) => ({ slug: p.slug, config: p.config, source: 'user' as const }));
+    const configs = parsed.map((p) => p.config);
+    const migrated = migrateDashboards(configs);
+    const changed = migrated.some((c, i) => c !== configs[i]);
+    if (changed) {
+      const toSave = parsed.map((p, i) => ({ slug: p.slug, config: migrated[i] }));
+      try {
+        localStorage.setItem(PERSIST_KEY, JSON.stringify(toSave));
+      } catch {
+        // localStorage may be unavailable in some environments; proceed without persisting
+      }
+    }
+    return parsed.map((p, i) => ({ slug: p.slug, config: migrated[i], source: 'user' as const }));
   } catch {
     return [];
   }

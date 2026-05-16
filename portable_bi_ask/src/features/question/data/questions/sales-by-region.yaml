@@ -11,11 +11,9 @@ query: >
   JOIN customer c ON s."Customer ID" = c."Customer ID"
   GROUP BY c.Region
   ORDER BY value DESC
-dataSources:
-  - name: customer
-    url: 'https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/customer.csv'
-  - name: sales
-    url: 'https://raw.githubusercontent.com/chinmoy2306/superstore_sales_analysis/refs/heads/main/sales.csv'
+dataSourceSlugs:
+  - superstore-sales
+  - superstore-customers
 options:
   aspectRatio: 1.7
   plugins:

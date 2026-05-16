@@ -1,5 +1,7 @@
 import '../../features/question/ui/question-editor';
 import '../../features/question/ui/question-list';
+import '../../features/datasource/ui/datasource-list/datasource-list';
+import '../../features/datasource/ui/datasource-editor/datasource-editor';
 import '../../components/top-nav';
 import '../../shared/ui/ui-button';
 import '../../features/dashboard/ui/dashboard-editor';
@@ -9,6 +11,7 @@ import { html, LitElement, type TemplateResult } from 'lit';
 
 import { addDashboard, getDashboardBySlug } from '../../features/dashboard/data/dashboard-registry';
 import { createEmptyDashboardConfig } from '../../features/dashboard/model/dashboard-config';
+import { addDatasource } from '../../features/datasource/data/datasource-registry';
 import { addQuestion } from '../../features/question/data/question-registry';
 import { createEmptyQuestionConfig } from '../../features/question/model/question-config';
 import { parseHash, type Route, routeToHash } from '../routing/hash-routes';
@@ -58,6 +61,11 @@ export class AppShell extends LitElement {
     this._navigate({ view: 'question-editor', slug: q.slug, isNew: true });
   }
 
+  private _onDatasourceCreate(e: CustomEvent<{ name: string }>): void {
+    const ds = addDatasource({ name: e.detail.name, type: 'csv', url: '' });
+    this._navigate({ view: 'datasource-editor', slug: ds.slug, isNew: true });
+  }
+
   override render(): TemplateResult {
     const r = this._route;
 
@@ -76,6 +84,24 @@ export class AppShell extends LitElement {
       return html`
         <top-nav .activeSection=${'questions'}></top-nav>
         <question-editor .slug=${r.slug} .isNew=${r.isNew ?? false}></question-editor>
+      `;
+    }
+
+    if (r.view === 'datasources') {
+      return html`
+        <top-nav .activeSection=${'datasources'}></top-nav>
+        <datasource-list
+          @datasource-select=${(e: CustomEvent<{ slug: string }>) =>
+            this._navigate({ view: 'datasource-editor', slug: e.detail.slug })}
+          @datasource-create=${(e: CustomEvent<{ name: string }>) => this._onDatasourceCreate(e)}
+        ></datasource-list>
+      `;
+    }
+
+    if (r.view === 'datasource-editor') {
+      return html`
+        <top-nav .activeSection=${'datasources'}></top-nav>
+        <datasource-editor .slug=${r.slug} .isNew=${r.isNew ?? false}></datasource-editor>
       `;
     }
 

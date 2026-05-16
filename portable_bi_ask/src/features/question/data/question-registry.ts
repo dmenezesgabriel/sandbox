@@ -1,4 +1,5 @@
 import type { QuestionConfig } from '../../../shared/types/index';
+import { migrateQuestions } from '../../datasource/model/datasource-migration';
 import { createEmptyQuestionConfig } from '../model/question-config';
 import { parseQuestionYaml } from '../model/question-yaml';
 import salesByRegionYaml from './questions/sales-by-region.yaml?raw';
@@ -11,7 +12,20 @@ const STORAGE_KEY = 'persisted_questions_v1';
 function loadPersistedQuestions(): QuestionConfig[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as QuestionConfig[]) : [];
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as QuestionConfig[];
+    const migrated = migrateQuestions(parsed);
+    // Persist migrated state back if any questions were promoted
+    const changed = migrated.some((q, i) => q !== parsed[i]);
+    if (changed) {
+      const userOnly = migrated.filter((q) => q.source === 'user');
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(userOnly));
+      } catch {
+        // localStorage may be unavailable in some environments; proceed without persisting
+      }
+    }
+    return migrated;
   } catch {
     return [];
   }

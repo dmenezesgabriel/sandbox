@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { DataSourceConfig } from '../../shared/types/index';
+import type { DataSourceEntry } from './data-source-manager';
 import { DuckDBDataSourceManager } from './data-source-manager';
 
 describe('DataSourceManager port', () => {
@@ -14,7 +14,7 @@ describe('DataSourceManager port', () => {
       };
 
       const manager = new DuckDBDataSourceManager(mockDb);
-      const sources: DataSourceConfig[] = [
+      const sources: DataSourceEntry[] = [
         { name: 'sales', url: 'https://example.com/sales.csv' },
         { name: 'customer', url: 'https://example.com/customer.csv' },
       ];
@@ -38,7 +38,7 @@ describe('DataSourceManager port', () => {
       };
 
       const manager = new DuckDBDataSourceManager(mockDb);
-      const sources: DataSourceConfig[] = [{ name: 'my "table"', url: "it's a url" }];
+      const sources: DataSourceEntry[] = [{ name: 'my "table"', url: "it's a url" }];
 
       await manager.createViews(sources);
 
@@ -54,7 +54,7 @@ describe('DataSourceManager port', () => {
       };
 
       const manager = new DuckDBDataSourceManager(mockDb);
-      const sources: DataSourceConfig[] = [{ name: 'sales', url: 'bad' }];
+      const sources: DataSourceEntry[] = [{ name: 'sales', url: 'bad' }];
 
       await expect(manager.createViews(sources)).rejects.toThrow('connection failed');
     });

@@ -14,7 +14,7 @@ type DashboardWorkspaceArgs = {
 const EMPTY_CONFIG: DashboardConfig = {
   title: 'Sample Dashboard',
   subtitle: 'Your Data, Any Data, Instantly Explained',
-  dataSources: [],
+  dataSourceSlugs: [],
   askData: { defaultQuestion: '' },
   filters: [],
   kpis: [],

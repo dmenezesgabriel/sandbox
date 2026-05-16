@@ -1,7 +1,6 @@
 import type { ChartConfiguration, ChartType } from 'chart.js';
 
 import type { AskDataConfig, Relationship, SourceColumnRef } from './ask';
-import type { DataSourceConfig } from './data-source';
 
 export interface DashboardFilterConfig {
   field: string;
@@ -85,7 +84,7 @@ export interface Dashboard {
 export interface DashboardConfig {
   title: string;
   subtitle: string;
-  dataSources: DataSourceConfig[];
+  dataSourceSlugs?: string[];
   askData: AskDataConfig;
   filters: DashboardFilterConfig[];
   kpis: KpiConfig[];

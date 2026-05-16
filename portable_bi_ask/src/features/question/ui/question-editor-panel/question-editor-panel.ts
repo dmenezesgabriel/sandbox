@@ -1,4 +1,7 @@
 import '../../../dashboard/ui/widget';
+import '../../../../shared/ui/code-editor';
+import '../../../../shared/ui/datasource-picker/datasource-picker';
+import '../../../../shared/ui/ui-button';
 
 import { html, LitElement, nothing, type TemplateResult } from 'lit';
 
@@ -9,7 +12,9 @@ import type {
   QuestionConfig,
   WidgetConfig,
 } from '../../../../shared/types/index';
+import { SQL } from '../../../../shared/ui/code-editor';
 import { AskDataEngine } from '../../../ask/model/ask-data';
+import { getDatasourceBySlug } from '../../../datasource/data/datasource-registry';
 
 const WIDGET_TYPES = ['chart', 'table', 'kpi', 'text'] as const;
 const CHART_TYPES = [
@@ -26,15 +31,14 @@ const CHART_TYPES = [
 export class QuestionEditorPanel extends LitElement {
   static override readonly properties = {
     config: { type: Object },
-    dataSources: { type: Array },
     titleError: { type: String },
     _previewData: { state: true },
     _previewError: { state: true },
     _previewLoading: { state: true },
+    _pickerOpen: { state: true },
   };
 
   config: QuestionConfig | null = null;
-  dataSources: DataSourceConfig[] | undefined = undefined;
   titleError = '';
 
   private _previewData: {
@@ -44,6 +48,7 @@ export class QuestionEditorPanel extends LitElement {
   } | null = null;
   private _previewError = '';
   private _previewLoading = false;
+  private _pickerOpen = false;
 
   override createRenderRoot(): HTMLElement | DocumentFragment {
     return this;
@@ -65,13 +70,20 @@ export class QuestionEditorPanel extends LitElement {
     );
   }
 
-  private get _effectiveDataSources(): DataSourceConfig[] {
-    return this.dataSources ?? this.config?.dataSources ?? [];
+  private get _resolvedDataSources(): DataSourceConfig[] {
+    const slugs = this.config?.dataSourceSlugs ?? [];
+    return slugs.map((s) => getDatasourceBySlug(s)).filter(Boolean) as DataSourceConfig[];
+  }
+
+  private get _missingDatasourceSlugs(): string[] {
+    const slugs = this.config?.dataSourceSlugs ?? [];
+    return slugs.filter((s) => !getDatasourceBySlug(s));
   }
 
   async runPreview(): Promise<void> {
-    const query = this.config?.query;
-    const sources = this._effectiveDataSources;
+    const isNl = this.config?.queryType === 'nl';
+    const query = isNl ? (this.config?.nlQuery ?? this.config?.query) : this.config?.query;
+    const sources = this._resolvedDataSources;
     if (!query || !sources.length) return;
 
     this._previewLoading = true;
@@ -80,11 +92,12 @@ export class QuestionEditorPanel extends LitElement {
     try {
       const dsm = new DuckDBDataSourceManager(duckDBManager);
       await dsm.createViews(sources);
-      if (this.config?.queryType === 'nl') {
+      if (isNl) {
         const engine = new AskDataEngine({ dataSources: sources }, duckDBManager);
         await engine.initialize();
         const result = await engine.ask(query, {});
         if ('rows' in result && 'sql' in result) {
+          this._emit({ query: result.sql });
           if (!result.rows.length) {
             this._previewError = 'Natural language query returned no results.';
           } else {
@@ -174,68 +187,88 @@ export class QuestionEditorPanel extends LitElement {
             </button>
           </div>
         </div>
-        <textarea
-          class="qep-query-input"
-          rows="5"
-          placeholder=${q.queryType === 'nl' ? 'e.g. sales by region' : 'SELECT ...'}
-          .value=${q.query ?? ''}
-          @input=${(e: Event) => this._emit({ query: (e.target as HTMLTextAreaElement).value })}
-        ></textarea>
+        ${q.queryType === 'nl'
+          ? html`<textarea
+              class="qep-query-input"
+              rows="5"
+              placeholder="e.g. sales by region"
+              .value=${q.nlQuery ?? ''}
+              @input=${(e: Event) =>
+                this._emit({ nlQuery: (e.target as HTMLTextAreaElement).value })}
+            ></textarea>`
+          : html`<ui-code-editor
+              .language=${SQL}
+              .value=${q.query ?? ''}
+              placeholder="SELECT ..."
+              @value-change=${(e: CustomEvent<string>) => this._emit({ query: e.detail })}
+            ></ui-code-editor>`}
         <button class="qep-run-btn" @click=${() => this.runPreview()}>Run preview</button>
       </section>
     `;
   }
 
   private _renderDataSourcesSection(): TemplateResult {
-    const sources = this._effectiveDataSources;
+    const slugs = this.config?.dataSourceSlugs ?? [];
+    const resolved = this._resolvedDataSources;
+    const missing = this._missingDatasourceSlugs;
+
     return html`
       <section class="qep-section">
-        <label class="qep-label">Data sources</label>
-        ${sources.length === 0
-          ? html`<p class="qep-ds-empty">
-              No data sources configured. Add at least one to run a preview.
-            </p>`
-          : sources.map(
-              (ds, i) => html`
-                <div class="qep-ds-row">
-                  <input
-                    class="qep-input"
-                    placeholder="name"
-                    .value=${ds.name}
-                    @input=${(e: Event) => {
-                      const updated = sources.map((s, idx) =>
-                        idx === i ? { ...s, name: (e.target as HTMLInputElement).value } : s,
-                      );
-                      this._emit({ dataSources: updated });
-                    }}
-                  />
-                  <input
-                    class="qep-input qep-input-url"
-                    placeholder="CSV URL"
-                    .value=${ds.url}
-                    @input=${(e: Event) => {
-                      const updated = sources.map((s, idx) =>
-                        idx === i ? { ...s, url: (e.target as HTMLInputElement).value } : s,
-                      );
-                      this._emit({ dataSources: updated });
-                    }}
-                  />
-                  <button
-                    class="qep-ds-remove"
-                    @click=${() =>
-                      this._emit({ dataSources: sources.filter((_, idx) => idx !== i) })}
-                  >
-                    ✕
-                  </button>
-                </div>
-              `,
-            )}
-        <button
-          class="qep-ds-add"
-          @click=${() => this._emit({ dataSources: [...sources, { name: '', url: '' }] })}
-        >
-          + Add data source
-        </button>
+        <label class="qep-label">Linked datasources</label>
+        ${slugs.length === 0
+          ? html`<p class="qep-ds-empty">No datasources linked. Link one to run a preview.</p>`
+          : html`
+              <ul class="qep-ds-linked-list">
+                ${resolved.map(
+                  (ds) => html`
+                    <li class="qep-ds-linked-item">
+                      <span class="qep-ds-type-tag">${ds.type.toUpperCase()}</span>
+                      <span class="qep-ds-name">${ds.name}</span>
+                      <button
+                        class="qep-ds-remove"
+                        aria-label="Remove ${ds.name}"
+                        title="Remove ${ds.name}"
+                        @click=${() =>
+                          this._emit({
+                            dataSourceSlugs: slugs.filter((s) => s !== ds.slug),
+                          })}
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  `,
+                )}
+                ${missing.map(
+                  (s) => html`
+                    <li class="qep-ds-linked-item qep-ds-missing">
+                      <span class="qep-ds-warn">⚠ "${s}" not found</span>
+                    </li>
+                  `,
+                )}
+              </ul>
+            `}
+
+        <div class="qep-ds-actions">
+          <ui-button
+            .variant=${'secondary'}
+            .size=${'sm'}
+            .content=${'Manage datasources'}
+            @click=${() => (this._pickerOpen = true)}
+          ></ui-button>
+          <a class="qep-ds-create-link" href="#/datasource/new" target="_self">
+            + Create new datasource
+          </a>
+        </div>
+
+        <datasource-picker
+          .open=${this._pickerOpen}
+          .selectedSlugs=${slugs}
+          @datasources-selected=${(e: CustomEvent<string[]>) => {
+            this._emit({ dataSourceSlugs: e.detail });
+            this._pickerOpen = false;
+          }}
+          @picker-close=${() => (this._pickerOpen = false)}
+        ></datasource-picker>
       </section>
     `;
   }
@@ -243,10 +276,10 @@ export class QuestionEditorPanel extends LitElement {
   private _renderPreview(): TemplateResult {
     if (!this.config) return html``;
 
-    const sources = this._effectiveDataSources;
+    const sources = this._resolvedDataSources;
     if (!sources.length) {
       return html`
-        <div class="qep-preview-placeholder">Add a data source to enable live preview</div>
+        <div class="qep-preview-placeholder">Link a datasource to enable live preview</div>
       `;
     }
 

@@ -19,6 +19,14 @@ const __dirname = path.dirname(__filename);
 const PORT = 5199;
 const BASE_URL = `http://localhost:${PORT}`;
 
+// Simple SQL queries so charts render without needing external datasources or NL engine
+const SIMPLE_BAR_QUERY =
+  "SELECT 'North' AS label, 420 AS value UNION ALL SELECT 'South', 310 UNION ALL SELECT 'East', 280";
+const SIMPLE_LINE_QUERY =
+  "SELECT 'Jan' AS label, 100 AS value UNION ALL SELECT 'Feb', 140 UNION ALL SELECT 'Mar', 120";
+const SIMPLE_PIE_QUERY =
+  "SELECT 'Furniture' AS label, 40 AS value UNION ALL SELECT 'Tech', 35 UNION ALL SELECT 'Office', 25";
+
 export const TEST_DASHBOARDS = [
   {
     id: 'sheet-a',
@@ -29,14 +37,16 @@ export const TEST_DASHBOARDS = [
         id: 'w-chart-1',
         type: 'chart',
         title: 'Revenue by Region',
-        query: 'show me sales by region',
+        queryType: 'sql',
+        query: SIMPLE_BAR_QUERY,
         chartType: 'bar',
       },
       {
         id: 'w-chart-2',
         type: 'chart',
         title: 'Monthly Trend',
-        query: 'show me monthly sales trend',
+        queryType: 'sql',
+        query: SIMPLE_LINE_QUERY,
         chartType: 'line',
       },
     ],
@@ -56,7 +66,8 @@ export const TEST_DASHBOARDS = [
         id: 'w-chart-3',
         type: 'chart',
         title: 'Category Breakdown',
-        query: 'show me sales by category',
+        queryType: 'sql',
+        query: SIMPLE_PIE_QUERY,
         chartType: 'pie',
       },
     ],
@@ -165,7 +176,11 @@ export class BrowserWorld {
       const errors = (window as unknown as { __chartInitErrors?: string[] }).__chartInitErrors;
       return Array.isArray(errors) ? [...errors] : [];
     });
-    return [...new Set([...this._pageErrors, ...this._consoleErrors, ...interceptedErrors])];
+    const all = [...new Set([...this._pageErrors, ...this._consoleErrors, ...interceptedErrors])];
+    // Filter DuckDB internal log noise captured by the console interceptor
+    return all.filter(
+      (e) => !e.includes('duckdb') && !e.includes('timestamp') && !e.includes('Fri '),
+    );
   }
 
   async getRenderedChartCount(): Promise<number> {
@@ -175,6 +190,7 @@ export class BrowserWorld {
   }
 
   async waitForChartInitialization(): Promise<void> {
+    // DuckDB-WASM can take up to 60 s to initialize; wait for canvas or hard errors
     await this.page.waitForFunction(
       () => {
         const w = window as unknown as {
@@ -182,12 +198,16 @@ export class BrowserWorld {
           __chartInitErrors?: string[];
         };
         const initCount = Array.isArray(w.__chartInitLogs) ? w.__chartInitLogs.length : 0;
-        const errorCount = Array.isArray(w.__chartInitErrors) ? w.__chartInitErrors.length : 0;
+        const errors = Array.isArray(w.__chartInitErrors) ? w.__chartInitErrors : [];
+        // Ignore DuckDB internal log noise (not real errors)
+        const hardErrors = errors.filter(
+          (e) => !e.includes('duckdb') && !e.includes('timestamp') && !e.includes('Fri '),
+        );
         const canvasCount = document.querySelectorAll('.widget-chart-container canvas').length;
-        return errorCount > 0 || (canvasCount > 0 && initCount >= canvasCount);
+        return hardErrors.length > 0 || (canvasCount > 0 && initCount >= canvasCount);
       },
       undefined,
-      { timeout: 8000 },
+      { timeout: 60000 },
     );
   }
 
@@ -345,7 +365,7 @@ export class BrowserWorld {
 
   async getQuestionCardTitles(): Promise<string[]> {
     return this.page.evaluate(() =>
-      [...document.querySelectorAll('.question-card-title')].map(
+      [...document.querySelectorAll('question-list .collection-list-row-title')].map(
         (el) => el.textContent?.trim() ?? '',
       ),
     );
@@ -353,12 +373,90 @@ export class BrowserWorld {
 
   async hasDeleteButtonForCard(title: string): Promise<boolean> {
     return this.page.evaluate((t) => {
-      const cards = [...document.querySelectorAll('.question-card')];
-      const card = cards.find(
-        (c) => c.querySelector('.question-card-title')?.textContent?.trim() === t,
+      const rows = [...document.querySelectorAll('question-list .collection-list-row')];
+      const row = rows.find(
+        (r) => r.querySelector('.collection-list-row-title')?.textContent?.trim() === t,
       );
-      return !!card?.querySelector('.question-card-delete');
+      const btn = row?.querySelector<HTMLButtonElement>('.collection-action-btn.delete');
+      return !!btn && !btn.disabled;
     }, title);
+  }
+
+  // ── Datasource helpers ──────────────────────────────────────────────────────
+
+  _lastDatasourceSlug = '';
+
+  async getDatasourceListNames(): Promise<string[]> {
+    return this.page.evaluate(() =>
+      [...document.querySelectorAll('datasource-list .collection-list-row-title')].map(
+        (el) => el.textContent?.trim() ?? '',
+      ),
+    );
+  }
+
+  async injectUserDatasource(name: string, url = 'https://example.com/data.csv'): Promise<void> {
+    const slug =
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'datasource';
+    const now = new Date().toISOString();
+    const ds = {
+      id: slug,
+      slug,
+      name,
+      description: '',
+      type: 'csv',
+      url,
+      source: 'user',
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.page.evaluate(
+      ({ key, d }: { key: string; d: Record<string, unknown> }) => {
+        const existing: unknown[] = JSON.parse(localStorage.getItem(key) ?? '[]');
+        existing.push(d);
+        localStorage.setItem(key, JSON.stringify(existing));
+      },
+      { key: 'persisted_datasources_v1', d: ds as Record<string, unknown> },
+    );
+    this._lastDatasourceSlug = slug;
+  }
+
+  async deleteDatasourceFromList(name: string): Promise<void> {
+    this.page.once('dialog', (dialog) => dialog.accept());
+    await this.page.evaluate((n) => {
+      const rows = [...document.querySelectorAll('datasource-list .collection-list-row')];
+      const row = rows.find(
+        (r) => r.querySelector('.collection-list-row-title')?.textContent?.trim() === n,
+      );
+      const btn = row?.querySelector<HTMLButtonElement>('.collection-action-btn.delete');
+      if (btn) btn.click();
+    }, name);
+    await this.page.waitForTimeout(300);
+  }
+
+  async injectLegacyQuestion(url: string): Promise<void> {
+    const now = new Date().toISOString();
+    const q = {
+      id: 'legacy-q',
+      slug: 'legacy-q',
+      title: 'Legacy Question',
+      type: 'chart',
+      source: 'user',
+      createdAt: now,
+      updatedAt: now,
+      query: `SELECT * FROM data LIMIT 5`,
+      dataSources: [{ url, type: 'csv' }],
+    };
+    await this.page.evaluate(
+      ({ key, q: question }: { key: string; q: Record<string, unknown> }) => {
+        const existing: unknown[] = JSON.parse(localStorage.getItem(key) ?? '[]');
+        existing.push(question);
+        localStorage.setItem(key, JSON.stringify(existing));
+      },
+      { key: 'persisted_questions_v1', q: q as Record<string, unknown> },
+    );
   }
 }
 

@@ -11,12 +11,14 @@ import type {
   Dashboard,
   DashboardConfig,
   DashboardFilterConfig,
+  DataSourceConfig,
   Filters,
   QuestionConfig,
   WidgetConfig,
 } from '../../../../shared/types/index';
 import { escapeSqlString, quoteIdent, toRows } from '../../../../shared/utils/utils';
 import { AskDataEngine } from '../../../ask/model/ask-data';
+import { getDatasourceBySlug } from '../../../datasource/data/datasource-registry';
 import { DASHBOARD_CONFIG } from '../../model/dashboard-config';
 import {
   configToDashboard,
@@ -148,10 +150,16 @@ export class DashboardWorkspace extends LitElement {
     return this.sheets.find((dashboard) => dashboard.id === this.activeSheetId);
   }
 
+  private get _resolvedDataSources(): DataSourceConfig[] {
+    const slugs = this.config?.dataSourceSlugs ?? [];
+    return slugs.map((s) => getDatasourceBySlug(s)).filter(Boolean) as DataSourceConfig[];
+  }
+
   private async _ensureDataReady(): Promise<void> {
     if (this._dataReady) return;
     try {
-      for (const source of this.config.dataSources) {
+      const sources = this._resolvedDataSources;
+      for (const source of sources) {
         console.info(`[sheets] creating view ${source.name} from ${source.url}`);
         try {
           await duckDBManager.query(
@@ -647,7 +655,7 @@ export class DashboardWorkspace extends LitElement {
       <widget-editor
         .widget=${this._editingWidget}
         .mode=${this._editingWidget ? 'edit' : 'add'}
-        .dataSources=${this.config?.dataSources ?? []}
+        .dataSourceSlugs=${this.config?.dataSourceSlugs ?? []}
         @widget-save=${this._onWidgetSave}
         @editor-cancel=${this._onEditorCancel}
       ></widget-editor>

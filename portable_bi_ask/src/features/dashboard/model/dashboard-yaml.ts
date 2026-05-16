@@ -114,7 +114,7 @@ export function configToDashboard(config: DashboardConfig): Dashboard {
 export function dashboardToYaml(sheet: Dashboard): string {
   const obj: Record<string, unknown> = {
     title: sheet.name,
-    dataSources: [],
+    dataSourceSlugs: [],
     filters: [],
     kpis: [],
     charts: [],

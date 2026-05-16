@@ -64,8 +64,8 @@ export function parseQuestionYaml(raw: string): QuestionConfig {
     columns: Array.isArray(data['columns']) ? (data['columns'] as string[]) : undefined,
     columnFormats: data['columnFormats'] as Record<string, string> | undefined,
     options: data['options'] as Record<string, unknown> | undefined,
-    dataSources: Array.isArray(data['dataSources'])
-      ? (data['dataSources'] as { name: string; url: string }[])
+    dataSourceSlugs: Array.isArray(data['dataSourceSlugs'])
+      ? (data['dataSourceSlugs'] as string[])
       : undefined,
     source: 'yaml',
     createdAt: now,
@@ -87,6 +87,6 @@ export function serializeQuestionYaml(q: QuestionConfig): string {
   if (q.columns) doc['columns'] = q.columns;
   if (q.columnFormats) doc['columnFormats'] = q.columnFormats;
   if (q.options) doc['options'] = q.options;
-  if (q.dataSources?.length) doc['dataSources'] = q.dataSources;
+  if (q.dataSourceSlugs?.length) doc['dataSourceSlugs'] = q.dataSourceSlugs;
   return stringify(doc, { indent: 2 });
 }
