@@ -91,8 +91,27 @@ export async function install(
   )
   const installed = new Set<string>()
 
+  // Platform-specific native modules and packages shimmed at runtime — skip downloading.
+  // This prevents wasted bandwidth and avoids trying to execute native .node binaries.
+  const SKIP_PKGS = new Set([
+    'fsevents',                            // macOS-only native (optional dep of chokidar)
+    '@esbuild/linux-x64', '@esbuild/linux-arm64',
+    '@esbuild/linux-x64-gnu', '@esbuild/linux-arm64-gnu',
+    '@esbuild/darwin-x64', '@esbuild/darwin-arm64',
+    '@esbuild/win32-x64',
+    '@rollup/rollup-linux-x64-gnu', '@rollup/rollup-linux-x64-musl',
+    '@rollup/rollup-linux-arm64-gnu', '@rollup/rollup-linux-arm64-musl',
+    '@rollup/rollup-darwin-x64', '@rollup/rollup-darwin-arm64',
+    '@rollup/rollup-win32-x64-msvc', '@rollup/rollup-wasm-node',
+    'lightningcss', 'lightningcss-linux-x64-gnu',
+  ])
+
   while (queue.length) {
     const { name, range, dest } = queue.shift()!
+    if (SKIP_PKGS.has(name)) {
+      log(`npm  skipping   ${name} (native/shimmed)`)
+      continue
+    }
     let meta: PackageMeta
     try { meta = await fetchMeta(name) } catch (e) {
       log(`npm WARN ${String(e)}`)

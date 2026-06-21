@@ -11,22 +11,25 @@ export function getServer(port: number): HttpServer | undefined {
 export class IncomingMessage extends Readable {
   method: string
   url: string
-  headers: Record<string, string>
+  headers: Record<string, string | string[]>
   httpVersion = '1.1'
-  socket = { remoteAddress: '127.0.0.1' }
+  socket = { remoteAddress: '127.0.0.1', localAddress: '127.0.0.1', encrypted: false }
+  complete = false
+  aborted = false
 
   constructor(opts: { method: string; url: string; headers: Record<string, string>; body?: ArrayBuffer }) {
     super()
-    this.method = opts.method
+    this.method = opts.method.toUpperCase()
     this.url = opts.url
     this.headers = opts.headers
     if (opts.body) {
       queueMicrotask(() => {
         this.emit('data', new Uint8Array(opts.body!))
         this.emit('end')
+        this.complete = true
       })
     } else {
-      queueMicrotask(() => this.emit('end'))
+      queueMicrotask(() => { this.emit('end'); this.complete = true })
     }
   }
 }
@@ -34,52 +37,101 @@ export class IncomingMessage extends Readable {
 export class ServerResponse extends Writable {
   statusCode = 200
   statusMessage = 'OK'
-  headers: Record<string, string> = { 'content-type': 'text/html' }
+  headers: Record<string, string | number | string[]> = {}
+  headersSent = false
+  writableEnded = false
+  finished = false
   private _replyPort: MessagePort | null = null
-  private _finished = false
+  private _bodyChunks: (string | Uint8Array)[] = []
 
   constructor(replyPort: MessagePort) {
     super()
     this._replyPort = replyPort
   }
 
-  setHeader(name: string, value: string | number): void {
-    this.headers[name.toLowerCase()] = String(value)
+  setHeader(name: string, value: string | number | string[]): void {
+    this.headers[name.toLowerCase()] = value
   }
 
-  getHeader(name: string): string | undefined {
+  getHeader(name: string): string | number | string[] | undefined {
     return this.headers[name.toLowerCase()]
+  }
+
+  getHeaders(): Record<string, string | number | string[]> {
+    return { ...this.headers }
+  }
+
+  hasHeader(name: string): boolean {
+    return name.toLowerCase() in this.headers
   }
 
   removeHeader(name: string): void {
     delete this.headers[name.toLowerCase()]
   }
 
-  writeHead(status: number, headers?: Record<string, string>): this {
+  writeHead(status: number, statusMsg?: string | Record<string, string | string[]>, headers?: Record<string, string | string[]>): this {
     this.statusCode = status
-    if (headers) Object.assign(this.headers, headers)
+    if (typeof statusMsg === 'string') this.statusMessage = statusMsg
+    else if (statusMsg && typeof statusMsg === 'object') headers = statusMsg as Record<string, string | string[]>
+    if (headers) Object.entries(headers).forEach(([k, v]) => { this.headers[k.toLowerCase()] = v })
+    this.headersSent = true
     return this
   }
 
-  end(body?: string | Uint8Array, _enc?: string, cb?: () => void): this {
-    if (this._finished) return this
-    this._finished = true
-    super.end(body)
+  write(chunk: string | Uint8Array, _enc?: string, cb?: () => void): boolean {
+    this.headersSent = true
+    if (typeof chunk === 'string') {
+      this._bodyChunks.push(chunk)
+    } else {
+      this._bodyChunks.push(chunk)
+    }
+    cb?.()
+    return true
+  }
 
-    const bodyStr = this.getContents()
+  end(body?: string | Uint8Array | null, _enc?: string, cb?: () => void): this {
+    if (this.writableEnded) return this
+    this.writableEnded = true
+    this.finished = true
+    this.headersSent = true
+
+    if (body != null) this._bodyChunks.push(body as string | Uint8Array)
+
+    // Merge body chunks
+    const parts = this._bodyChunks
+    let bodyOut: string | Uint8Array
+    if (parts.length === 0) {
+      bodyOut = ''
+    } else if (parts.every(p => typeof p === 'string')) {
+      bodyOut = (parts as string[]).join('')
+    } else {
+      // Mixed or binary — convert to string if possible
+      const strs = parts.map(p => typeof p === 'string' ? p : new TextDecoder().decode(p))
+      bodyOut = strs.join('')
+    }
+
+    const hdrs: Record<string, string> = {}
+    for (const [k, v] of Object.entries(this.headers)) {
+      hdrs[k] = Array.isArray(v) ? v.join(', ') : String(v)
+    }
+    if (!hdrs['content-type']) hdrs['content-type'] = 'text/html; charset=utf-8'
+
     this._replyPort?.postMessage({
       status: this.statusCode,
-      headers: this.headers,
-      body: bodyStr,
+      headers: hdrs,
+      body: bodyOut,
     })
     this._replyPort = null
     cb?.()
+    this.emit('finish')
     return this
   }
+
+  flushHeaders(): void { this.headersSent = true }
 }
 
 export class HttpServer extends EventEmitter {
-  private _handler: ((req: IncomingMessage, res: ServerResponse) => void) | null = null
+  private _handler: ((req: IncomingMessage, res: ServerResponse, next?: () => void) => void) | null = null
   private _port = 0
 
   // Called by the SW-dispatch code in the worker (index.ts)
@@ -92,14 +144,27 @@ export class HttpServer extends EventEmitter {
   }) {
     const req = new IncomingMessage(msg)
     const res = new ServerResponse(msg.replyPort)
-    this._handler?.(req, res)
+    try {
+      this._handler?.(req, res)
+    } catch (e) {
+      if (!res.writableEnded) {
+        res.writeHead(500, { 'content-type': 'text/plain' })
+        res.end(String(e))
+      }
+    }
   }
 
-  listen(port: number, cb?: () => void): this {
-    this._port = port
-    servers.set(port, this)
-    // Notify the main thread so it can tell the SW to register this port
-    self.postMessage({ type: 'server-listen', port })
+  listen(port: number | { port?: number }, hostOrCb?: string | number | (() => void), _backlogOrCb?: number | (() => void), cb?: () => void): this {
+    if (typeof port === 'object') {
+      cb = (hostOrCb as () => void) ?? cb
+      port = (port as { port?: number }).port ?? 3000
+    }
+    if (typeof hostOrCb === 'function') cb = hostOrCb
+    if (typeof _backlogOrCb === 'function') cb = _backlogOrCb
+
+    this._port = port as number
+    servers.set(this._port, this)
+    self.postMessage({ type: 'server-listen', port: this._port })
     cb?.()
     this.emit('listening')
     return this
@@ -117,14 +182,38 @@ export class HttpServer extends EventEmitter {
 }
 
 export function createServer(
-  handler: (req: IncomingMessage, res: ServerResponse) => void
+  handler?: (req: IncomingMessage, res: ServerResponse) => void
 ): HttpServer {
   const server = new HttpServer()
-  server.on('request' as string, handler as unknown as () => void)
-  // Attach handler directly for easy call
-  ;(server as unknown as { _handler: typeof handler })._handler = handler
+  if (handler) {
+    ;(server as unknown as { _handler: typeof handler })._handler = handler
+  }
   return server
 }
 
-export const http = { createServer, IncomingMessage, ServerResponse, HttpServer, STATUS_CODES: {} as Record<number, string> }
-export const https = http
+const STATUS_CODES: Record<number, string> = {
+  100: 'Continue', 200: 'OK', 201: 'Created', 204: 'No Content',
+  301: 'Moved Permanently', 302: 'Found', 304: 'Not Modified',
+  400: 'Bad Request', 401: 'Unauthorized', 403: 'Forbidden',
+  404: 'Not Found', 405: 'Method Not Allowed', 500: 'Internal Server Error',
+  503: 'Service Unavailable',
+}
+
+export const http = {
+  createServer,
+  IncomingMessage,
+  ServerResponse,
+  HttpServer,
+  STATUS_CODES,
+  METHODS: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'],
+  get: (_url: string, _opts: unknown, _cb?: unknown) => {
+    throw new Error('http.get not supported — use fetch()')
+  },
+  request: (_opts: unknown, _cb?: unknown) => {
+    throw new Error('http.request not supported — use fetch()')
+  },
+}
+export const https = {
+  ...http,
+  createServer: http.createServer,
+}

@@ -9,6 +9,14 @@ _g.process = _process
 _g.setImmediate = (fn: (...args: unknown[]) => void, ...args: unknown[]) => setTimeout(() => fn(...args), 0)
 _g.clearImmediate = (id: ReturnType<typeof setTimeout>) => clearTimeout(id)
 
+// Redirect console output to the shell terminal so npm/Vite logs are visible
+const _fmtArgs = (...args: unknown[]) => args.map(a => typeof a === 'string' ? a : (a instanceof Error ? a.stack ?? a.message : JSON.stringify(a, null, 2))).join(' ') + '\n'
+console.log = (...args: unknown[]) => self.postMessage({ type: 'stdout', text: _fmtArgs(...args) })
+console.info = console.log
+console.warn = (...args: unknown[]) => self.postMessage({ type: 'stderr', text: _fmtArgs(...args) })
+console.error = (...args: unknown[]) => self.postMessage({ type: 'stderr', text: _fmtArgs(...args) })
+console.debug = console.log
+
 import { preloadShims, requireSync, clearModuleCache } from './loader'
 import { install } from './npm'
 import { writeFileToVfs, dumpVfs } from './vfs'

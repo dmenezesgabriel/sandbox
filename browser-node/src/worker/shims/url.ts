@@ -1,4 +1,6 @@
-export { URL, URLSearchParams }
+const _URL = URL
+const _URLSearchParams = URLSearchParams
+export { _URL as URL, _URLSearchParams as URLSearchParams }
 
 export function parse(urlStr: string) {
   const u = new URL(urlStr)
