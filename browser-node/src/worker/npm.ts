@@ -3,7 +3,9 @@ import { satisfies, maxSatisfying, validRange, clean } from 'semver'
 import { writeFileToVfs, existsInVfs, mkdirpSync, memfsInstance } from './vfs'
 import { path } from './shims/path'
 
-const REGISTRY = 'https://registry.npmjs.org'
+// In dev the Vite proxy rewrites /_npm → registry.npmjs.org (avoids browser TLS issues).
+// In production (static deploy) we hit the registry directly — CORS is supported.
+const REGISTRY = import.meta.env.DEV ? '/_npm' : 'https://registry.npmjs.org'
 
 type PackageMeta = {
   name: string
@@ -58,8 +60,15 @@ function* parseTar(buf: Uint8Array): Generator<{ name: string; isFile: boolean; 
   }
 }
 
+function rewriteUrl(url: string): string {
+  if (import.meta.env.DEV) {
+    return url.replace('https://registry.npmjs.org', '/_npm')
+  }
+  return url
+}
+
 async function extractTarball(tarball: string, destDir: string) {
-  const res = await fetch(tarball)
+  const res = await fetch(rewriteUrl(tarball))
   const buf = new Uint8Array(await res.arrayBuffer())
   const tar = gunzipSync(buf)
   for (const entry of parseTar(tar)) {

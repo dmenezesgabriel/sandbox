@@ -1,4 +1,4 @@
-import { memfsInstance, existsInVfs } from './vfs'
+import { memfsInstance, existsInVfs, isFileInVfs } from './vfs'
 import { shimMap } from './shims/index'
 import { path } from './shims/path'
 
@@ -19,9 +19,9 @@ function resolveModule(specifier: string, fromDir: string): string | null {
   // Relative or absolute path
   if (specifier.startsWith('.') || specifier.startsWith('/')) {
     const abs = specifier.startsWith('/') ? specifier : path.join(fromDir, specifier)
-    for (const ext of ['', '.js', '.cjs', '.json', '/index.js', '/index.cjs']) {
+    for (const ext of ['', '.js', '.cjs', '.mjs', '.json', '/index.js', '/index.cjs', '/index.mjs']) {
       const candidate = abs + ext
-      if (existsInVfs(candidate)) return candidate
+      if (isFileInVfs(candidate)) return candidate
     }
     return null
   }
@@ -37,26 +37,31 @@ function resolveModule(specifier: string, fromDir: string): string | null {
     if (existsInVfs(nmDir)) {
       if (subpath) {
         const candidate = path.join(nmDir, subpath)
-        for (const ext of ['', '.js', '.cjs', '/index.js']) {
-          if (existsInVfs(candidate + ext)) return candidate + ext
+        for (const ext of ['', '.js', '.cjs', '.mjs', '/index.js', '/index.cjs']) {
+          if (isFileInVfs(candidate + ext)) return candidate + ext
         }
       }
-      // Resolve via package.json main field
+      // Resolve via package.json main / exports field
       const pkgJsonPath = path.join(nmDir, 'package.json')
-      if (existsInVfs(pkgJsonPath)) {
+      if (isFileInVfs(pkgJsonPath)) {
         try {
           const pkg = JSON.parse(memfsInstance.readFileSync(pkgJsonPath, 'utf8') as string)
-          const main = pkg.main || pkg.exports?.['.']?.require || pkg.exports?.['.'] || 'index.js'
-          const mainStr = typeof main === 'string' ? main : (main?.default ?? 'index.js')
+          // Try exports.require, then exports.default, then main
+          const exportsRoot = pkg.exports?.['.']
+          const main =
+            (typeof exportsRoot === 'object' ? exportsRoot?.require ?? exportsRoot?.default : exportsRoot)
+            ?? pkg.main
+            ?? 'index.js'
+          const mainStr = typeof main === 'string' ? main : 'index.js'
           const mainPath = path.join(nmDir, mainStr)
-          for (const ext of ['', '.js', '.cjs']) {
-            if (existsInVfs(mainPath + ext)) return mainPath + ext
+          for (const ext of ['', '.js', '.cjs', '.mjs']) {
+            if (isFileInVfs(mainPath + ext)) return mainPath + ext
           }
         } catch {}
       }
-      // Fallback
-      for (const idx of ['/index.js', '/index.cjs']) {
-        if (existsInVfs(nmDir + idx)) return nmDir + idx
+      // Fallback to index files
+      for (const idx of ['/index.js', '/index.cjs', '/index.mjs']) {
+        if (isFileInVfs(nmDir + idx)) return nmDir + idx
       }
     }
     const parent = path.dirname(dir)

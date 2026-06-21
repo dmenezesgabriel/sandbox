@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
-declare const self: ServiceWorkerGlobalScope
+// Service Worker: intercepts localhost fetches from the preview iframe
+// and routes them to the Express-compatible handler running in the Web Worker.
 
-// Map of port → MessageChannel port connected to the Web Worker
-const serverPorts = new Map<number, MessagePort>()
+const serverPorts = new Map()
 
 self.addEventListener('install', (e) => {
   e.waitUntil(self.skipWaiting())
@@ -12,8 +12,7 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(self.clients.claim())
 })
 
-// Shell sends us a MessageChannel port when a "server" starts listening
-self.addEventListener('message', (e: ExtendableMessageEvent) => {
+self.addEventListener('message', (e) => {
   const { type, port, listenPort } = e.data ?? {}
   if (type === 'register-server') {
     serverPorts.set(listenPort, port)
@@ -22,40 +21,26 @@ self.addEventListener('message', (e: ExtendableMessageEvent) => {
   }
 })
 
-self.addEventListener('fetch', (e: FetchEvent) => {
+self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url)
-
-  // Only intercept localhost:<port> requests from the preview iframe
   if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') return
 
   const port = url.port ? parseInt(url.port, 10) : 80
   const workerPort = serverPorts.get(port)
 
   if (!workerPort) {
-    // No server registered on this port — return a helpful error page
-    e.respondWith(
-      new Response(
-        `<html><body style="font-family:monospace;padding:20px;background:#1e1e1e;color:#f44747">
-          <h2>No server on port ${port}</h2>
-          <p>Run your code first to start a server.</p>
-        </body></html>`,
-        { status: 503, headers: { 'Content-Type': 'text/html' } }
-      )
-    )
+    // No registered server on this port — let the request pass through normally.
+    // This ensures the Vite dev server (port 5173) and other non-app ports work fine.
     return
   }
 
-  e.respondWith(forwardToWorker(workerPort, e.request, url))
+  e.respondWith(forwardToWorker(workerPort, e.request, url, port))
 })
 
-async function forwardToWorker(
-  workerPort: MessagePort,
-  request: Request,
-  url: URL
-): Promise<Response> {
+async function forwardToWorker(workerPort, request, url, listenPort) {
   const body = request.body ? await request.arrayBuffer() : null
 
-  return new Promise<Response>((resolve) => {
+  return new Promise((resolve) => {
     const { port1, port2 } = new MessageChannel()
 
     port1.onmessage = (e) => {
@@ -67,7 +52,7 @@ async function forwardToWorker(
     workerPort.postMessage(
       {
         type: 'http-request',
-        listenPort: port,
+        listenPort,
         method: request.method,
         url: url.pathname + url.search,
         headers: Object.fromEntries(request.headers.entries()),

@@ -1,6 +1,9 @@
+import { Buffer } from 'buffer'
+import { process } from './process'
 import { path } from './path'
 import { EventEmitter } from './events'
 import { Readable, Writable, Transform, PassThrough, Stream } from './stream'
+import defaultStream from './stream'
 import { util } from './util'
 import { os } from './os'
 import { crypto } from './crypto'
@@ -17,11 +20,74 @@ export { http, https } from './http'
 export { getServer } from './http'
 export { fs, fsPromises } from './fs'
 
-// Synchronous shim registry (no dynamic imports — avoids bundler warnings)
+const _url = { URL, URLSearchParams, parse: (u: string) => new URL(u), format: (u: URL | string) => typeof u === 'string' ? u : u.href }
+const _buffer = { Buffer, default: Buffer }
+const _events = { EventEmitter, default: EventEmitter }
+const _querystring = {
+  stringify: (obj: Record<string, string>) => new URLSearchParams(obj).toString(),
+  parse: (s: string) => Object.fromEntries(new URLSearchParams(s)),
+}
+const _assert = {
+  default: (val: unknown, msg?: string) => { if (!val) throw new Error(msg ?? 'Assertion failed') },
+  strictEqual: (a: unknown, b: unknown, msg?: string) => { if (a !== b) throw new Error(msg ?? `${a} !== ${b}`) },
+  deepStrictEqual: (a: unknown, b: unknown, msg?: string) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(msg ?? 'Not deep equal') },
+  ok: (val: unknown, msg?: string) => { if (!val) throw new Error(msg ?? 'Assertion failed') },
+  throws: (fn: () => void, msg?: string) => { try { fn(); throw new Error(msg ?? 'Expected to throw') } catch {} },
+}
+const _timers = { setTimeout, clearTimeout, setInterval, clearInterval, setImmediate: (fn: () => void) => setTimeout(fn, 0) }
+const _childProcess = {
+  exec: (_cmd: string, cb?: (err: Error | null, stdout?: string, stderr?: string) => void) => {
+    cb?.(new Error('child_process.exec not supported in browser'))
+    return { on: () => {}, kill: () => {}, stdin: null, stdout: null, stderr: null }
+  },
+  execSync: (_cmd: string) => { throw new Error('child_process.execSync not supported in browser') },
+  spawn: (_cmd: string, _args?: string[], _opts?: unknown) => {
+    const ee = { on: () => ee, emit: () => false, stdout: { on: () => {} }, stderr: { on: () => {} }, stdin: { write: () => {}, end: () => {} }, kill: () => {} }
+    return ee
+  },
+  spawnSync: (_cmd: string) => ({ status: 1, stdout: '', stderr: 'not supported', error: new Error('not supported') }),
+  fork: () => { throw new Error('child_process.fork not supported in browser') },
+}
+const _net = {
+  createServer: () => ({ listen: () => {}, close: () => {}, on: () => {} }),
+  connect: () => { throw new Error('net.connect not supported in browser') },
+  Socket: class Socket { on() { return this } write() {} end() {} destroy() {} },
+  isIP: () => 0,
+  isIPv4: () => false,
+  isIPv6: () => false,
+}
+const _tty = {
+  isatty: () => false,
+  ReadStream: class {},
+  WriteStream: class { columns = 80; rows = 24; isTTY = false },
+}
+const _readline = {
+  createInterface: () => ({ on: () => {}, close: () => {}, question: (_q: string, cb: (a: string) => void) => cb('') }),
+}
+const _zlib = {
+  gzip: (_buf: Uint8Array, cb: (e: Error | null, r?: Uint8Array) => void) => cb(null, _buf),
+  gunzip: (_buf: Uint8Array, cb: (e: Error | null, r?: Uint8Array) => void) => cb(null, _buf),
+  createGzip: () => ({ on: () => {}, pipe: (d: unknown) => d }),
+  createGunzip: () => ({ on: () => {}, pipe: (d: unknown) => d }),
+}
+const _dns = {
+  lookup: (_host: string, cb: (err: null, addr: string) => void) => cb(null, '127.0.0.1'),
+  resolve: (_host: string, cb: (err: null, addrs: string[]) => void) => cb(null, ['127.0.0.1']),
+}
+const _workerThreads = {
+  isMainThread: true,
+  Worker: class { constructor() { throw new Error('worker_threads not supported') } },
+  parentPort: null,
+  workerData: null,
+}
+
+// Synchronous shim registry — also includes node: prefixed variants for packages
+// that use require('node:fs') etc.
 export const shimMap: Record<string, unknown> = {
+  process,
   path,
-  events: { EventEmitter, default: EventEmitter },
-  stream: Stream,
+  events: _events,
+  stream: defaultStream,
   util,
   os,
   crypto,
@@ -29,25 +95,67 @@ export const shimMap: Record<string, unknown> = {
   https,
   fs,
   'fs/promises': fsPromises,
-  buffer: { Buffer },
-  url: { URL, URLSearchParams, parse: (u: string) => new URL(u) },
-  querystring: {
-    stringify: (obj: Record<string, string>) => new URLSearchParams(obj).toString(),
-    parse: (s: string) => Object.fromEntries(new URLSearchParams(s)),
-  },
-  assert: {
-    default: (val: unknown, msg?: string) => { if (!val) throw new Error(msg ?? 'Assertion failed') },
-    strictEqual: (a: unknown, b: unknown, msg?: string) => { if (a !== b) throw new Error(msg ?? `${a} !== ${b}`) },
-    ok: (val: unknown, msg?: string) => { if (!val) throw new Error(msg ?? 'Assertion failed') },
-  },
-  timers: { setTimeout, clearTimeout, setInterval, clearInterval, setImmediate: (fn: () => void) => setTimeout(fn, 0) },
+  buffer: _buffer,
+  url: _url,
+  querystring: _querystring,
+  assert: _assert,
+  timers: _timers,
   'timers/promises': {
     setTimeout: (ms: number) => new Promise(r => setTimeout(r, ms)),
     setImmediate: () => new Promise(r => setTimeout(r, 0)),
   },
   perf_hooks: { performance },
-  child_process: {
-    exec: (_cmd: string, cb: (err: Error | null) => void) => cb(new Error('child_process not supported in browser')),
-    spawn: () => { throw new Error('child_process not supported in browser') },
+  child_process: _childProcess,
+  net: _net,
+  tty: _tty,
+  readline: _readline,
+  zlib: _zlib,
+  dns: _dns,
+  cluster: { isMaster: true, isWorker: false, fork: () => { throw new Error('cluster not supported') } },
+  'worker_threads': _workerThreads,
+  'string_decoder': {
+    StringDecoder: class {
+      encoding: string
+      constructor(enc = 'utf8') { this.encoding = enc }
+      write(buf: Uint8Array) { return new TextDecoder(this.encoding).decode(buf) }
+      end() { return '' }
+    }
+  },
+  // node: prefixed aliases — required for packages that use require('node:events') etc.
+  'node:process': process,
+  'node:path': path,
+  'node:events': _events,
+  'node:stream': defaultStream,
+  'node:util': util,
+  'node:os': os,
+  'node:crypto': crypto,
+  'node:http': http,
+  'node:https': https,
+  'node:fs': fs,
+  'node:fs/promises': fsPromises,
+  'node:buffer': _buffer,
+  'node:url': _url,
+  'node:querystring': _querystring,
+  'node:assert': _assert,
+  'node:timers': _timers,
+  'node:timers/promises': {
+    setTimeout: (ms: number) => new Promise(r => setTimeout(r, ms)),
+    setImmediate: () => new Promise(r => setTimeout(r, 0)),
+  },
+  'node:perf_hooks': { performance },
+  'node:child_process': _childProcess,
+  'node:net': _net,
+  'node:tty': _tty,
+  'node:readline': _readline,
+  'node:zlib': _zlib,
+  'node:dns': _dns,
+  'node:worker_threads': _workerThreads,
+  'node:string_decoder': {
+    StringDecoder: class {
+      encoding: string
+      constructor(enc = 'utf8') { this.encoding = enc }
+      write(buf: Uint8Array) { return new TextDecoder(this.encoding).decode(buf) }
+      end() { return '' }
+    }
   },
 }

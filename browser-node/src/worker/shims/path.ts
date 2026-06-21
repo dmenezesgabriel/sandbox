@@ -1,5 +1,5 @@
 // POSIX path implementation (browsers don't have win32 paths to worry about)
-function normalize(p: string): string {
+export function normalize(p: string): string {
   if (!p) return '.'
   const abs = p.startsWith('/')
   const parts = p.split('/').filter(Boolean)
@@ -12,11 +12,11 @@ function normalize(p: string): string {
   return abs ? '/' + result : result || '.'
 }
 
-function join(...parts: string[]): string {
+export function join(...parts: string[]): string {
   return normalize(parts.filter(Boolean).join('/'))
 }
 
-function resolve(...parts: string[]): string {
+export function resolve(...parts: string[]): string {
   let resolved = ''
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i]
@@ -27,30 +27,30 @@ function resolve(...parts: string[]): string {
   return normalize(resolved)
 }
 
-function dirname(p: string): string {
+export function dirname(p: string): string {
   const idx = p.lastIndexOf('/')
   if (idx === -1) return '.'
   if (idx === 0) return '/'
   return p.slice(0, idx)
 }
 
-function basename(p: string, ext?: string): string {
+export function basename(p: string, ext?: string): string {
   const base = p.split('/').pop() ?? ''
   if (ext && base.endsWith(ext)) return base.slice(0, -ext.length)
   return base
 }
 
-function extname(p: string): string {
+export function extname(p: string): string {
   const base = basename(p)
   const idx = base.lastIndexOf('.')
   return idx > 0 ? base.slice(idx) : ''
 }
 
-function isAbsolute(p: string): boolean {
+export function isAbsolute(p: string): boolean {
   return p.startsWith('/')
 }
 
-function relative(from: string, to: string): string {
+export function relative(from: string, to: string): string {
   const fromParts = resolve(from).split('/').filter(Boolean)
   const toParts = resolve(to).split('/').filter(Boolean)
   let common = 0
@@ -58,9 +58,26 @@ function relative(from: string, to: string): string {
   return [...Array(fromParts.length - common).fill('..'), ...toParts.slice(common)].join('/') || '.'
 }
 
+export const sep = '/'
+export const delimiter = ':'
+
+export const parse = (p: string) => ({
+  root: p.startsWith('/') ? '/' : '',
+  dir: dirname(p),
+  base: basename(p),
+  ext: extname(p),
+  name: basename(p, extname(p)),
+})
+
+export const format = (o: { dir?: string; root?: string; base?: string; name?: string; ext?: string }) => {
+  const dir = o.dir || o.root || ''
+  const base = o.base || (o.name ?? '') + (o.ext ?? '')
+  return dir ? dir + '/' + base : base
+}
+
 export const path = {
-  sep: '/',
-  delimiter: ':',
+  sep,
+  delimiter,
   posix: null as unknown,
   normalize,
   join,
@@ -70,18 +87,11 @@ export const path = {
   extname,
   isAbsolute,
   relative,
-  parse: (p: string) => ({
-    root: p.startsWith('/') ? '/' : '',
-    dir: dirname(p),
-    base: basename(p),
-    ext: extname(p),
-    name: basename(p, extname(p)),
-  }),
-  format: (o: { dir?: string; root?: string; base?: string; name?: string; ext?: string }) => {
-    const dir = o.dir || o.root || ''
-    const base = o.base || (o.name ?? '') + (o.ext ?? '')
-    return dir ? dir + '/' + base : base
-  },
+  parse,
+  format,
 }
 
 path.posix = path
+export const posix = path
+
+export default path

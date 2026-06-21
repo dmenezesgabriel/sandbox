@@ -1,5 +1,9 @@
 export function inherits(ctor: Function, superCtor: Function) {
+  if (!superCtor || !superCtor.prototype) return
   Object.setPrototypeOf(ctor.prototype, superCtor.prototype)
+  Object.defineProperty(ctor.prototype, 'constructor', {
+    value: ctor, enumerable: false, writable: true, configurable: true,
+  })
 }
 
 export function promisify(fn: Function) {

@@ -25,6 +25,10 @@ export function existsInVfs(path: string): boolean {
   try { memfsInstance.statSync(path); return true } catch { return false }
 }
 
+export function isFileInVfs(path: string): boolean {
+  try { return memfsInstance.statSync(path).isFile() } catch { return false }
+}
+
 // Dump the full VFS tree (for debugging)
 export function dumpVfs(root = '/'): string {
   function walk(dir: string, indent = ''): string {

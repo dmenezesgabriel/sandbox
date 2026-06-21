@@ -57,4 +57,21 @@ export class Transform extends Writable {
 
 export class PassThrough extends Transform {}
 
-export const Stream = { Readable, Writable, Transform, PassThrough }
+// Stream class — Node.js's require('stream') returns this constructor,
+// which also has Readable/Writable/etc. as properties.
+export class Stream extends EventEmitter {
+  pipe<T extends Writable>(dest: T): T {
+    this.on('data', (chunk) => dest.write(chunk as Buffer | string))
+    this.on('end', () => dest.end())
+    return dest
+  }
+}
+
+// Attach subclasses as static properties (matches Node.js stream module shape)
+;(Stream as unknown as Record<string, unknown>).Readable = Readable
+;(Stream as unknown as Record<string, unknown>).Writable = Writable
+;(Stream as unknown as Record<string, unknown>).Transform = Transform
+;(Stream as unknown as Record<string, unknown>).PassThrough = PassThrough
+;(Stream as unknown as Record<string, unknown>).Stream = Stream
+
+export default Stream

@@ -1,4 +1,14 @@
 /// <reference lib="webworker" />
+// Bootstrap Node.js globals FIRST so packages that rely on them as globals find them.
+import * as _bufMod from 'buffer'
+import { process as _process } from './shims/process'
+const _g = globalThis as unknown as Record<string, unknown>
+_g.Buffer = _bufMod.Buffer
+_g.process = _process
+// Node.js globals not present in browsers
+_g.setImmediate = (fn: (...args: unknown[]) => void, ...args: unknown[]) => setTimeout(() => fn(...args), 0)
+_g.clearImmediate = (id: ReturnType<typeof setTimeout>) => clearTimeout(id)
+
 import { preloadShims, requireSync, clearModuleCache } from './loader'
 import { install } from './npm'
 import { writeFileToVfs, dumpVfs } from './vfs'

@@ -68,7 +68,10 @@ runtimeWorker.addEventListener('message', (e: MessageEvent) => {
 })
 
 runtimeWorker.addEventListener('error', (e) => {
-  appendLog('error', `[worker error] ${e.message}\n`)
+  appendLog('error', `[worker error] ${e.message || e.filename || 'unknown'} (line ${e.lineno})\n`)
+})
+runtimeWorker.addEventListener('messageerror', (e) => {
+  appendLog('error', `[worker messageerror] ${JSON.stringify(e.data)}\n`)
 })
 
 // Tell the SW about a server port so it can route requests
@@ -155,3 +158,6 @@ btnRefresh.addEventListener('click', () => {
 setStatus('Initializing...')
 appendLog('info', '[shell] Starting browser-node runtime...\n')
 registerSW()
+
+// Dev-only test hook — lets playwright-cli eval send messages to the worker
+;(window as unknown as Record<string, unknown>)._sendToWorker = (msg: unknown) => runtimeWorker.postMessage(msg)
