@@ -1,0 +1,87 @@
+// POSIX path implementation (browsers don't have win32 paths to worry about)
+function normalize(p: string): string {
+  if (!p) return '.'
+  const abs = p.startsWith('/')
+  const parts = p.split('/').filter(Boolean)
+  const out: string[] = []
+  for (const part of parts) {
+    if (part === '..') { out.pop() }
+    else if (part !== '.') out.push(part)
+  }
+  const result = out.join('/')
+  return abs ? '/' + result : result || '.'
+}
+
+function join(...parts: string[]): string {
+  return normalize(parts.filter(Boolean).join('/'))
+}
+
+function resolve(...parts: string[]): string {
+  let resolved = ''
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i]
+    resolved = resolved ? p + '/' + resolved : p
+    if (p.startsWith('/')) break
+  }
+  if (!resolved.startsWith('/')) resolved = '/' + resolved
+  return normalize(resolved)
+}
+
+function dirname(p: string): string {
+  const idx = p.lastIndexOf('/')
+  if (idx === -1) return '.'
+  if (idx === 0) return '/'
+  return p.slice(0, idx)
+}
+
+function basename(p: string, ext?: string): string {
+  const base = p.split('/').pop() ?? ''
+  if (ext && base.endsWith(ext)) return base.slice(0, -ext.length)
+  return base
+}
+
+function extname(p: string): string {
+  const base = basename(p)
+  const idx = base.lastIndexOf('.')
+  return idx > 0 ? base.slice(idx) : ''
+}
+
+function isAbsolute(p: string): boolean {
+  return p.startsWith('/')
+}
+
+function relative(from: string, to: string): string {
+  const fromParts = resolve(from).split('/').filter(Boolean)
+  const toParts = resolve(to).split('/').filter(Boolean)
+  let common = 0
+  while (common < fromParts.length && fromParts[common] === toParts[common]) common++
+  return [...Array(fromParts.length - common).fill('..'), ...toParts.slice(common)].join('/') || '.'
+}
+
+export const path = {
+  sep: '/',
+  delimiter: ':',
+  posix: null as unknown,
+  normalize,
+  join,
+  resolve,
+  dirname,
+  basename,
+  extname,
+  isAbsolute,
+  relative,
+  parse: (p: string) => ({
+    root: p.startsWith('/') ? '/' : '',
+    dir: dirname(p),
+    base: basename(p),
+    ext: extname(p),
+    name: basename(p, extname(p)),
+  }),
+  format: (o: { dir?: string; root?: string; base?: string; name?: string; ext?: string }) => {
+    const dir = o.dir || o.root || ''
+    const base = o.base || (o.name ?? '') + (o.ext ?? '')
+    return dir ? dir + '/' + base : base
+  },
+}
+
+path.posix = path

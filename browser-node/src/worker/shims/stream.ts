@@ -1,0 +1,60 @@
+import { EventEmitter } from './events'
+
+export class Readable extends EventEmitter {
+  readable = true
+  destroyed = false
+
+  pipe<T extends Writable>(dest: T): T {
+    this.on('data', (chunk) => dest.write(chunk as Buffer | string))
+    this.on('end', () => dest.end())
+    return dest
+  }
+
+  destroy(): this { this.destroyed = true; return this }
+  resume(): this { return this }
+  pause(): this { return this }
+
+  static from(iterable: Iterable<unknown>): Readable {
+    const r = new Readable()
+    queueMicrotask(async () => {
+      for (const chunk of iterable) r.emit('data', chunk)
+      r.emit('end')
+    })
+    return r
+  }
+}
+
+export class Writable extends EventEmitter {
+  writable = true
+  destroyed = false
+  private _chunks: (string | Uint8Array)[] = []
+
+  write(chunk: string | Uint8Array, _enc?: string, cb?: () => void): boolean {
+    this._chunks.push(chunk)
+    this.emit('data', chunk)
+    cb?.()
+    return true
+  }
+
+  end(chunk?: string | Uint8Array, _enc?: string, cb?: () => void): this {
+    if (chunk !== undefined) this.write(chunk)
+    this.emit('finish')
+    this.emit('end')
+    cb?.()
+    return this
+  }
+
+  destroy(): this { this.destroyed = true; return this }
+
+  getContents(): string {
+    return this._chunks.map(c => typeof c === 'string' ? c : new TextDecoder().decode(c)).join('')
+  }
+}
+
+export class Transform extends Writable {
+  readable = true
+}
+
+export class PassThrough extends Transform {}
+
+export const Stream = { Readable, Writable, Transform, PassThrough }
