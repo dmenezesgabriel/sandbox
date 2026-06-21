@@ -74,4 +74,30 @@ export function inspect(value: unknown, _opts?: unknown): string {
   return String(value)
 }
 
-export const util = { inherits, promisify, callbackify, deprecate, types, format, inspect }
+export function formatWithOptions(_opts: unknown, fmt: unknown, ...args: unknown[]): string {
+  return format(fmt, ...args)
+}
+
+export function parseEnv(content: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const idx = trimmed.indexOf('=')
+    if (idx < 1) continue
+    const key = trimmed.slice(0, idx).trim()
+    let val = trimmed.slice(idx + 1).trim()
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1)
+    }
+    out[key] = val
+  }
+  return out
+}
+
+export function stripVTControlCharacters(str: string): string {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\x1B\[[0-9;]*[mGKHFJABCDEF]/g, '').replace(/\x1B\][^\x07]*\x07/g, '')
+}
+
+export const util = { inherits, promisify, callbackify, deprecate, types, format, inspect, formatWithOptions, parseEnv, stripVTControlCharacters }

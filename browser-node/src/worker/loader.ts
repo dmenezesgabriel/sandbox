@@ -5,6 +5,134 @@ import { path } from './shims/path'
 // Cache of resolved modules
 const moduleCache = new Map<string, { exports: unknown }>()
 
+// Detect whether a source file uses ESM syntax at the module level.
+function isEsmSource(source: string): boolean {
+  // Quick checks: ESM has top-level import/export statements
+  return /^(import|export)\s/m.test(source)
+}
+
+// Transform ESM source to CJS so it can be eval()'d in our synchronous loader.
+// This handles the patterns emitted by modern bundlers (rolldown/rollup CJS chunks).
+function esmToCjs(source: string, filePath: string): string {
+  const dir = path.dirname(filePath)
+  let result = source
+  let _ctr = 0
+
+  // Replace import.meta.* references before any other transforms
+  result = result.replace(/\bimport\.meta\.url\b/g, `'file://${filePath}'`)
+  result = result.replace(/\bimport\.meta\.dirname\b/g, `'${dir}'`)
+  result = result.replace(/\bimport\.meta\.filename\b/g, `'${filePath}'`)
+  result = result.replace(/\bimport\.meta\b/g, `({ url: 'file://${filePath}', dirname: '${dir}', filename: '${filePath}', env: {} })`)
+
+  // import X, { Y, Z } from 'mod'  →  combined default + named (must come before single-form patterns)
+  result = result.replace(
+    /^import\s+(\w+)\s*,\s*\{([^{}]*?)\}\s+from\s+(['"`])(.*?)\3\s*;?/gm,
+    (_, defaultName, names, __, mod) => {
+      const tmp = `_esm${_ctr++}`
+      const mapped = names.trim().split(',').filter(Boolean).map((n: string) => {
+        const [src, dst] = n.trim().split(/\s+as\s+/)
+        return dst ? `${src.trim()}: ${dst.trim()}` : src.trim()
+      }).join(', ')
+      return `const ${tmp} = require('${mod}'); const ${defaultName} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(${tmp}); const { ${mapped} } = ${tmp}`
+    }
+  )
+
+  // import { X as Y, Z } from 'mod'  →  const { X: Y, Z } = require('mod')
+  result = result.replace(
+    /^import\s+\{([^{}]*?)\}\s+from\s+(['"`])(.*?)\2\s*;?/gm,
+    (_, names, __, mod) => {
+      const mapped = names.trim().split(',').filter(Boolean).map((n: string) => {
+        const [src, dst] = n.trim().split(/\s+as\s+/)
+        return dst ? `${src.trim()}: ${dst.trim()}` : src.trim()
+      }).join(', ')
+      return `const { ${mapped} } = require('${mod}')`
+    }
+  )
+
+  // import X from 'mod'  →  const X = (m => m?.__esModule ? m.default : m)(require('mod'))
+  result = result.replace(
+    /^import\s+(\w+)\s+from\s+(['"`])(.*?)\2\s*;?/gm,
+    (_, name, __, mod) => `const ${name} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(require('${mod}'))`
+  )
+
+  // import * as X from 'mod'  →  const X = require('mod')
+  result = result.replace(
+    /^import\s+\*\s+as\s+(\w+)\s+from\s+(['"`])(.*?)\2\s*;?/gm,
+    (_, name, __, mod) => `const ${name} = require('${mod}')`
+  )
+
+  // import 'mod' (side effect)  →  require('mod')
+  result = result.replace(
+    /^import\s+(['"`])(.*?)\1\s*;?/gm,
+    (_, __, mod) => `require('${mod}')`
+  )
+
+  // export * from 'mod'  →  Object.assign(exports, require('mod'))
+  result = result.replace(
+    /^export\s+\*\s+from\s+(['"`])(.*?)\1\s*;?/gm,
+    (_, __, mod) => `Object.assign(exports, require('${mod}'))`
+  )
+
+  // export * as X from 'mod'  →  exports.X = require('mod')
+  result = result.replace(
+    /^export\s+\*\s+as\s+(\w+)\s+from\s+(['"`])(.*?)\2\s*;?/gm,
+    (_, name, __, mod) => `exports.${name} = require('${mod}')`
+  )
+
+  // export { X as Y, Z } from 'mod'  →  (re-export)
+  result = result.replace(
+    /^export\s+\{([^{}]*?)\}\s+from\s+(['"`])(.*?)\2\s*;?/gm,
+    (_, names, __, mod) => {
+      return names.trim().split(',').filter(Boolean).map((n: string) => {
+        const [src, dst] = n.trim().split(/\s+as\s+/)
+        const s = src.trim(), d = (dst || src).trim()
+        return `exports.${d} = require('${mod}').${s}`
+      }).join('; ')
+    }
+  )
+
+  // export { X as Y, Z }  →  exports.Y = X; exports.Z = Z
+  result = result.replace(
+    /^export\s+\{([^{}]*?)\}\s*;?/gm,
+    (_, names) => {
+      return names.trim().split(',').filter(Boolean).map((n: string) => {
+        const [src, dst] = n.trim().split(/\s+as\s+/)
+        const s = src.trim(), d = (dst || src).trim()
+        return `exports.${d} = ${s}`
+      }).join('; ')
+    }
+  )
+
+  // export default EXPR  →  exports.default = module.exports.default = EXPR
+  result = result.replace(
+    /^export\s+default\s+/gm,
+    'exports.default = module.exports.default = '
+  )
+
+  // export function foo  →  function foo  +  exports.foo = foo  (appended)
+  const exportedFns: string[] = []
+  result = result.replace(
+    /^export\s+(function|class|async\s+function)\s+(\w+)/gm,
+    (_, kw, name) => { exportedFns.push(name); return `${kw} ${name}` }
+  )
+
+  // export const/let/var X = ...  →  const X = ...  +  exports.X = X
+  const exportedVars: string[] = []
+  result = result.replace(
+    /^export\s+(const|let|var)\s+(\w+)/gm,
+    (_, kw, name) => { exportedVars.push(name); return `${kw} ${name}` }
+  )
+
+  // Append deferred exports at the end
+  const deferred = [...exportedFns, ...exportedVars].map(n => `exports.${n} = ${n}`).join('; ')
+  if (deferred) result += `\n;${deferred};`
+
+  // Mark as ESM-compat CJS
+  result = `'use strict'; Object.defineProperty(exports, '__esModule', { value: true });\n` + result
+
+  return result
+}
+
 // Resolve the CJS entry point from a package.json exports field.
 // Handles nested patterns: string | { require: string | { default: string } | ... }
 function resolveExportsMain(exportsRoot: unknown): string | undefined {
@@ -40,6 +168,23 @@ function resolveExportsMain(exportsRoot: unknown): string | undefined {
   return undefined
 }
 
+// Resolve a package.json #imports condition entry to a file path string.
+// Prefers 'require' → 'node' → 'default' conditions; skips 'import'/'browser'.
+function resolveImportsCondition(entry: unknown): string | undefined {
+  if (typeof entry === 'string') return entry
+  if (typeof entry !== 'object' || entry === null) return undefined
+  const obj = entry as Record<string, unknown>
+  for (const cond of ['require', 'node', 'default']) {
+    const v = obj[cond]
+    if (typeof v === 'string') return v
+    if (typeof v === 'object' && v !== null) {
+      const r = resolveImportsCondition(v)
+      if (r) return r
+    }
+  }
+  return undefined
+}
+
 // shimMap is already synchronous — just expose it as shimCache
 const shimCache = shimMap
 
@@ -50,6 +195,34 @@ export async function preloadShims() {
 function resolveModule(specifier: string, fromDir: string): string | null {
   // Built-in shims
   if (specifier in shimCache) return `__shim__:${specifier}`
+
+  // Package #imports (private package imports — e.g. "#module-sync-enabled")
+  if (specifier.startsWith('#')) {
+    let dir = fromDir
+    while (true) {
+      const pkgJsonPath = path.join(dir, 'package.json')
+      if (isFileInVfs(pkgJsonPath)) {
+        try {
+          const pkg = JSON.parse(memfsInstance.readFileSync(pkgJsonPath, 'utf8') as string) as Record<string, unknown>
+          const imports = pkg.imports as Record<string, unknown> | undefined
+          if (imports && specifier in imports) {
+            const entry = imports[specifier]
+            const resolved = resolveImportsCondition(entry)
+            if (resolved) {
+              const abs = path.join(dir, resolved)
+              for (const ext of ['', '.js', '.cjs', '.mjs']) {
+                if (isFileInVfs(abs + ext)) return abs + ext
+              }
+            }
+          }
+        } catch {}
+      }
+      const parent = path.dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
+    return null
+  }
 
   // Relative or absolute path
   if (specifier.startsWith('.') || specifier.startsWith('/')) {
@@ -125,12 +298,17 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
   const mod = { exports: {} as Record<string, unknown> }
   moduleCache.set(filePath, mod) // set before execution to handle circular deps
 
-  const source = memfsInstance.readFileSync(filePath, 'utf8') as string
+  let source = memfsInstance.readFileSync(filePath, 'utf8') as string
   const dir = path.dirname(filePath)
 
   if (filePath.endsWith('.json')) {
     mod.exports = JSON.parse(source)
     return mod
+  }
+
+  // Transpile ESM to CJS if needed (handles Vite 8.x+ which ships ESM-only dist)
+  if (isEsmSource(source)) {
+    source = esmToCjs(source, filePath)
   }
 
   const requireFn = Object.assign(
@@ -170,6 +348,9 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
 }
 
 export function requireSync(specifier: string, fromDir = '/app'): unknown {
+  // Virtual module IDs (rolldown/rollup internal) — return empty object
+  if (specifier.startsWith('\0')) return {}
+
   // Built-in shim
   if (specifier in shimCache) return shimCache[specifier]
 

@@ -24,7 +24,22 @@ export { http, https } from './http'
 export { getServer } from './http'
 export { fs, fsPromises } from './fs'
 
-const _url = { URL, URLSearchParams, parse: (u: string) => new URL(u), format: (u: URL | string) => typeof u === 'string' ? u : u.href }
+function _fileURLToPath(url: string | URL): string {
+  const u = typeof url === 'string' ? new URL(url) : url
+  if (u.protocol !== 'file:') throw new TypeError(`Not a file URL: ${u.href}`)
+  return decodeURIComponent(u.pathname)
+}
+function _pathToFileURL(p: string): URL {
+  return new URL('file://' + (p.startsWith('/') ? p : '/' + p))
+}
+const _url = {
+  URL,
+  URLSearchParams,
+  parse: (u: string) => new URL(u),
+  format: (u: URL | string) => typeof u === 'string' ? u : u.href,
+  fileURLToPath: _fileURLToPath,
+  pathToFileURL: _pathToFileURL,
+}
 const _buffer = { Buffer, default: Buffer }
 const _events = { EventEmitter, default: EventEmitter }
 const _querystring = {
@@ -42,6 +57,11 @@ const _timers = { setTimeout, clearTimeout, setInterval, clearInterval, setImmed
 const _childProcess = {
   exec: (_cmd: string, cb?: (err: Error | null, stdout?: string, stderr?: string) => void) => {
     cb?.(new Error('child_process.exec not supported in browser'))
+    return { on: () => {}, kill: () => {}, stdin: null, stdout: null, stderr: null }
+  },
+  execFile: (_file: string, _args?: unknown, _opts?: unknown, cb?: (err: Error | null, stdout?: string, stderr?: string) => void) => {
+    const callback = typeof _opts === 'function' ? _opts as typeof cb : typeof _args === 'function' ? _args as typeof cb : cb
+    callback?.(new Error('child_process.execFile not supported in browser'))
     return { on: () => {}, kill: () => {}, stdin: null, stdout: null, stderr: null }
   },
   execSync: (_cmd: string) => { throw new Error('child_process.execSync not supported in browser') },
@@ -77,21 +97,115 @@ const _zlib = {
 const _dns = {
   lookup: (_host: string, cb: (err: null, addr: string) => void) => cb(null, '127.0.0.1'),
   resolve: (_host: string, cb: (err: null, addrs: string[]) => void) => cb(null, ['127.0.0.1']),
+  promises: {
+    lookup: (_host: string) => Promise.resolve({ address: '127.0.0.1', family: 4 }),
+    resolve: (_host: string) => Promise.resolve(['127.0.0.1']),
+    resolve4: (_host: string) => Promise.resolve(['127.0.0.1']),
+    resolve6: (_host: string) => Promise.resolve([]),
+  },
 }
 const _workerThreads = {
   isMainThread: true,
   Worker: class { constructor() { throw new Error('worker_threads not supported') } },
+  MessageChannel: class {
+    port1: { postMessage: () => {}, on: () => {}, off: () => {}, close: () => {}, addEventListener: () => {}, removeEventListener: () => {}, start: () => {} }
+    port2: { postMessage: () => {}, on: () => {}, off: () => {}, close: () => {}, addEventListener: () => {}, removeEventListener: () => {}, start: () => {} }
+    constructor() {
+      this.port1 = { postMessage: () => {}, on: () => {}, off: () => {}, close: () => {}, addEventListener: () => {}, removeEventListener: () => {}, start: () => {} }
+      this.port2 = { postMessage: () => {}, on: () => {}, off: () => {}, close: () => {}, addEventListener: () => {}, removeEventListener: () => {}, start: () => {} }
+    }
+  },
+  receiveMessageOnPort: () => undefined,
   parentPort: null,
   workerData: null,
+  threadId: 0,
+  SHARE_ENV: Symbol('SHARE_ENV'),
 }
 
-// rollup stub — allows Vite to import rollup at startup without crashing.
-// Actual bundling (vite build) will throw; the dev server does not use rollup.
+// v8 stub — only startupSnapshot.isBuildingSnapshot() is called in Vite
+const _v8 = {
+  startupSnapshot: { isBuildingSnapshot: () => false, addSerializeCallback: () => {}, addDeserializeCallback: () => {}, setDeserializeMainFunction: () => {} },
+  getHeapStatistics: () => ({ total_heap_size: 0, used_heap_size: 0 }),
+  writeHeapSnapshot: () => '',
+  default: undefined as unknown,
+}
+_v8.default = _v8
+
+// rolldown subpath stubs — build-only APIs; dev server doesn't invoke them at startup
+const _notSupported = (name: string) => () => { throw new Error(`${name} is not supported in browser; use vite dev server only`) }
+const _asyncNotSupported = (name: string) => () => Promise.reject(new Error(`${name} is not supported in browser`))
+const _rolldownParseAst = {
+  parseAst: _notSupported('parseAst'),
+  parseAstAsync: _asyncNotSupported('parseAstAsync'),
+  default: undefined as unknown,
+}
+_rolldownParseAst.default = _rolldownParseAst
+
+class _TsconfigCache { constructor() {} }
+class _Visitor { constructor() {} }
+const _rolldownUtils = {
+  TsconfigCache: _TsconfigCache,
+  Visitor: _Visitor,
+  minify: _asyncNotSupported('rolldown/utils.minify'),
+  minifySync: _notSupported('rolldown/utils.minifySync'),
+  parse: _notSupported('rolldown/utils.parse'),
+  parseSync: _notSupported('rolldown/utils.parseSync'),
+  transformSync: _notSupported('rolldown/utils.transformSync'),
+  transform: _asyncNotSupported('rolldown/utils.transform'),
+  resolveTsconfig: _notSupported('rolldown/utils.resolveTsconfig'),
+  default: undefined as unknown,
+}
+_rolldownUtils.default = _rolldownUtils
+
+const _pluginStub = () => ({ name: 'stub-plugin', transform: undefined, resolveId: undefined })
+const _rolldownPlugins = {
+  esmExternalRequirePlugin: _pluginStub,
+  default: undefined as unknown,
+}
+_rolldownPlugins.default = _rolldownPlugins
+
+const _rolldownFilter = {
+  exactRegex: (s: string) => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
+  prefixRegex: (s: string) => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+  makeIdFiltersToMatchWithQuery: () => ({ include: undefined, exclude: undefined }),
+  withFilter: (_plugin: unknown, _filter: unknown) => _plugin,
+  default: undefined as unknown,
+}
+_rolldownFilter.default = _rolldownFilter
+
+const _experimentalPluginStub = (name: string) => () => ({ name, transform: undefined })
+const _rolldownExperimental = {
+  dev: _experimentalPluginStub('rolldown-dev'),
+  oxcRuntimePlugin: _experimentalPluginStub('oxc-runtime'),
+  resolveTsconfig: _notSupported('rolldown/experimental.resolveTsconfig'),
+  scan: _experimentalPluginStub('rolldown-scan'),
+  viteAliasPlugin: _experimentalPluginStub('vite-alias'),
+  viteBuildImportAnalysisPlugin: _experimentalPluginStub('vite-build-import-analysis'),
+  viteDynamicImportVarsPlugin: _experimentalPluginStub('vite-dynamic-import-vars'),
+  viteImportGlobPlugin: _experimentalPluginStub('vite-import-glob'),
+  viteJsonPlugin: _experimentalPluginStub('vite-json'),
+  viteLoadFallbackPlugin: _experimentalPluginStub('vite-load-fallback'),
+  viteManifestPlugin: _experimentalPluginStub('vite-manifest'),
+  viteModulePreloadPolyfillPlugin: _experimentalPluginStub('vite-module-preload-polyfill'),
+  viteReporterPlugin: _experimentalPluginStub('vite-reporter'),
+  viteResolvePlugin: _experimentalPluginStub('vite-resolve'),
+  viteTransformPlugin: _experimentalPluginStub('vite-transform'),
+  viteWasmFallbackPlugin: _experimentalPluginStub('vite-wasm-fallback'),
+  viteWebWorkerPostPlugin: _experimentalPluginStub('vite-web-worker-post'),
+  default: undefined as unknown,
+}
+_rolldownExperimental.default = _rolldownExperimental
+
+// rollup/rolldown stub — allows Vite to import them at startup without crashing.
+// Actual bundling (vite build) will throw; the dev server does not use rollup/rolldown.
+const _notSupportedBundle = () => Promise.reject(new Error('bundler is not supported in browser; use vite dev server only'))
 const _rollupBundle = {
-  rollup: () => Promise.reject(new Error('rollup is not supported in browser; use vite dev server only')),
-  watch: () => { throw new Error('rollup.watch is not supported in browser') },
+  rollup: _notSupportedBundle,
+  rolldown: _notSupportedBundle,
+  watch: () => { throw new Error('rollup/rolldown.watch is not supported in browser') },
   defineConfig: (cfg: unknown) => cfg,
   VERSION: '4.34.0',
+  version: '4.34.0',
   default: undefined as unknown,
 }
 _rollupBundle.default = _rollupBundle
@@ -124,6 +238,51 @@ _sirvFn.default = _sirvFn
 _sirvFn.sirv = _sirvFn
 const _sirvShim = _sirvFn
 
+// Late-bound reference to requireSync (set by worker/index.ts to avoid circular deps)
+let _requireSync: (spec: string, fromDir: string) => unknown = () => undefined
+
+export function bindRequireSync(fn: (spec: string, fromDir: string) => unknown) {
+  _requireSync = fn
+}
+
+const _builtinModules = [
+  'fs', 'path', 'http', 'https', 'events', 'stream', 'util', 'os', 'crypto',
+  'buffer', 'url', 'querystring', 'assert', 'timers', 'readline', 'zlib',
+  'dns', 'net', 'tty', 'child_process', 'worker_threads', 'string_decoder',
+  'perf_hooks', 'cluster', 'module',
+]
+
+class _Module {
+  id: string; filename: string; exports: Record<string, unknown>
+  constructor(id: string) { this.id = id; this.filename = id; this.exports = {} }
+  static _resolveFilename(id: string) { return id }
+  static _extensions: Record<string, unknown> = {}
+  static _cache: Record<string, unknown> = {}
+  static builtinModules = _builtinModules
+  static createRequire(base: string) { return _moduleShim.createRequire(base) }
+}
+
+const _moduleShim = {
+  createRequire: (base: string) => {
+    const fromDir = typeof base === 'string' && base.startsWith('file://')
+      ? decodeURIComponent(new URL(base).pathname).replace(/\/[^/]+$/, '')
+      : typeof base === 'string'
+      ? base.replace(/\/[^/]+$/, '')
+      : '/app'
+    const req = (spec: string) => _requireSync(spec, fromDir)
+    req.resolve = (spec: string) => spec
+    req.cache = {} as Record<string, unknown>
+    req.extensions = {} as Record<string, unknown>
+    req.main = undefined
+    return req
+  },
+  Module: _Module,
+  builtinModules: _builtinModules,
+  default: undefined as unknown,
+  isBuiltin: (id: string) => _builtinModules.includes(id.replace(/^node:/, '')),
+}
+_moduleShim.default = _moduleShim
+
 // Synchronous shim registry — also includes node: prefixed variants for packages
 // that use require('node:fs') etc.
 export const shimMap: Record<string, unknown> = {
@@ -154,6 +313,7 @@ export const shimMap: Record<string, unknown> = {
   readline: _readline,
   zlib: _zlib,
   dns: _dns,
+  module: _moduleShim,
   cluster: { isMaster: true, isWorker: false, fork: () => { throw new Error('cluster not supported') } },
   'worker_threads': _workerThreads,
   'string_decoder': {
@@ -165,6 +325,7 @@ export const shimMap: Record<string, unknown> = {
     }
   },
   // node: prefixed aliases — required for packages that use require('node:events') etc.
+  'node:module': _moduleShim,
   'node:process': process,
   'node:path': path,
   'node:events': _events,
@@ -192,6 +353,8 @@ export const shimMap: Record<string, unknown> = {
   'node:readline': _readline,
   'node:zlib': _zlib,
   'node:dns': _dns,
+  'node:v8': _v8,
+  'v8': _v8,
   'node:worker_threads': _workerThreads,
   'node:string_decoder': {
     StringDecoder: class {
@@ -201,6 +364,14 @@ export const shimMap: Record<string, unknown> = {
       end() { return '' }
     }
   },
+
+  // rolldown subpath stubs — intercepted so native WASM bindings are never loaded
+  'rolldown': _rollupBundle,
+  'rolldown/parseAst': _rolldownParseAst,
+  'rolldown/plugins': _rolldownPlugins,
+  'rolldown/utils': _rolldownUtils,
+  'rolldown/filter': _rolldownFilter,
+  'rolldown/experimental': _rolldownExperimental,
 
   // Third-party shims intercepted before npm packages so native-binary deps never run
   'esbuild': esbuildShim,

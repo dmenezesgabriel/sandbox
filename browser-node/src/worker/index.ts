@@ -18,9 +18,13 @@ console.error = (...args: unknown[]) => self.postMessage({ type: 'stderr', text:
 console.debug = console.log
 
 import { preloadShims, requireSync, clearModuleCache } from './loader'
+import { bindRequireSync } from './shims/index'
 import { install } from './npm'
 import { writeFileToVfs, dumpVfs } from './vfs'
 import { getServer } from './shims/http'
+
+// Wire up createRequire in the node:module shim (can't import requireSync there — circular)
+bindRequireSync(requireSync)
 
 function log(text: string) { self.postMessage({ type: 'stdout', text }) }
 function err(text: string) { self.postMessage({ type: 'stderr', text }) }

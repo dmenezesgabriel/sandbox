@@ -25,6 +25,10 @@ class FsWatcher {
   }
 }
 
+if (!_fs.constants) {
+  _fs.constants = FS_CONSTANTS
+}
+
 if (!_fs.watch) {
   _fs.watch = (_path: string, _opts?: unknown, _listener?: unknown): FsWatcher => new FsWatcher()
 }
@@ -35,7 +39,14 @@ if (!_fs.unwatchFile) {
   _fs.unwatchFile = (_path: string, _listener?: unknown): void => {}
 }
 
+export const FS_CONSTANTS = {
+  O_RDONLY: 0, O_WRONLY: 1, O_RDWR: 2, O_CREAT: 64, O_EXCL: 128, O_TRUNC: 512, O_APPEND: 1024,
+  F_OK: 0, R_OK: 4, W_OK: 2, X_OK: 1,
+  COPYFILE_EXCL: 1, COPYFILE_FICLONE: 2, COPYFILE_FICLONE_FORCE: 4,
+}
+
 export const fsPromises = {
+  constants: FS_CONSTANTS,
   readFile:   (p: string, opts?: unknown) => Promise.resolve(memfsInstance.readFileSync(p, opts as string) as Buffer),
   writeFile:  (p: string, data: string | Uint8Array) => { memfsInstance.writeFileSync(p, data); return Promise.resolve() },
   mkdir:      (p: string, opts?: unknown) => { try { memfsInstance.mkdirSync(p, opts as object) } catch {} return Promise.resolve() },

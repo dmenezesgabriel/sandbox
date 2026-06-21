@@ -21,4 +21,15 @@ export function format(urlObj: URL | string): string {
   return typeof urlObj === 'string' ? urlObj : urlObj.href
 }
 
-export default { URL, URLSearchParams, parse, format }
+export function fileURLToPath(url: string | URL): string {
+  const u = typeof url === 'string' ? new URL(url) : url
+  if (u.protocol !== 'file:') throw new TypeError(`Not a file URL: ${u.href}`)
+  return decodeURIComponent(u.pathname)
+}
+
+export function pathToFileURL(p: string): URL {
+  const abs = p.startsWith('/') ? p : '/' + p
+  return new URL('file://' + abs)
+}
+
+export default { URL: _URL, URLSearchParams: _URLSearchParams, parse, format, fileURLToPath, pathToFileURL }
