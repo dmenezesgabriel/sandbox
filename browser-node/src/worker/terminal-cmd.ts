@@ -424,8 +424,10 @@ function cmdExport(args: string[]): number {
 
 function cmdFind(args: string[]): number {
   const root = args[0] ? resolve(args[0]) : _cwd
-  const nameFilter = args[args.indexOf('-name') + 1]
-  const typeFilter = args[args.indexOf('-type') + 1] // 'f' or 'd'
+  const nameIdx = args.indexOf('-name')
+  const nameFilter = nameIdx >= 0 ? args[nameIdx + 1] : undefined
+  const typeIdx = args.indexOf('-type')
+  const typeFilter = typeIdx >= 0 ? args[typeIdx + 1] : undefined
 
   function walk(dir: string) {
     let entries: string[]

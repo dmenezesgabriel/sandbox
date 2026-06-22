@@ -10,11 +10,14 @@ export default {
     'tests/e2e/features/nextjs.feature',
     'tests/e2e/features/vue.feature',
     'tests/e2e/features/vite.feature',
+    'tests/e2e/features/terminal.feature',
+    'tests/e2e/features/ui.feature',
   ],
   import: [
     'tests/e2e/world.mjs',
     'tests/e2e/hooks.mjs',
     'tests/e2e/steps/common.steps.mjs',
+    'tests/e2e/steps/terminal.steps.mjs',
   ],
   format: [
     'progress-bar',
