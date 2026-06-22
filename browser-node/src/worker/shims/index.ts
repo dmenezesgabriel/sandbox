@@ -299,12 +299,79 @@ export function bindRequireSync(fn: (spec: string, fromDir: string) => unknown) 
   _requireSync = fn
 }
 
+const _vmScript = class Script {
+  private _code: string
+  constructor(code: string, _opts?: unknown) { this._code = code }
+  runInThisContext(_opts?: unknown) { return (0, eval)(this._code) }
+  runInNewContext(sandbox?: Record<string, unknown>, _opts?: unknown) {
+    const keys = Object.keys(sandbox ?? {}); const vals = Object.values(sandbox ?? {})
+    return new Function(...keys, `"use strict"; return (${this._code})`)(...vals)
+  }
+}
+const _vm = {
+  Script: _vmScript,
+  createContext: (sandbox?: Record<string, unknown>) => sandbox ?? {},
+  runInThisContext: (code: string) => (0, eval)(code),
+  runInNewContext: (code: string, sandbox?: Record<string, unknown>) => new _vmScript(code).runInNewContext(sandbox),
+  runInContext: (code: string, _ctx: unknown) => (0, eval)(code),
+  isContext: (_obj: unknown) => false,
+  compileFunction: (code: string, params: string[] = [], _opts?: unknown) => new Function(...params, code),
+  default: undefined as unknown,
+}
+_vm.default = _vm
+
 const _builtinModules = [
   'fs', 'path', 'http', 'https', 'events', 'stream', 'util', 'os', 'crypto',
   'buffer', 'url', 'querystring', 'assert', 'timers', 'readline', 'zlib',
-  'dns', 'net', 'tls', 'tty', 'child_process', 'worker_threads', 'string_decoder',
-  'perf_hooks', 'cluster', 'module',
+  'dns', 'dns/promises', 'stream/web', 'console', 'util/types', 'path/posix', 'path/win32', 'fs/promises', 'net', 'tls', 'tty', 'child_process', 'worker_threads', 'string_decoder',
+  'perf_hooks', 'cluster', 'module', 'constants', 'v8', 'domain', 'async_hooks', 'inspector', 'vm',
 ]
+
+// Node.js built-in constants (deprecated module, still used by some packages)
+const _constants = {
+  // File open flags
+  O_RDONLY: 0, O_WRONLY: 1, O_RDWR: 2, O_CREAT: 64, O_EXCL: 128,
+  O_TRUNC: 512, O_APPEND: 1024, O_DIRECTORY: 65536, O_NOATIME: 262144,
+  O_NOFOLLOW: 131072, O_SYNC: 1052672, O_SYMLINK: 2097152, O_NONBLOCK: 2048,
+  // File mode bits
+  S_IFMT: 61440, S_IFREG: 32768, S_IFDIR: 16384, S_IFLNK: 40960,
+  S_IFBLK: 24576, S_IFCHR: 8192, S_IFIFO: 4096, S_IFSOCK: 49152,
+  S_IRWXU: 448, S_IRUSR: 256, S_IWUSR: 128, S_IXUSR: 64,
+  S_IRWXG: 56, S_IRGRP: 32, S_IWGRP: 16, S_IXGRP: 8,
+  S_IRWXO: 7, S_IROTH: 4, S_IWOTH: 2, S_IXOTH: 1,
+  // Access modes
+  F_OK: 0, R_OK: 4, W_OK: 2, X_OK: 1,
+  // errno constants
+  E2BIG: 7, EACCES: 13, EADDRINUSE: 98, EADDRNOTAVAIL: 99, EAFNOSUPPORT: 97,
+  EAGAIN: 11, EALREADY: 114, EBADF: 9, EBADMSG: 74, EBUSY: 16,
+  ECANCELED: 125, ECHILD: 10, ECONNABORTED: 103, ECONNREFUSED: 111,
+  ECONNRESET: 104, EDEADLK: 35, EDESTADDRREQ: 89, EDOM: 33, EDQUOT: 122,
+  EEXIST: 17, EFAULT: 14, EFBIG: 27, EHOSTUNREACH: 113, EIDRM: 43,
+  EILSEQ: 84, EINPROGRESS: 115, EINTR: 4, EINVAL: 22, EIO: 5, EISCONN: 106,
+  EISDIR: 21, ELOOP: 40, EMFILE: 24, EMLINK: 31, EMSGSIZE: 90, EMULTIHOP: 72,
+  ENAMETOOLONG: 36, ENETDOWN: 100, ENETRESET: 102, ENETUNREACH: 101,
+  ENFILE: 23, ENOBUFS: 105, ENODATA: 61, ENODEV: 19, ENOENT: 2, ENOEXEC: 8,
+  ENOLCK: 37, ENOLINK: 67, ENOMEM: 12, ENOMSG: 42, ENOPROTOOPT: 92,
+  ENOSPC: 28, ENOSR: 63, ENOSTR: 60, ENOSYS: 38, ENOTCONN: 107,
+  ENOTDIR: 20, ENOTEMPTY: 39, ENOTSOCK: 88, ENOTSUP: 95, ENOTTY: 25,
+  ENXIO: 6, EOPNOTSUPP: 95, EOVERFLOW: 75, EPERM: 1, EPIPE: 32,
+  EPROTO: 71, EPROTONOSUPPORT: 93, EPROTOTYPE: 91, ERANGE: 34, EROFS: 30,
+  ESPIPE: 29, ESRCH: 3, ESTALE: 116, ETIME: 62, ETIMEDOUT: 110,
+  ETXTBSY: 26, EWOULDBLOCK: 11, EXDEV: 18,
+  // Signal constants
+  SIGHUP: 1, SIGINT: 2, SIGQUIT: 3, SIGILL: 4, SIGTRAP: 5, SIGABRT: 6,
+  SIGBUS: 7, SIGFPE: 8, SIGKILL: 9, SIGUSR1: 10, SIGSEGV: 11, SIGUSR2: 12,
+  SIGPIPE: 13, SIGALRM: 14, SIGTERM: 15, SIGCHLD: 17, SIGCONT: 18,
+  SIGSTOP: 19, SIGTSTP: 20, SIGTTIN: 21, SIGTTOU: 22, SIGURG: 23,
+  SIGXCPU: 24, SIGXFSZ: 25, SIGVTALRM: 26, SIGPROF: 27, SIGWINCH: 28,
+  SIGIO: 29, SIGPOLL: 29, SIGPWR: 30, SIGSYS: 31,
+  // SSL constants (subset)
+  SSL_OP_ALL: 0, SSL_OP_NO_SSLv2: 0, SSL_OP_NO_SSLv3: 0,
+  // Priority constants
+  PRIORITY_LOW: 19, PRIORITY_BELOW_NORMAL: 10, PRIORITY_NORMAL: 0,
+  PRIORITY_ABOVE_NORMAL: -7, PRIORITY_HIGH: -14, PRIORITY_HIGHEST: -20,
+  default: undefined as unknown,
+}
 
 class _Module {
   id: string; filename: string; exports: Record<string, unknown>
@@ -334,6 +401,12 @@ const _moduleShim = {
   builtinModules: _builtinModules,
   default: undefined as unknown,
   isBuiltin: (id: string) => _builtinModules.includes(id.replace(/^node:/, '')),
+  // Node.js Module.prototype.require — Next.js monkey-patches this in require-hook.js
+  prototype: {
+    require: (spec: string) => _requireSync(spec, '/app'),
+  },
+  // Next.js reads and patches Module._resolveFilename
+  _resolveFilename: (request: string) => request,
 }
 _moduleShim.default = _moduleShim
 
@@ -369,6 +442,10 @@ export const shimMap: Record<string, unknown> = {
   zlib: _zlib,
   dns: _dns,
   module: _moduleShim,
+  constants: _constants,
+  'node:constants': _constants,
+  domain: { create: () => ({ on: () => {}, run: (fn: () => void) => fn(), bind: (fn: unknown) => fn, intercept: (fn: unknown) => fn, add: () => {}, remove: () => {}, enter: () => {}, exit: () => {}, dispose: () => {}, members: [] }) },
+  async_hooks: { createHook: () => ({ enable: () => {}, disable: () => {} }), executionAsyncId: () => 0, triggerAsyncId: () => 0, AsyncLocalStorage: class { run<T>(store: unknown, fn: () => T): T { return fn() }; getStore() { return undefined }; enterWith() {} }, AsyncResource: class { static bind(fn: unknown) { return fn } } },
   cluster: { isMaster: true, isWorker: false, fork: () => { throw new Error('cluster not supported') } },
   'worker_threads': _workerThreads,
   'string_decoder': {
@@ -409,6 +486,25 @@ export const shimMap: Record<string, unknown> = {
   'node:readline': _readline,
   'node:zlib': _zlib,
   'node:dns': _dns,
+  'dns/promises': _dns.promises,
+  'node:dns/promises': _dns.promises,
+  // stream/web — Web Streams API, available as globals in browser Workers
+  'stream/web': { ReadableStream, WritableStream, TransformStream, ReadableStreamBYOBReader: (self as unknown as Record<string, unknown>).ReadableStreamBYOBReader, CountQueuingStrategy, ByteLengthQueuingStrategy },
+  'node:stream/web': { ReadableStream, WritableStream, TransformStream, ReadableStreamBYOBReader: (self as unknown as Record<string, unknown>).ReadableStreamBYOBReader, CountQueuingStrategy, ByteLengthQueuingStrategy },
+  // console module — expose the global console object as a CommonJS module
+  'console': console,
+  'node:console': console,
+  // util subpath exports
+  'util/types': util.types,
+  'node:util/types': util.types,
+  // path subpath exports
+  'path/posix': path,
+  'node:path/posix': path,
+  'path/win32': path,
+  'node:path/win32': path,
+  // fs subpath exports
+  'fs/promises': fs.promises,
+  'node:fs/promises': fs.promises,
   'node:v8': _v8,
   'v8': _v8,
   'node:worker_threads': _workerThreads,
@@ -461,6 +557,11 @@ export const shimMap: Record<string, unknown> = {
         }
       }
       enterWith(store: T): void { this._store = store }
+      exit<R>(fn: (...args: unknown[]) => R, ...args: unknown[]): R {
+        const prev = this._store
+        this._store = undefined
+        try { return fn(...args) } finally { this._store = prev }
+      }
       disable(): void {}
       enable(): void {}
     }
@@ -498,6 +599,11 @@ export const shimMap: Record<string, unknown> = {
         }
       }
       enterWith(store: T): void { this._store = store }
+      exit<R>(fn: (...args: unknown[]) => R, ...args: unknown[]): R {
+        const prev = this._store
+        this._store = undefined
+        try { return fn(...args) } finally { this._store = prev }
+      }
       disable(): void {} enable(): void {}
     }
     class AsyncResource2 {
@@ -511,6 +617,13 @@ export const shimMap: Record<string, unknown> = {
     const _m2 = { AsyncLocalStorage: AsyncLocalStorage2, AsyncResource: AsyncResource2, createHook: () => ({ enable: () => {}, disable: () => {} }), executionAsyncId: () => 1, triggerAsyncId: () => 0, executionAsyncResource: () => null, default: undefined as unknown }
     _m2.default = _m2; return _m2
   })(),
+
+  // vm stub — Next.js imports it for script compilation; basic eval-based implementation
+  'vm': _vm,
+  'node:vm': _vm,
+  // inspector stub — Next.js imports it; browser has no V8 inspector protocol
+  'inspector': { open: () => {}, close: () => {}, url: () => undefined, console: {}, Session: class { connect() {} disconnect() {} post() {} on() {} once() {} off() {} }, default: undefined as unknown },
+  'node:inspector': { open: () => {}, close: () => {}, url: () => undefined, console: {}, Session: class { connect() {} disconnect() {} post() {} on() {} once() {} off() {} }, default: undefined as unknown },
 
   // http2 stub — fastify imports it; we stub it since browser doesn't support raw HTTP/2
   'http2': {

@@ -56,6 +56,12 @@ if (!_fs.constants) {
   _fs.constants = FS_CONSTANTS
 }
 
+// Node.js fs.realpathSync.native uses the OS realpath(3) syscall; in our VFS
+// there are no real symlinks so native and JS variants behave identically.
+if (typeof _fs.realpathSync === 'function' && !(_fs.realpathSync as unknown as Record<string, unknown>).native) {
+  (_fs.realpathSync as unknown as Record<string, unknown>).native = _fs.realpathSync
+}
+
 if (!_fs.watch) {
   _fs.watch = (_path: string, _opts?: unknown, _listener?: unknown): FsWatcher => new FsWatcher()
 }

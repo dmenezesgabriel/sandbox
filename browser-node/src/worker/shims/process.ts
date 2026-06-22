@@ -1,3 +1,12 @@
+type Listener = (...args: unknown[]) => void
+
+const _listeners = new Map<string, Listener[]>()
+
+function _getListeners(event: string): Listener[] {
+  if (!_listeners.has(event)) _listeners.set(event, [])
+  return _listeners.get(event)!
+}
+
 export const process = {
   env: {
     NODE_ENV: 'development',
@@ -16,14 +25,17 @@ export const process = {
   nextTick: (fn: (...args: unknown[]) => void, ...args: unknown[]) => {
     queueMicrotask(() => fn(...args))
   },
-  hrtime: (time?: [number, number]): [number, number] => {
-    const ns = BigInt(Math.round(performance.now() * 1e6))
-    if (time) {
-      const diff = ns - BigInt(time[0]) * 1_000_000_000n - BigInt(time[1])
-      return [Number(diff / 1_000_000_000n), Number(diff % 1_000_000_000n)]
-    }
-    return [Number(ns / 1_000_000_000n), Number(ns % 1_000_000_000n)]
-  },
+  hrtime: Object.assign(
+    (time?: [number, number]): [number, number] => {
+      const ns = BigInt(Math.round(performance.now() * 1e6))
+      if (time) {
+        const diff = ns - BigInt(time[0]) * 1_000_000_000n - BigInt(time[1])
+        return [Number(diff / 1_000_000_000n), Number(diff % 1_000_000_000n)]
+      }
+      return [Number(ns / 1_000_000_000n), Number(ns % 1_000_000_000n)]
+    },
+    { bigint: (): bigint => BigInt(Math.round(performance.now() * 1e6)) }
+  ),
   exit: (code = 0) => {
     throw new Error(`process.exit(${code})`)
   },
@@ -39,12 +51,45 @@ export const process = {
     columns: 80,
     rows: 24,
   },
-  on: (_event: string, _listener: unknown) => process,
-  off: (_event: string, _listener: unknown) => process,
-  once: (_event: string, _listener: unknown) => process,
-  emit: (_event: string, ..._args: unknown[]) => false,
-  removeListener: (_event: string, _listener: unknown) => process,
-  addListener: (_event: string, _listener: unknown) => process,
+  on(event: string, listener: Listener) { _getListeners(event).push(listener); return process },
+  addListener(event: string, listener: Listener) { return process.on(event, listener) },
+  once(event: string, listener: Listener) {
+    const wrapped = (...args: unknown[]) => { process.removeListener(event, wrapped); listener(...args) }
+    return process.on(event, wrapped)
+  },
+  off(event: string, listener: Listener) { return process.removeListener(event, listener) },
+  removeListener(event: string, listener: Listener) {
+    const arr = _getListeners(event)
+    const idx = arr.indexOf(listener)
+    if (idx !== -1) arr.splice(idx, 1)
+    return process
+  },
+  removeAllListeners(event?: string) {
+    if (event) _listeners.delete(event)
+    else _listeners.clear()
+    return process
+  },
+  prependListener(event: string, listener: Listener) {
+    const arr = _getListeners(event)
+    arr.unshift(listener)
+    return process
+  },
+  prependOnceListener(event: string, listener: Listener) {
+    const wrapped = (...args: unknown[]) => { process.removeListener(event, wrapped); listener(...args) }
+    return process.prependListener(event, wrapped)
+  },
+  emit(event: string, ...args: unknown[]) {
+    const arr = _listeners.get(event)
+    if (!arr || arr.length === 0) return false
+    arr.slice().forEach(fn => fn(...args))
+    return true
+  },
+  listeners(event: string) { return _getListeners(event).slice() },
+  rawListeners(event: string) { return _getListeners(event).slice() },
+  listenerCount(event: string) { return _getListeners(event).length },
+  eventNames() { return [..._listeners.keys()] },
+  getMaxListeners: () => 10,
+  setMaxListeners: (_n: number) => process,
   stdin: {
     on(_: string, __: unknown) { return this },
     once(_: string, __: unknown) { return this },

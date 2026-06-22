@@ -17,7 +17,7 @@ console.warn = (...args: unknown[]) => self.postMessage({ type: 'stderr', text: 
 console.error = (...args: unknown[]) => self.postMessage({ type: 'stderr', text: _fmtArgs(...args) })
 console.debug = console.log
 
-import { preloadShims, requireSync, clearModuleCache } from './loader'
+import { preloadShims, requireSync, clearModuleCache, registerFileOverride } from './loader'
 import { bindRequireSync } from './shims/index'
 import { install } from './npm'
 import { writeFileToVfs, dumpVfs } from './vfs'
@@ -61,6 +61,165 @@ function attachSwPort(port: MessagePort) {
   port.start()
 }
 
+function _registerPostInstallOverrides() {
+  // Next.js SWC stub: intercept the SWC binary loader so Next.js starts without native binaries.
+  // We provide a minimal API sufficient for the dev server to start and handle requests.
+  const swcStub = () => {
+    const noop = () => {}
+    const asyncNoop = () => Promise.resolve(null)
+    const stub = {
+      getTargetTriple: () => 'x86_64-unknown-linux-gnu',
+      transform: (_src: unknown, _isModule: unknown, _opts: unknown) =>
+        Promise.resolve({ code: typeof _src === 'string' ? _src : '' }),
+      transformSync: (_src: unknown, _isModule: unknown, _opts: unknown) => {
+        const code = typeof _src === 'string' ? _src : ''
+        const enc = new TextEncoder()
+        const bytes = enc.encode(JSON.stringify({ code }))
+        return bytes
+      },
+      minify: asyncNoop,
+      minifySync: noop,
+      parse: asyncNoop,
+      mdxCompile: asyncNoop,
+      mdxCompileSync: noop,
+      lightningCssTransform: asyncNoop,
+      lightningCssTransformStyleAttribute: asyncNoop,
+      lightningcssFeatureNamesToMaskNapi: asyncNoop,
+      isReactCompilerRequired: () => false,
+      getModuleNamedExports: asyncNoop,
+      warnForEdgeRuntime: asyncNoop,
+      expandNextJsTemplate: asyncNoop,
+      lockfileTryAcquire: (_path: unknown, _content: unknown) => Promise.resolve(42 as unknown), // 42 = fake lock handle
+      lockfileTryAcquireSync: (_path: unknown, _content: unknown) => 42 as unknown, // non-null = lock acquired
+      lockfileUnlock: asyncNoop,
+      lockfileUnlockSync: noop,
+      codeFrameColumns: () => null,
+      initCustomTraceSubscriber: noop,
+      teardownTraceSubscriber: noop,
+      // Turbopack stubs — project lifecycle methods
+      projectNew: (_opts: unknown) => Promise.resolve(1 as unknown), // fake project handle
+      projectUpdate: asyncNoop,
+      projectWriteAnalyzeData: asyncNoop,
+      projectWriteAllEntrypointsToDisk: asyncNoop,
+      projectEntrypointsSubscribe: (_proj: unknown, cb: (err: null, data: unknown) => void) => {
+        setTimeout(() => cb(null, { type: 'SubscriptionResult', result: { pages: [] } }), 100)
+        return { dispose: noop }
+      },
+      projectHmrEvents: asyncNoop,
+      projectHmrChunkNamesSubscribe: asyncNoop,
+      projectTraceSource: asyncNoop,
+      projectGetSourceForAsset: asyncNoop,
+      projectGetSourceMap: asyncNoop,
+      projectGetSourceMapSync: noop,
+      projectUpdateInfoSubscribe: asyncNoop,
+      projectCompilationEventsSubscribe: asyncNoop,
+      projectInvalidateFileSystemCache: asyncNoop,
+      projectShutdown: asyncNoop,
+      projectOnExit: asyncNoop,
+      endpointWriteToDisk: asyncNoop,
+      endpointClientChangedSubscribe: asyncNoop,
+      endpointServerChangedSubscribe: asyncNoop,
+      rootTaskDispose: noop,
+      registerWorkerScheduler: noop,
+      startTurbopackTraceServer: noop,
+    }
+    return stub
+  }
+
+  // createDefineEnv — exported from next/dist/build/swc; used by Turbopack to define env vars
+  const createDefineEnvStub = (_opts: unknown) => ({})
+
+  const swcLoaderStub = () => {
+    const binding = swcStub()
+    const loadedBindings: unknown = {
+      isWasm: false,  // set false so Turbopack can run (turbopack disabled via next.config.js)
+      target: 'x86_64-unknown-linux-gnu',
+      transform: binding.transform,
+      transformSync: binding.transformSync,
+      minify: binding.minify,
+      minifySync: binding.minifySync,
+      parse: binding.parse,
+      getTargetTriple: binding.getTargetTriple,
+      initCustomTraceSubscriber: binding.initCustomTraceSubscriber,
+      teardownTraceSubscriber: binding.teardownTraceSubscriber,
+      mdx: { compile: binding.mdxCompile, compileSync: binding.mdxCompileSync },
+      css: {
+        lightning: {
+          transform: binding.lightningCssTransform,
+          transformStyleAttr: binding.lightningCssTransformStyleAttribute,
+          featureNamesToMask: binding.lightningcssFeatureNamesToMaskNapi,
+        },
+      },
+      reactCompiler: { isReactCompilerRequired: binding.isReactCompilerRequired },
+      rspack: { getModuleNamedExports: binding.getModuleNamedExports, warnForEdgeRuntime: binding.warnForEdgeRuntime },
+      lockfileTryAcquire: binding.lockfileTryAcquire,
+      lockfileTryAcquireSync: binding.lockfileTryAcquireSync,
+      lockfileUnlock: binding.lockfileUnlock,
+      lockfileUnlockSync: binding.lockfileUnlockSync,
+      expandNextJsTemplate: binding.expandNextJsTemplate,
+      codeFrameColumns: binding.codeFrameColumns,
+      turbo: {
+        createProject: (_opts: unknown, _turboOpts: unknown, _callbacks: unknown) => {
+          // Subscription that yields one empty "no issues, no routes" event to unblock
+          // Next.js's `await currentEntriesHandling`, then blocks forever.
+          const blockingSubscription = (firstEvent?: unknown) => () => {
+            let step = 0
+            return {
+              next: (): Promise<IteratorResult<unknown>> => {
+                if (firstEvent !== undefined && step === 0) {
+                  step = 1
+                  return Promise.resolve({ done: false as const, value: firstEvent })
+                }
+                return new Promise<IteratorResult<unknown>>(() => {}) // block forever
+              },
+              return: () => Promise.resolve({ done: true as const, value: undefined }),
+              [Symbol.asyncIterator]() { return this as unknown as AsyncIterator<unknown> },
+            }
+          }
+          const project = {
+            update: () => Promise.resolve(null),
+            writeAnalyzeData: () => Promise.resolve(null),
+            writeAllEntrypointsToDisk: () => Promise.resolve(null),
+            // Yield { issues: [] } (no `routes` key) so Next.js calls currentEntriesHandlingResolve()
+            entrypointsSubscribe: blockingSubscription({ issues: [] }),
+            compilationEventsSubscribe: blockingSubscription(),
+            hmrEvents: blockingSubscription(),
+            hmrChunkNamesSubscribe: blockingSubscription(),
+            traceSource: () => Promise.resolve(null),
+            getSourceForAsset: () => Promise.resolve(null),
+            getSourceMap: () => Promise.resolve(null),
+            getSourceMapSync: () => null,
+            updateInfoSubscribe: blockingSubscription(),
+            invalidateFileSystemCache: () => Promise.resolve(null),
+            shutdown: () => Promise.resolve(null),
+            onExit: () => Promise.resolve(null),
+          }
+          return Promise.resolve(project)
+        },
+      },
+    }
+    return {
+      loadBindings: () => Promise.resolve(loadedBindings),
+      loadBindingsSync: () => loadedBindings,
+      getBindings: () => loadedBindings,
+      getBindingsSync: () => loadedBindings,
+      isWasm: () => false,
+      transform: binding.transform,
+      transformSync: binding.transformSync,
+      minify: binding.minify,
+      minifySync: binding.minifySync,
+      parse: binding.parse,
+      getTargetTriple: binding.getTargetTriple,
+      initCustomTraceSubscriber: binding.initCustomTraceSubscriber,
+      teardownTraceSubscriber: binding.teardownTraceSubscriber,
+      // Named exports used by Turbopack hot reloader
+      createDefineEnv: createDefineEnvStub,
+    }
+  }
+
+  registerFileOverride('/node_modules/next/dist/build/swc/index.js', swcLoaderStub)
+}
+
 self.addEventListener('message', async (e: MessageEvent) => {
   const { type, ...payload } = e.data ?? {}
 
@@ -90,6 +249,8 @@ self.addEventListener('message', async (e: MessageEvent) => {
     } catch (e) {
       err(`\n[npm error] ${String(e)}\n`)
     }
+    // After install, register file-path overrides for packages that require native binaries.
+    _registerPostInstallOverrides()
     self.postMessage({ type: 'npm-done' })
     return
   }

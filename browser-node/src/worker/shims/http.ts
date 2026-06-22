@@ -233,9 +233,21 @@ const STATUS_CODES: Record<number, string> = {
   503: 'Service Unavailable',
 }
 
+export class Agent {
+  maxSockets: number
+  maxFreeSockets: number
+  constructor(opts?: Record<string, unknown>) {
+    this.maxSockets = (opts?.maxSockets as number | undefined) ?? Infinity
+    this.maxFreeSockets = 256
+  }
+  destroy() {}
+}
+
 export const http = {
   createServer,
   Server: HttpServer,
+  Agent,
+  globalAgent: new Agent(),
   IncomingMessage,
   ServerResponse,
   HttpServer,

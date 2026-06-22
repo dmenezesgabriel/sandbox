@@ -311,10 +311,22 @@ function resolveModule(specifier: string, fromDir: string): string | null {
             }
           }
         }
-        // Direct file path fallback
+        // Direct file path fallback — also read inner package.json (e.g. next/dist/compiled/watchpack)
         const candidate = path.join(nmDir, subpath)
         for (const ext of ['', '.js', '.cjs', '.mjs', '/index.js', '/index.cjs']) {
           if (isFileInVfs(candidate + ext)) return candidate + ext
+        }
+        // If the candidate is a directory with its own package.json, follow its main field
+        const innerPkgPath = candidate + '/package.json'
+        if (isFileInVfs(innerPkgPath)) {
+          try {
+            const innerPkg = JSON.parse(memfsInstance.readFileSync(innerPkgPath, 'utf8') as string) as Record<string, unknown>
+            const innerMain = (innerPkg.main as string | undefined) ?? 'index.js'
+            const innerPath = path.join(candidate, innerMain)
+            for (const ext of ['', '.js', '.cjs', '.mjs']) {
+              if (isFileInVfs(innerPath + ext)) return innerPath + ext
+            }
+          } catch {}
         }
       } else {
         // Root package — use exports['.'] then main
@@ -358,8 +370,23 @@ function isInModulePackage(filePath: string): boolean {
   }
 }
 
+// Map from resolved file paths to override implementations.
+// Used to stub heavy native modules (e.g., Next.js SWC) without touching the VFS.
+const filePathOverrides = new Map<string, () => unknown>()
+export function registerFileOverride(filePath: string, factory: () => unknown) {
+  filePathOverrides.set(filePath, factory)
+}
+
 function executeModule(filePath: string, fromDir: string): { exports: unknown } {
   if (moduleCache.has(filePath)) return moduleCache.get(filePath)!
+
+  // Check if this file path has a registered override (e.g., native-binary stubs)
+  const override = filePathOverrides.get(filePath)
+  if (override) {
+    const mod = { exports: override() }
+    moduleCache.set(filePath, mod)
+    return mod
+  }
 
   const mod = { exports: {} as Record<string, unknown> }
   moduleCache.set(filePath, mod) // set before execution to handle circular deps
@@ -379,6 +406,12 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
   const isModulePackage = !isMjs && filePath.endsWith('.js') && isInModulePackage(filePath)
   if (isMjs || isModulePackage || isEsmSource(source)) {
     source = esmToCjs(source, filePath)
+  } else if (/(?<=await|return|yield|throw|[=,(\[?:+\-*|&^!~])\s*import\s*\(/.test(source)) {
+    // CJS file that uses dynamic import() in expression position — patch just the dynamic
+    // imports so they go through our synchronous require() rather than the native ESM loader.
+    // Positive lookbehind requires expression-context chars before import() to avoid
+    // matching class method declarations like `import(data) {}`.
+    source = source.replace(/(?<=await|return|yield|throw|[=,(\[?:+\-*|&^!~])\s*import\s*\(/g, '((__dynArg)=>Promise.resolve(require(__dynArg)))(')
   }
 
   const requireFn = Object.assign(
@@ -410,8 +443,9 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
       try {
         execSource(esmToCjs(originalSource, filePath))
         return mod
-      } catch {
-        // Retry also failed — fall through to throw original error
+      } catch (e2) {
+        // Retry also failed — log the file path to help debug then throw
+        self.postMessage({ type: 'stdout', text: `[loader] SyntaxError in: ${filePath}: ${(e2 as Error).message}\n` })
       }
     }
     moduleCache.delete(filePath)
@@ -424,6 +458,11 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
 export function requireSync(specifier: string, fromDir = '/app'): unknown {
   // Virtual module IDs (rolldown/rollup internal) — return empty object
   if (specifier.startsWith('\0')) return {}
+
+  // file:// URLs — strip the protocol prefix and treat as absolute path
+  if (specifier.startsWith('file://')) {
+    specifier = specifier.replace(/^file:\/\//, '')
+  }
 
   // Built-in shim
   if (specifier in shimCache) return shimCache[specifier]
