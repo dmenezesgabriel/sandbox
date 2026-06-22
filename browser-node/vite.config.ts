@@ -2,6 +2,11 @@ import { defineConfig } from 'vite'
 import { resolve } from 'path'
 
 export default defineConfig({
+  test: {
+    environment: 'node',
+    setupFiles: ['./tests/setup.ts'],
+    include: ['tests/**/*.test.ts'],
+  },
   root: '.',
   resolve: {
     alias: {

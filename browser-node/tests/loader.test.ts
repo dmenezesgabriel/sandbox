@@ -22,12 +22,13 @@ function makeLoader(mfsInstance: ReturnType<typeof createFsFromVolume>) {
   function dirname(p: string) { const i = p.lastIndexOf('/'); return i <= 0 ? (i === 0 ? '/' : '.') : p.slice(0, i) }
 
   function exists(p: string) { try { mfsInstance.statSync(p); return true } catch { return false } }
+  function isFile(p: string) { try { return mfsInstance.statSync(p).isFile() } catch { return false } }
 
   function resolveModule(specifier: string, fromDir: string): string | null {
     if (specifier.startsWith('.') || specifier.startsWith('/')) {
       const abs = specifier.startsWith('/') ? specifier : join(fromDir, specifier)
       for (const ext of ['', '.js', '.cjs', '.json', '/index.js']) {
-        if (exists(abs + ext)) return abs + ext
+        if (isFile(abs + ext)) return abs + ext
       }
       return null
     }
@@ -161,7 +162,7 @@ describe('CommonJS loader', () => {
     })
 
     it('uses package.json main field', () => {
-      mfs.mkdirSync('/node_modules/mypkg', { recursive: true })
+      mfs.mkdirSync('/node_modules/mypkg/lib', { recursive: true })
       mfs.writeFileSync('/node_modules/mypkg/lib/entry.js', 'module.exports = "from-main"')
       mfs.writeFileSync('/node_modules/mypkg/package.json', '{"main":"lib/entry.js"}')
       mfs.writeFileSync('/app/main.js', 'module.exports = require("mypkg")')

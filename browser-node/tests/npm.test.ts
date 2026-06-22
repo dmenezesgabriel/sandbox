@@ -23,9 +23,10 @@ function* parseTar(buf: Uint8Array): Generator<{ name: string; isFile: boolean; 
 
 // Helper: build a minimal POSIX tar buffer manually
 function makeTarEntry(name: string, content: string): Uint8Array {
-  const buf = new Uint8Array(512 * 10).fill(0)
   const encoder = new TextEncoder()
   const contentBytes = encoder.encode(content)
+  const contentBlocks = Math.ceil(contentBytes.length / 512)
+  const buf = new Uint8Array(512 + contentBlocks * 512).fill(0)
   const nameBytes = encoder.encode(name)
 
   // name (100 bytes at 0)
@@ -36,7 +37,7 @@ function makeTarEntry(name: string, content: string): Uint8Array {
   const sizeOctal = contentBytes.length.toString(8).padStart(11, '0') + ' '
   buf.set(encoder.encode(sizeOctal), 124)
   // Write content after 512-byte header
-  buf.set(contentBytes, 512)
+  if (contentBytes.length > 0) buf.set(contentBytes, 512)
   return buf
 }
 
