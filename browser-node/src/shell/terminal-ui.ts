@@ -43,7 +43,7 @@ export class TerminalUI {
 
   setCwd(cwd: string) { this.cwd = cwd }
 
-  showPrompt() { this._prompt() }
+  showPrompt() { this._busy = false; this._prompt() }
 
   private _prompt() {
     const dir = this.cwd === '/' ? '/' : this.cwd.split('/').pop() || '/'

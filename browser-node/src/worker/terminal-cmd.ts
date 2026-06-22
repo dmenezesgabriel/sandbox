@@ -1,5 +1,6 @@
 import { memfsInstance, existsInVfs, writeFileToVfs } from './vfs'
 import { path as pathMod } from './shims/path'
+import { clearModuleCache } from './loader'
 
 type RequireFn = (id: string, fromDir: string) => unknown
 type InstallFn  = (packages: Record<string, string>) => Promise<void>
@@ -290,9 +291,9 @@ async function cmdNode(args: string[]): Promise<number> {
   if (!args.length) { stderr('usage: node <file.js>\n'); return 1 }
   const file = resolve(args[0])
   try {
-    const code = memfsInstance.readFileSync(file, 'utf-8') as string
+    if (!existsInVfs(file)) { stderr(`node: ${args[0]}: No such file or directory\n`); return 1 }
     if (!_require) { stderr('node: runtime not ready\n'); return 1 }
-    // Re-use the existing run message path via direct require
+    clearModuleCache()
     const fromDir = normalize(file.split('/').slice(0, -1).join('/') || '/')
     _require(file, fromDir)
     return 0
