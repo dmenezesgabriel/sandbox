@@ -1,3 +1,4 @@
 .aider*
 .playwright-cli/
+.vite/
 browser-node/test-*.png
