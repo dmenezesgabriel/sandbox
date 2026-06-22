@@ -9,6 +9,7 @@ export default {
     'tests/e2e/features/angular.feature',
     'tests/e2e/features/nextjs.feature',
     'tests/e2e/features/vue.feature',
+    'tests/e2e/features/vite.feature',
   ],
   import: [
     'tests/e2e/world.mjs',

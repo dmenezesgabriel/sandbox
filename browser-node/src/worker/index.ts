@@ -9,6 +9,28 @@ _g.process = _process
 _g.setImmediate = (fn: (...args: unknown[]) => void, ...args: unknown[]) => setTimeout(() => fn(...args), 0)
 _g.clearImmediate = (id: ReturnType<typeof setTimeout>) => clearTimeout(id)
 
+// Wrap setTimeout/setInterval to return Node.js-compatible Timeout objects with .unref()/.ref()
+// Vite and other packages call timer.unref() to allow process exit; browsers return bare numbers.
+class _TimerHandle {
+  _id: ReturnType<typeof _origSetTimeout>
+  constructor(id: ReturnType<typeof _origSetTimeout>) { this._id = id }
+  unref(): this { return this }
+  ref(): this { return this }
+  [Symbol.toPrimitive]() { return this._id }
+}
+const _origSetTimeout = globalThis.setTimeout.bind(globalThis)
+const _origSetInterval = globalThis.setInterval.bind(globalThis)
+const _origClearTimeout = globalThis.clearTimeout.bind(globalThis)
+const _origClearInterval = globalThis.clearInterval.bind(globalThis)
+;(globalThis as unknown as Record<string, unknown>).setTimeout = (fn: TimerHandler, ms?: number, ...args: unknown[]) =>
+  new _TimerHandle(_origSetTimeout(fn, ms, ...args))
+;(globalThis as unknown as Record<string, unknown>).setInterval = (fn: TimerHandler, ms?: number, ...args: unknown[]) =>
+  new _TimerHandle(_origSetInterval(fn, ms, ...args))
+;(globalThis as unknown as Record<string, unknown>).clearTimeout = (h: _TimerHandle | number | undefined) =>
+  _origClearTimeout(h instanceof _TimerHandle ? h._id : h as number)
+;(globalThis as unknown as Record<string, unknown>).clearInterval = (h: _TimerHandle | number | undefined) =>
+  _origClearInterval(h instanceof _TimerHandle ? h._id : h as number)
+
 // Redirect console output to the shell terminal so npm/Vite logs are visible
 const _fmtArgs = (...args: unknown[]) => args.map(a => typeof a === 'string' ? a : (a instanceof Error ? a.stack ?? a.message : JSON.stringify(a, null, 2))).join(' ') + '\n'
 console.log = (...args: unknown[]) => self.postMessage({ type: 'stdout', text: _fmtArgs(...args) })

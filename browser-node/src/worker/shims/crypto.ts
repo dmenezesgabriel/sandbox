@@ -90,6 +90,17 @@ export const crypto = {
 
   createHmac: (_algorithm: string, _key: string | Uint8Array): Hmac => new Hmac(),
 
+  // Node.js 21.7+ one-shot hash — used by Vite 8
+  hash: (algorithm: string, data: string | Uint8Array | ArrayBuffer, outputEncoding: string = 'hex'): string | Uint8Array => {
+    const h = new Hash(algorithm)
+    if (data instanceof ArrayBuffer) {
+      h.update(new Uint8Array(data))
+    } else {
+      h.update(data as string | Uint8Array)
+    }
+    return h.digest(outputEncoding) as string | Uint8Array
+  },
+
   pbkdf2Sync: (_pwd: string, _salt: string, _iter: number, _len: number): Buffer => {
     throw new Error('pbkdf2Sync not available — use async pbkdf2')
   },

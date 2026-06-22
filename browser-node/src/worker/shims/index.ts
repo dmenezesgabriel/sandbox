@@ -87,7 +87,17 @@ _assertFn.doesNotReject = async (fn: () => Promise<unknown>) => { await fn() }
 _assertFn.ifError = (err: unknown) => { if (err) throw err }
 ;(_assertFn as unknown as { default: unknown }).default = _assertFn
 const _assert = _assertFn as typeof _assertFn & { default: unknown }
-const _timers = { setTimeout, clearTimeout, setInterval, clearInterval, setImmediate: (fn: () => void) => setTimeout(fn, 0) }
+// Delegate to globalThis so the Node-compat timer wrappers (with .unref/.ref) are used.
+const _timers = {
+  get setTimeout() { return (globalThis as unknown as Record<string, unknown>).setTimeout as typeof setTimeout },
+  get clearTimeout() { return (globalThis as unknown as Record<string, unknown>).clearTimeout as typeof clearTimeout },
+  get setInterval() { return (globalThis as unknown as Record<string, unknown>).setInterval as typeof setInterval },
+  get clearInterval() { return (globalThis as unknown as Record<string, unknown>).clearInterval as typeof clearInterval },
+  setImmediate: (fn: () => void) => globalThis.setTimeout(fn, 0),
+  clearImmediate: (id: unknown) => globalThis.clearTimeout(id as ReturnType<typeof setTimeout>),
+  default: undefined as unknown,
+}
+_timers.default = _timers
 const _childProcess = {
   exec: (_cmd: string, cb?: (err: Error | null, stdout?: string, stderr?: string) => void) => {
     cb?.(new Error('child_process.exec not supported in browser'))
@@ -197,6 +207,27 @@ _rolldownParseAst.default = _rolldownParseAst
 
 class _TsconfigCache { constructor() {} }
 class _Visitor { constructor() {} }
+// Synchronous TypeScript→JS transform used by Vite 8's plugin container.
+// Tries TypeScript.transpileModule() (sync, available if 'typescript' is installed),
+// then falls back to a regex-based type stripper for simple cases.
+function _tsTransformSync(code: string, filename?: string): string {
+  const isTs = /\.[mc]?tsx?$/.test(filename ?? '.ts')
+  if (!isTs) return code
+  try {
+    const ts = _requireSync('typescript', '/') as { transpileModule: (code: string, opts: Record<string, unknown>) => { outputText: string } }
+    if (ts?.transpileModule) {
+      return ts.transpileModule(code, { compilerOptions: { module: 99, target: 99, jsx: 1 } }).outputText
+    }
+  } catch {}
+  // Regex fallback: strip common TS-only syntax (handles built-in lowercase types too)
+  return code
+    .replace(/:\s*[A-Za-z][A-Za-z0-9_<>, [\]|&.()]*(?=\s*[=,);{])/g, '') // : TypeAnnotation
+    .replace(/\binterface\s+\w+[^{]*\{[^}]*\}/gs, '')                      // interface declarations
+    .replace(/\btype\s+\w+\s*=\s*[^;\n]+;?/g, '')                          // type aliases
+    .replace(/<[A-Za-z][A-Za-z0-9_, ]*>/g, '')                             // <T> generics (simple)
+    .replace(/\s+as\s+[A-Za-z][A-Za-z0-9_<>, [\]|&.()]+/g, '')            // x as Type
+}
+
 const _rolldownUtils = {
   TsconfigCache: _TsconfigCache,
   Visitor: _Visitor,
@@ -204,7 +235,11 @@ const _rolldownUtils = {
   minifySync: _notSupported('rolldown/utils.minifySync'),
   parse: _notSupported('rolldown/utils.parse'),
   parseSync: _notSupported('rolldown/utils.parseSync'),
-  transformSync: _notSupported('rolldown/utils.transformSync'),
+  // OXC/rolldown API: transformSync(filename, sourceCode, options?)
+  transformSync: (filename: string, sourceCode: string, options?: { lang?: string; [k: string]: unknown }) => {
+    const out = _tsTransformSync(sourceCode, filename)
+    return { code: out, map: '', errors: [], warnings: [] }
+  },
   transform: _asyncNotSupported('rolldown/utils.transform'),
   resolveTsconfig: _notSupported('rolldown/utils.resolveTsconfig'),
   default: undefined as unknown,
