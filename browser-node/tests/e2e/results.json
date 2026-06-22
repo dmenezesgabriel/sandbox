@@ -13,8 +13,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 138910666,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -78,8 +79,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 10304826
             }
           }
         ],
@@ -97,8 +98,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 28206040,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -162,8 +164,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 5620499
             }
           }
         ],
@@ -181,8 +183,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 31342618,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -246,8 +249,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 6203105
             }
           }
         ],
@@ -265,8 +268,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 36400059,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -330,8 +334,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 6221064
             }
           }
         ],
@@ -360,8 +364,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 31282443,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -425,8 +430,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 14930499
             }
           }
         ],
@@ -444,8 +449,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 44824029,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -509,8 +515,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 7606207
             }
           }
         ],
@@ -528,8 +534,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 31126753,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -606,8 +613,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3062024
             }
           }
         ],
@@ -625,8 +632,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 27991180,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -690,8 +698,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3387584
             }
           }
         ],
@@ -720,8 +728,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 30720174,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -808,8 +817,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 5812494
             }
           }
         ],
@@ -827,8 +836,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 24248914,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -915,8 +925,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3493607
             }
           }
         ],
@@ -934,8 +944,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 23975332,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -1022,8 +1033,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3835709
             }
           }
         ],
@@ -1041,8 +1052,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 23392147,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -1129,8 +1141,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3567077
             }
           }
         ],
@@ -1159,8 +1171,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 23283151,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -1259,8 +1272,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 4459149
             }
           }
         ],
@@ -1278,8 +1291,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 22813832,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -1378,8 +1392,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 4259201
             }
           }
         ],
@@ -1397,8 +1411,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 50882202,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -1491,8 +1506,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2837451
             }
           }
         ],
@@ -1510,8 +1525,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 52369377,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -1604,8 +1620,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3459098
             }
           }
         ],
@@ -1634,8 +1650,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 31691029,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -1728,8 +1745,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3955175
             }
           }
         ],
@@ -1747,8 +1764,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 24539964,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -1841,8 +1859,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2919764
             }
           }
         ],
@@ -1871,8 +1889,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 47532799,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -1959,8 +1978,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3176281
             }
           }
         ],
@@ -1978,8 +1997,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 25034406,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -2066,8 +2086,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 6966206
             }
           }
         ],
@@ -2085,8 +2105,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 23916760,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -2173,8 +2194,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 4827864
             }
           }
         ],
@@ -2192,8 +2213,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 28447574,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -2293,8 +2315,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3706642
             }
           }
         ],
@@ -2323,8 +2345,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 24297031,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -2405,8 +2428,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3745858
             }
           }
         ],
@@ -2424,8 +2447,9 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 26706355,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -2474,7 +2498,7 @@
           {
             "arguments": [
               {
-                "content": "const fs = require('fs')\nfs.mkdirSync('/vite-app2/src', { recursive: true })\nfs.writeFileSync('/vite-app2/index.html',\n  '<html><body><script type=\"module\" src=\"/src/app.js\"></script></body></html>')\nfs.writeFileSync('/vite-app2/src/app.js',\n  'export const greeting = \"Hello World\"\\nconsole.log(greeting)')\nconst { createServer } = require('vite')\nasync function main() {\n  const server = await createServer({ root: '/vite-app2', server: { port: 3001 } })\n  await server.listen()\n  const result = await server.transformRequest('/src/app.js')\n  if (!result || !result.code || result.code.length === 0) {\n    throw new Error('Transform returned empty result')\n  }\n  console.log('Transform code length:', result.code.length)\n  console.log('Vite JS transform works')\n}\nmain().catch(e => console.error('Vite failed:', e.stack || e.message))",
+                "content": "const fs = require('fs')\nfs.mkdirSync('/vite-app2/src', { recursive: true })\nfs.writeFileSync('/vite-app2/index.html',\n  '<html><body><script type=\"module\" src=\"/src/app.js\"></script></body></html>')\nfs.writeFileSync('/vite-app2/src/app.js',\n  'export const greeting = \"Hello World\"\\nconsole.log(greeting)')\nconst { createServer } = require('vite')\nasync function main() {\n  const server = await createServer({ root: '/vite-app2', server: { port: 3001 } })\n  await server.listen()\n  // Pass absolute VFS path — Vite 8's OXC resolver requires it for in-memory VFS\n  const result = await server.transformRequest('/vite-app2/src/app.js')\n  if (!result || !result.code || result.code.length === 0) {\n    throw new Error('Transform returned empty result')\n  }\n  console.log('Transform code length:', result.code.length)\n  console.log('Vite JS transform works')\n}\nmain().catch(e => console.error('Vite failed:', e.stack || e.message))",
                 "line": 37
               }
             ],
@@ -2492,7 +2516,7 @@
           {
             "arguments": [],
             "keyword": "Then ",
-            "line": 57,
+            "line": 58,
             "name": "the terminal should contain \"Vite JS transform works\"",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:40"
@@ -2506,8 +2530,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3188266
             }
           }
         ],
@@ -2518,15 +2542,16 @@
         "description": "",
         "id": "vite-dev-server-inside-browser-node;vite-transforms-a-typescript-file",
         "keyword": "Scenario",
-        "line": 59,
+        "line": 60,
         "name": "Vite transforms a TypeScript file",
         "steps": [
           {
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 24869360,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -2568,7 +2593,7 @@
               }
             ],
             "keyword": "When ",
-            "line": 60,
+            "line": 61,
             "name": "I install the following packages:",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:28"
@@ -2581,12 +2606,12 @@
           {
             "arguments": [
               {
-                "content": "const fs = require('fs')\nfs.mkdirSync('/vite-ts/src', { recursive: true })\nfs.writeFileSync('/vite-ts/index.html',\n  '<html><body><script type=\"module\" src=\"/src/main.ts\"></script></body></html>')\nfs.writeFileSync('/vite-ts/src/main.ts',\n  'const msg: string = \"Hello TypeScript\"\\nconsole.log(msg)\\nexport default msg')\nconst { createServer } = require('vite')\nasync function main() {\n  const server = await createServer({ root: '/vite-ts', server: { port: 3002 } })\n  await server.listen()\n  const result = await server.transformRequest('/src/main.ts')\n  if (!result || !result.code) throw new Error('No code in transform result')\n  const hasString = result.code.includes('Hello TypeScript')\n  console.log('TS type annotation stripped:', !result.code.includes(': string'))\n  console.log('String literal preserved:', hasString)\n  if (!hasString) throw new Error('Expected string literal in output')\n  console.log('Vite TypeScript transform works')\n}\nmain().catch(e => console.error('Vite failed:', e.stack || e.message))",
-                "line": 65
+                "content": "const fs = require('fs')\nfs.mkdirSync('/vite-ts/src', { recursive: true })\nfs.writeFileSync('/vite-ts/index.html',\n  '<html><body><script type=\"module\" src=\"/src/main.ts\"></script></body></html>')\nfs.writeFileSync('/vite-ts/src/main.ts',\n  'const msg: string = \"Hello TypeScript\"\\nconsole.log(msg)\\nexport default msg')\nconst { createServer } = require('vite')\nasync function main() {\n  const server = await createServer({ root: '/vite-ts', server: { port: 3002 } })\n  await server.listen()\n  // Absolute VFS path — required by Vite 8's OXC resolver for in-memory VFS\n  const result = await server.transformRequest('/vite-ts/src/main.ts')\n  if (!result || !result.code) throw new Error('No code in transform result')\n  const hasString = result.code.includes('Hello TypeScript')\n  console.log('TS type annotation stripped:', !result.code.includes(': string'))\n  console.log('String literal preserved:', hasString)\n  if (!hasString) throw new Error('Expected string literal in output')\n  console.log('Vite TypeScript transform works')\n}\nmain().catch(e => console.error('Vite failed:', e.stack || e.message))",
+                "line": 66
               }
             ],
             "keyword": "And ",
-            "line": 64,
+            "line": 65,
             "name": "I run the following code:",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:36"
@@ -2599,7 +2624,7 @@
           {
             "arguments": [],
             "keyword": "Then ",
-            "line": 86,
+            "line": 88,
             "name": "the terminal should contain \"Vite TypeScript transform works\"",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:40"
@@ -2613,8 +2638,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3538765
             }
           }
         ],
@@ -2625,15 +2650,16 @@
         "description": "",
         "id": "vite-dev-server-inside-browser-node;vite-build-throws-because-bundler-is-not-supported-in-browser",
         "keyword": "Scenario",
-        "line": 88,
+        "line": 90,
         "name": "Vite build throws because bundler is not supported in browser",
         "steps": [
           {
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 25992840,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -2669,7 +2695,7 @@
               }
             ],
             "keyword": "When ",
-            "line": 89,
+            "line": 91,
             "name": "I install the following packages:",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:28"
@@ -2683,11 +2709,11 @@
             "arguments": [
               {
                 "content": "const fs = require('fs')\nfs.mkdirSync('/vite-build/src', { recursive: true })\nfs.writeFileSync('/vite-build/index.html', '<html><body></body></html>')\nfs.writeFileSync('/vite-build/src/main.js', 'console.log(\"build target\")')\nconst { build } = require('vite')\nasync function main() {\n  await build({ root: '/vite-build', logLevel: 'silent' })\n  console.log('Build succeeded unexpectedly')\n}\nmain().catch(e => {\n  const msg = e.message || String(e)\n  if (msg.includes('not supported')) {\n    console.log('Vite build correctly rejected:', msg.slice(0, 80))\n  } else {\n    console.error('Unexpected error:', msg)\n  }\n})",
-                "line": 93
+                "line": 95
               }
             ],
             "keyword": "And ",
-            "line": 92,
+            "line": 94,
             "name": "I run the following code:",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:36"
@@ -2700,7 +2726,7 @@
           {
             "arguments": [],
             "keyword": "Then ",
-            "line": 112,
+            "line": 114,
             "name": "the terminal should contain \"Vite build correctly rejected\"",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:40"
@@ -2714,8 +2740,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3076538
             }
           }
         ],
@@ -2726,15 +2752,16 @@
         "description": "",
         "id": "vite-dev-server-inside-browser-node;two-vite-servers-run-on-separate-ports-simultaneously",
         "keyword": "Scenario",
-        "line": 114,
+        "line": 116,
         "name": "Two Vite servers run on separate ports simultaneously",
         "steps": [
           {
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "failed",
+              "duration": 26012487,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
             }
           },
           {
@@ -2770,7 +2797,7 @@
               }
             ],
             "keyword": "When ",
-            "line": 115,
+            "line": 117,
             "name": "I install the following packages:",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:28"
@@ -2784,11 +2811,11 @@
             "arguments": [
               {
                 "content": "const fs = require('fs')\n;['/vite-s1', '/vite-s2'].forEach((dir, i) => {\n  fs.mkdirSync(dir + '/src', { recursive: true })\n  fs.writeFileSync(dir + '/index.html',\n    `<html><body><script type=\"module\" src=\"/src/app.js\"></script></body></html>`)\n  fs.writeFileSync(dir + '/src/app.js', `console.log('server ${i + 1}')`)\n})\nconst { createServer } = require('vite')\nasync function main() {\n  const s1 = await createServer({ root: '/vite-s1', server: { port: 3010 } })\n  const s2 = await createServer({ root: '/vite-s2', server: { port: 3011 } })\n  await Promise.all([s1.listen(), s2.listen()])\n  console.log('Vite server 1 running on port 3010')\n  console.log('Vite server 2 running on port 3011')\n  console.log('Both Vite servers running')\n}\nmain().catch(e => console.error('Vite failed:', e.stack || e.message))",
-                "line": 119
+                "line": 121
               }
             ],
             "keyword": "And ",
-            "line": 118,
+            "line": 120,
             "name": "I run the following code:",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:36"
@@ -2801,7 +2828,7 @@
           {
             "arguments": [],
             "keyword": "Then ",
-            "line": 138,
+            "line": 140,
             "name": "the terminal should contain \"Both Vite servers running\"",
             "match": {
               "location": "tests/e2e/steps/common.steps.mjs:40"
@@ -2815,8 +2842,8 @@
             "keyword": "After",
             "hidden": true,
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3323361
             }
           }
         ],
