@@ -18,9 +18,33 @@ export class TerminalUI {
     this.term = new Terminal({
       convertEol: true,
       cursorBlink: true,
-      fontFamily: "'Cascadia Code', 'Fira Code', Menlo, monospace",
+      fontFamily: "'Cascadia Code', 'Fira Code', 'JetBrains Mono', Menlo, Consolas, monospace",
       fontSize: 13,
-      theme: { background: '#0d0d0d', foreground: '#d4d4d4', cursor: '#d4d4d4', selectionBackground: '#264f78' },
+      lineHeight: 1.35,
+      letterSpacing: 0.3,
+      theme: {
+        background:          '#010409',
+        foreground:          '#e6edf3',
+        cursor:              '#58a6ff',
+        cursorAccent:        '#010409',
+        selectionBackground: '#1f4878',
+        black:               '#484f58',
+        red:                 '#f85149',
+        green:               '#3fb950',
+        yellow:              '#e3b341',
+        blue:                '#58a6ff',
+        magenta:             '#bc8cff',
+        cyan:                '#39c5cf',
+        white:               '#b1bac4',
+        brightBlack:         '#6e7681',
+        brightRed:           '#ff7b72',
+        brightGreen:         '#56d364',
+        brightYellow:        '#e3b341',
+        brightBlue:          '#79c0ff',
+        brightMagenta:       '#d2a8ff',
+        brightCyan:          '#56d4dd',
+        brightWhite:         '#f0f6fc',
+      },
     })
     this.fit = new FitAddon()
     this.term.loadAddon(this.fit)
@@ -46,8 +70,9 @@ export class TerminalUI {
   showPrompt() { this._busy = false; this._prompt() }
 
   private _prompt() {
-    const dir = this.cwd === '/' ? '/' : this.cwd.split('/').pop() || '/'
-    this.term.write(`\r\n\x1b[32m${dir}\x1b[0m\x1b[1m $\x1b[0m `)
+    const parts = this.cwd.split('/').filter(Boolean)
+    const short = parts.length === 0 ? '/' : (parts.length === 1 ? '/' + parts[0] : '…/' + parts[parts.length - 1])
+    this.term.write(`\r\n\x1b[38;5;74m${short}\x1b[0m \x1b[38;5;246m$\x1b[0m `)
     this.buf = ''
     this.cur = 0
   }

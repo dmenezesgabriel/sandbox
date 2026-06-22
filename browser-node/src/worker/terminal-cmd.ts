@@ -23,8 +23,8 @@ function notifyVfsChanged() { self.postMessage({ type: 'vfs-changed' }) }
 // ── Path helpers ────────────────────────────────────────────────────────────
 
 function resolve(p: string): string {
-  if (!p || p === '~') return '/home/user'
-  if (p.startsWith('~/')) p = '/home/user' + p.slice(1)
+  if (!p || p === '~') return '/examples'
+  if (p.startsWith('~/')) p = '/examples/' + p.slice(2)
   if (p.startsWith('/')) return normalize(p)
   return normalize(_cwd + '/' + p)
 }
@@ -156,7 +156,7 @@ function stripAnsi(s: string) { return s.replace(/\x1b\[[^m]*m/g, '') }
 // ── cd ───────────────────────────────────────────────────────────────────────
 
 function cmdCd(args: string[]): number {
-  const target = resolve(args[0] ?? '/home/user')
+  const target = resolve(args[0] ?? '/')
   try {
     const st = memfsInstance.statSync(target) as { isDirectory(): boolean }
     if (!st.isDirectory()) { stderr(`cd: ${args[0]}: Not a directory\n`); return 1 }
@@ -288,7 +288,18 @@ function cmdEcho(args: string[]): number {
 // ── node ─────────────────────────────────────────────────────────────────────
 
 async function cmdNode(args: string[]): Promise<number> {
-  if (!args.length) { stderr('usage: node <file.js>\n'); return 1 }
+  if (!args.length) { stderr('usage: node [--version] <file.js>\n'); return 1 }
+  if (args[0] === '--version' || args[0] === '-v') { stdout('v22.14.0\n'); return 0 }
+  if (args[0] === '-e' || args[0] === '--eval') {
+    const code = args.slice(1).join(' ')
+    if (!code) { stderr('node: -e requires an expression\n'); return 1 }
+    if (!_require) { stderr('node: runtime not ready\n'); return 1 }
+    clearModuleCache()
+    const tmpPath = '/tmp/_eval_' + Date.now() + '.js'
+    writeFileToVfs(tmpPath, code)
+    try { _require(tmpPath, '/tmp'); return 0 }
+    catch (e) { stderr(`node: ${(e as Error).message}\n`); return 1 }
+  }
   const file = resolve(args[0])
   try {
     if (!existsInVfs(file)) { stderr(`node: ${args[0]}: No such file or directory\n`); return 1 }
@@ -304,7 +315,8 @@ async function cmdNode(args: string[]): Promise<number> {
 
 async function cmdNpm(args: string[]): Promise<number> {
   const sub = args[0]
-  if (!sub) { stderr('usage: npm <install|run> [...]\n'); return 1 }
+  if (!sub) { stderr('usage: npm <install|run|--version> [...]\n'); return 1 }
+  if (sub === '--version' || sub === '-v') { stdout('10.9.0\n'); return 0 }
 
   if (sub === 'install' || sub === 'i' || sub === 'add') {
     const pkgArgs = args.slice(1).filter(a => !a.startsWith('-'))
@@ -509,12 +521,17 @@ function cmdGrep(args: string[]): number {
 
 function cmdHelp(): number {
   stdout(`\x1b[1mBuilt-in commands:\x1b[0m
-  \x1b[36mFile system:\x1b[0m  ls [-la]  cd  pwd  mkdir [-p]  rm [-rf]  mv  cp [-r]  touch  cat  find
-  \x1b[36mText:\x1b[0m         echo  head [-n N]  tail [-n N]  grep [-in]
-  \x1b[36mRuntime:\x1b[0m      node <file>  npm install [pkg]  npm run <script>  vite [--port=N]
-  \x1b[36mShell:\x1b[0m        env  export KEY=VAL  which  clear  help
+  \x1b[36mFilesystem:\x1b[0m  ls [-la]  cd  pwd  mkdir [-p]  rm [-rf]  mv  cp [-r]  touch  cat  find
+  \x1b[36mText:\x1b[0m        echo  head [-n N]  tail [-n N]  grep [-in]
+  \x1b[36mRuntime:\x1b[0m     node [--version] <file>  node -e "code"
+               npm install [pkg@ver]  npm run <script>  npm --version
+               vite [--port=N]
+  \x1b[36mShell:\x1b[0m       env  export KEY=VAL  which  clear  help
 
-  \x1b[90mKeyboard:\x1b[0m  ↑↓ history · Ctrl+L clear · Ctrl+C cancel
+  \x1b[90mKeyboard:\x1b[0m  \x1b[90m↑↓\x1b[0m history  \x1b[90mCtrl+L\x1b[0m clear  \x1b[90mCtrl+C\x1b[0m cancel
+
+  \x1b[33mQuick start:\x1b[0m
+    cd /examples/express && npm install && node index.js
 `)
   return 0
 }

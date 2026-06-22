@@ -35,7 +35,9 @@ export class FileExplorer {
 
   private _renderDir(path: string, depth: number) {
     const raw = this.dirs.get(path) ?? []
+    const HIDDEN_AT_ROOT = new Set(['node_modules', 'tmp', '.git'])
     const entries = raw
+      .filter(e => !(path === '/' && HIDDEN_AT_ROOT.has(e.name)))
       .filter(e => e.name !== '.git')
       .sort((a, b) => {
         if (a.isDir !== b.isDir) return a.isDir ? -1 : 1

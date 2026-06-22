@@ -61,8 +61,6 @@ async function loadPreview(port: number, path: string) {
 }
 
 // ── Hidden test-interface log buffer ─────────────────────────────────────────
-// E2E tests (Playwright/Cucumber) check document.getElementById('terminal').textContent.
-// xterm.js renders to canvas so tests can't read it — this hidden div shadows all output.
 
 const _testLog = document.getElementById('terminal') as HTMLDivElement
 let _cmdSeq = 0
@@ -73,22 +71,30 @@ function _appendTestLog(text: string) {
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 
-const editorPanel = document.getElementById('editor-panel') as HTMLDivElement
-const previewPanel = document.getElementById('preview-panel') as HTMLDivElement
-const previewFrame = document.getElementById('preview') as HTMLIFrameElement
-const termPanel = document.getElementById('terminal-panel') as HTMLDivElement
-const explorerEl = document.getElementById('explorer') as HTMLDivElement
-const statusEl = document.getElementById('status') as HTMLSpanElement
-const btnEditor = document.getElementById('btn-editor') as HTMLButtonElement
-const btnPreview = document.getElementById('btn-preview') as HTMLButtonElement
-const btnRun = document.getElementById('btn-run') as HTMLButtonElement
-const btnNewFile = document.getElementById('btn-new-file') as HTMLButtonElement
-const btnRefresh = document.getElementById('btn-refresh') as HTMLButtonElement
+const sidebar         = document.getElementById('sidebar') as HTMLDivElement
+const editorPanel     = document.getElementById('editor-panel') as HTMLDivElement
+const previewPanel    = document.getElementById('preview-panel') as HTMLDivElement
+const previewFrame    = document.getElementById('preview') as HTMLIFrameElement
+const termPanel       = document.getElementById('terminal-panel') as HTMLDivElement
+const termXterm       = document.getElementById('terminal-xterm') as HTMLDivElement
+const termTopbarCwd   = document.getElementById('terminal-topbar-cwd') as HTMLSpanElement
+const explorerEl      = document.getElementById('explorer') as HTMLDivElement
+const workerStatusEl  = document.getElementById('worker-status') as HTMLDivElement
+const btnSidebarTgl   = document.getElementById('btn-sidebar-toggle') as HTMLButtonElement
+const btnEditor       = document.getElementById('btn-editor') as HTMLButtonElement
+const btnPreview      = document.getElementById('btn-preview') as HTMLButtonElement
+const btnRun          = document.getElementById('btn-run') as HTMLButtonElement
+const btnNewFile      = document.getElementById('btn-new-file') as HTMLButtonElement
+const btnNewFileTb    = document.getElementById('btn-new-file-tb') as HTMLButtonElement
+const btnRefresh      = document.getElementById('btn-refresh') as HTMLButtonElement
+const statusbarFile   = document.getElementById('statusbar-file') as HTMLSpanElement
+const statusbarMsg    = document.getElementById('statusbar-msg') as HTMLSpanElement
+const termDrag        = document.getElementById('terminal-drag') as HTMLDivElement
 
 // ── UI components ─────────────────────────────────────────────────────────────
 
 const editor = new Editor(editorPanel)
-const terminalUI = new TerminalUI(termPanel, (cmd) => {
+const terminalUI = new TerminalUI(termXterm, (cmd) => {
   send({ type: 'terminal-cmd', cmdline: cmd })
 })
 const explorer = new FileExplorer(
@@ -97,12 +103,32 @@ const explorer = new FileExplorer(
   (path) => { send({ type: 'vfs-list', path }) },
 )
 
+// ── Sidebar toggle ────────────────────────────────────────────────────────────
+
+let sidebarOpen = window.innerWidth >= 640
+
+function setSidebar(open: boolean) {
+  sidebarOpen = open
+  sidebar.classList.toggle('collapsed', !open)
+  setTimeout(() => terminalUI.refit(), 150)
+}
+
+setSidebar(sidebarOpen)
+btnSidebarTgl.addEventListener('click', () => setSidebar(!sidebarOpen))
+
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+    e.preventDefault()
+    setSidebar(!sidebarOpen)
+  }
+})
+
 // ── Tab toggle ────────────────────────────────────────────────────────────────
 
 function showTab(tab: 'editor' | 'preview') {
   const isEditor = tab === 'editor'
-  editorPanel.style.display = isEditor ? 'flex' : 'none'
-  previewPanel.style.display = isEditor ? 'none' : 'flex'
+  editorPanel.classList.toggle('hidden', !isEditor)
+  previewPanel.classList.toggle('visible', !isEditor)
   btnEditor.classList.toggle('active', isEditor)
   btnPreview.classList.toggle('active', !isEditor)
   if (isEditor) terminalUI.refit()
@@ -124,14 +150,17 @@ btnRun.addEventListener('click', () => {
 
 // ── New file ─────────────────────────────────────────────────────────────────
 
-btnNewFile.addEventListener('click', () => {
-  const name = prompt('New file path (e.g. /app/index.js):')
+function promptNewFile() {
+  const name = prompt('New file path (e.g. /examples/myapp/index.js):')
   if (!name?.trim()) return
-  const path = name.trim().startsWith('/') ? name.trim() : '/app/' + name.trim()
+  const path = name.trim().startsWith('/') ? name.trim() : '/examples/' + name.trim()
   send({ type: 'write-file', path, content: '' })
   send({ type: 'vfs-read', path })
   explorer.refresh()
-})
+}
+
+btnNewFile.addEventListener('click', promptNewFile)
+btnNewFileTb.addEventListener('click', promptNewFile)
 
 // ── Preview refresh ───────────────────────────────────────────────────────────
 
@@ -142,22 +171,60 @@ btnRefresh.addEventListener('click', () => {
   loadPreview(port, '/')
 })
 
+// ── Terminal resize drag ──────────────────────────────────────────────────────
+
+let _dragging = false
+let _dragStartY = 0
+let _dragStartH = 0
+
+termDrag.addEventListener('mousedown', (e) => {
+  _dragging = true
+  _dragStartY = e.clientY
+  _dragStartH = termPanel.offsetHeight
+  document.body.style.cursor = 'ns-resize'
+  document.body.style.userSelect = 'none'
+})
+
+document.addEventListener('mousemove', (e) => {
+  if (!_dragging) return
+  const delta = _dragStartY - e.clientY
+  const newH = Math.max(80, Math.min(window.innerHeight * 0.8, _dragStartH + delta))
+  termPanel.style.height = newH + 'px'
+  terminalUI.refit()
+})
+
+document.addEventListener('mouseup', () => {
+  if (!_dragging) return
+  _dragging = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+})
+
 // ── Worker messages ───────────────────────────────────────────────────────────
 
-function setStatus(msg: string) { statusEl.textContent = msg }
+function setWorkerStatus(state: 'loading' | 'ready' | 'busy' | 'error') {
+  workerStatusEl.className = ''
+  if (state !== 'loading') workerStatusEl.classList.add(state)
+}
+
+function setStatusMsg(msg: string) {
+  statusbarMsg.textContent = msg
+}
 
 runtimeWorker.addEventListener('message', (e: MessageEvent) => {
   const { type, ...p } = e.data ?? {}
 
   if (type === 'ready') {
     workerReady = true
-    setStatus('Ready')
+    btnRun.disabled = false
+    setWorkerStatus('ready')
+    setStatusMsg('Ready')
     _appendTestLog('[runtime] Worker ready.\n')
     // Transfer SW↔Worker MessageChannel port
     const { port1: toWorker, port2: toShell } = new MessageChannel()
     send({ type: 'set-sw-port', port: toWorker }, [toWorker])
     toShell.close()
-    terminalUI.setReady('/')
+    terminalUI.setReady('/examples')
     explorer.refresh()
     return
   }
@@ -175,15 +242,19 @@ runtimeWorker.addEventListener('message', (e: MessageEvent) => {
 
   if (type === 'terminal-done') {
     if (p.exitCode === -1) terminalUI.clear()
-    if (p.cwd) terminalUI.setCwd(p.cwd)
+    if (p.cwd) {
+      terminalUI.setCwd(p.cwd)
+      termTopbarCwd.textContent = p.cwd
+    }
     terminalUI.showPrompt()
-    _appendTestLog(`[cmd:${++_cmdSeq}:exit${p.exitCode ?? 0}]
-`)
+    setWorkerStatus('ready')
+    _appendTestLog(`[cmd:${++_cmdSeq}:exit${p.exitCode ?? 0}]\n`)
     return
   }
 
   if (type === 'terminal-cwd') {
     terminalUI.setCwd(p.cwd)
+    termTopbarCwd.textContent = p.cwd
     return
   }
 
@@ -201,8 +272,8 @@ runtimeWorker.addEventListener('message', (e: MessageEvent) => {
     if (p.content !== null && p.content !== undefined) {
       editor.setContent(p.content, p.path)
       explorer.setActive(p.path)
+      statusbarFile.textContent = p.path
       showTab('editor')
-      // Auto-save: wire future edits back to VFS
     }
     return
   }
@@ -212,28 +283,32 @@ runtimeWorker.addEventListener('message', (e: MessageEvent) => {
     _listenTimers.set(p.port, setTimeout(() => {
       _listenTimers.delete(p.port)
       registerServerWithSW(p.port)
+      setStatusMsg(`Server on :${p.port}`)
     }, 50))
     return
   }
 
   if (type === 'server-close') {
     unregisterServerWithSW(p.port)
+    setStatusMsg('Ready')
     return
   }
 
   if (type === 'npm-done') {
-    setStatus('Ready')
+    setWorkerStatus('ready')
+    setStatusMsg('Ready')
     return
   }
 })
 
 runtimeWorker.addEventListener('error', (e) => {
+  setWorkerStatus('error')
   terminalUI.write(`\x1b[31m[worker error] ${e.message}\x1b[0m\r\n`)
 })
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
-setStatus('Initializing…')
+setStatusMsg('Initializing…')
 registerSW()
 
 // Playwright test hook
