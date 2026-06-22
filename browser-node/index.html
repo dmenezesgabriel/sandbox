@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>browser-node</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; background: #1e1e1e; color: #d4d4d4; font-family: 'Cascadia Code', 'Fira Code', Menlo, monospace; font-size: 13px; overflow: hidden; }
+
+      /* ── Layout grid ── */
+      #app { display: grid; height: 100vh; grid-template-rows: 40px 1fr; grid-template-columns: 220px 1fr; }
+
+      /* ── Toolbar ── */
+      #toolbar {
+        grid-column: 1 / -1;
+        background: #323233;
+        border-bottom: 1px solid #3e3e42;
+        display: flex; align-items: center; gap: 4px; padding: 0 10px;
+        user-select: none;
+      }
+      #toolbar h1 { font-size: 13px; font-weight: 600; color: #c8c8c8; margin-right: 10px; white-space: nowrap; }
+      .tab-btn {
+        font-size: 12px; padding: 4px 14px;
+        background: transparent; color: #999;
+        border: none; border-radius: 3px; cursor: pointer;
+        transition: color 0.1s;
+      }
+      .tab-btn:hover { color: #ccc; background: #3e3e42; }
+      .tab-btn.active { background: #1e1e1e; color: #fff; }
+      #toolbar-spacer { flex: 1; }
+      #btn-run {
+        font-size: 12px; padding: 4px 12px;
+        background: #0e639c; color: #fff;
+        border: none; border-radius: 3px; cursor: pointer;
+      }
+      #btn-run:hover { background: #1177bb; }
+      #status { font-size: 11px; color: #666; white-space: nowrap; margin-left: 8px; }
+
+      /* ── Sidebar ── */
+      #sidebar {
+        background: #252526;
+        border-right: 1px solid #3e3e42;
+        display: flex; flex-direction: column;
+        overflow: hidden;
+      }
+      #sidebar-header {
+        padding: 5px 8px;
+        font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #bbb;
+        display: flex; align-items: center; justify-content: space-between;
+        border-bottom: 1px solid #3e3e42; flex-shrink: 0;
+      }
+      #btn-new-file {
+        background: transparent; border: none; color: #aaa; cursor: pointer;
+        font-size: 16px; line-height: 1; padding: 0 2px;
+      }
+      #btn-new-file:hover { color: #fff; }
+      #explorer { flex: 1; overflow-y: auto; overflow-x: hidden; }
+      .explorer-item {
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        padding: 2px 0; line-height: 1.6; cursor: pointer;
+      }
+      .explorer-item:hover { background: #2a2d2e; }
+      .explorer-item.dir  { color: #e8c07d; }
+      .explorer-item.file { color: #9cdcfe; }
+      .explorer-item.active { background: #094771 !important; color: #fff; }
+
+      /* ── Main panel ── */
+      #main { display: flex; flex-direction: column; overflow: hidden; }
+
+      /* ── Editor panel ── */
+      #editor-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+      .cm-editor { height: 100%; }
+      .cm-scroller { overflow: auto; }
+
+      /* ── Preview panel ── */
+      #preview-panel { flex: 1; overflow: hidden; display: none; flex-direction: column; min-height: 0; }
+      #preview-panel.visible { display: flex; }
+      #preview-bar {
+        background: #252526; border-bottom: 1px solid #3e3e42;
+        padding: 4px 8px; font-size: 11px; color: #888;
+        display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+      }
+      #preview-url {
+        flex: 1; background: #1e1e1e; border: 1px solid #3e3e42; border-radius: 3px;
+        padding: 2px 6px; color: #d4d4d4; font-size: 11px; font-family: inherit;
+      }
+      #btn-refresh {
+        font-size: 11px; padding: 3px 8px;
+        background: #3e3e42; color: #ccc; border: none; border-radius: 3px; cursor: pointer;
+      }
+      #btn-refresh:hover { background: #4e4e52; }
+      #preview { flex: 1; border: none; background: #fff; }
+
+      /* ── Terminal panel ── */
+      #terminal-panel {
+        height: 240px; flex-shrink: 0;
+        border-top: 2px solid #3e3e42;
+        background: #0d0d0d;
+        overflow: hidden;
+      }
+      /* xterm fills the panel */
+      #terminal-panel .xterm { height: 100%; }
+      #terminal-panel .xterm-screen { height: 100% !important; }
+      .xterm-viewport { background: #0d0d0d !important; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+
+      <div id="toolbar">
+        <h1>⬡ browser-node</h1>
+        <button class="tab-btn active" id="btn-editor">Editor</button>
+        <button class="tab-btn"        id="btn-preview">Preview</button>
+        <div id="toolbar-spacer"></div>
+        <button id="btn-run">▶ Run</button>
+        <span id="status">Initializing…</span>
+      </div>
+
+      <div id="sidebar">
+        <div id="sidebar-header">
+          <span>Files</span>
+          <button id="btn-new-file" title="New file">+</button>
+        </div>
+        <div id="explorer"></div>
+      </div>
+
+      <div id="main">
+        <div id="editor-panel"></div>
+
+        <div id="preview-panel">
+          <div id="preview-bar">
+            <span>Preview</span>
+            <input id="preview-url" value="http://localhost:3000" readonly />
+            <button id="btn-refresh">↺ Refresh</button>
+          </div>
+          <iframe id="preview" sandbox="allow-scripts allow-same-origin"></iframe>
+        </div>
+
+        <div id="terminal-panel"></div>
+      </div>
+
+    </div>
+
+    <!-- Hidden test-interface elements: E2E tests read stdout/stderr via #terminal textContent -->
+    <div id="terminal" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;white-space:pre;" aria-hidden="true"></div>
+
+    <script type="module" src="/src/shell/main.ts"></script>
+  </body>
+</html>

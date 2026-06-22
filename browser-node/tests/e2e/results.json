@@ -1,0 +1,2861 @@
+[
+  {
+    "description": "  As a developer using browser-node\n  I want to run an Express.js server\n  So that I can serve HTTP routes without a real backend",
+    "elements": [
+      {
+        "description": "",
+        "id": "express.js-http-server;express-server-starts-and-announces-its-port",
+        "keyword": "Scenario",
+        "line": 9,
+        "name": "Express server starts and announces its port",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 138910666,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 10,
+            "name": "I install the packages \"express\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:14"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const express = require('express')\nconst app = express()\napp.get('/', (req, res) => res.send('<h1>Hello from Express!</h1>'))\napp.listen(3000, () => console.log('Express server running on http://localhost:3000'))",
+                "line": 12
+              }
+            ],
+            "keyword": "And ",
+            "line": 11,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 18,
+            "name": "the terminal should contain \"Express server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 10304826
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "express.js-http-server;express-handles-a-named-route",
+        "keyword": "Scenario",
+        "line": 20,
+        "name": "Express handles a named route",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 28206040,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 21,
+            "name": "I install the packages \"express\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:14"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const express = require('express')\nconst app = express()\napp.get('/health', (req, res) => res.json({ status: 'ok' }))\napp.listen(3000, () => console.log('Express ready'))",
+                "line": 23
+              }
+            ],
+            "keyword": "And ",
+            "line": 22,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 29,
+            "name": "the terminal should contain \"Express ready\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 5620499
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "express.js-http-server;syntax-error-in-express-code-surfaces-in-the-terminal",
+        "keyword": "Scenario",
+        "line": 31,
+        "name": "Syntax error in Express code surfaces in the terminal",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 31342618,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 32,
+            "name": "I install the packages \"express\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:14"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const express = require('express'\n// missing closing paren — syntax error",
+                "line": 34
+              }
+            ],
+            "keyword": "And ",
+            "line": 33,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 38,
+            "name": "the terminal should show a runtime error",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:44"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 6203105
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "express.js-http-server;express-middleware-chain-works",
+        "keyword": "Scenario",
+        "line": 40,
+        "name": "Express middleware chain works",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 36400059,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 41,
+            "name": "I install the packages \"express\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:14"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const express = require('express')\nconst app = express()\napp.use((req, res, next) => { req.extra = 'mw'; next() })\napp.get('/', (req, res) => res.send('middleware: ' + req.extra))\napp.listen(3000, () => console.log('Express middleware server running'))",
+                "line": 43
+              }
+            ],
+            "keyword": "And ",
+            "line": 42,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 50,
+            "name": "the terminal should contain \"Express middleware server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 6221064
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "express.js-http-server",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Express.js HTTP server",
+    "tags": [],
+    "uri": "tests/e2e/features/express.feature"
+  },
+  {
+    "description": "  As a developer using browser-node\n  I want to run a Fastify server\n  So that I can use a high-performance Node.js framework in the browser",
+    "elements": [
+      {
+        "description": "",
+        "id": "fastify-http-server;fastify-server-starts-successfully",
+        "keyword": "Scenario",
+        "line": 9,
+        "name": "Fastify server starts successfully",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 31282443,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 10,
+            "name": "I install the packages \"fastify\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:14"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const Fastify = require('fastify')\nconst app = Fastify({ logger: false })\napp.get('/', async () => ({ hello: 'world' }))\napp.listen({ port: 3000, host: '0.0.0.0' }, (err) => {\n  if (err) { console.error('Fastify error:', err.message); return }\n  console.log('Fastify server running on http://localhost:3000')\n})",
+                "line": 12
+              }
+            ],
+            "keyword": "And ",
+            "line": 11,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 21,
+            "name": "the terminal should contain \"Fastify server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 14930499
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "fastify-http-server;fastify-handles-async-route-handlers",
+        "keyword": "Scenario",
+        "line": 23,
+        "name": "Fastify handles async route handlers",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 44824029,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 24,
+            "name": "I install the packages \"fastify\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:14"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const Fastify = require('fastify')\nconst app = Fastify({ logger: false })\napp.get('/data', async (req, reply) => {\n  const result = await Promise.resolve({ value: 42 })\n  return result\n})\napp.listen({ port: 3000 }, () => console.log('Fastify async route ready'))",
+                "line": 26
+              }
+            ],
+            "keyword": "And ",
+            "line": 25,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 35,
+            "name": "the terminal should contain \"Fastify async route ready\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 7606207
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "fastify-http-server;fastify-reports-plugin/decorator-errors-at-boot",
+        "keyword": "Scenario",
+        "line": 37,
+        "name": "Fastify reports plugin/decorator errors at boot",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 31126753,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 38,
+            "name": "I install the packages \"fastify\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:14"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const Fastify = require('fastify')\nconst app = Fastify({ logger: false })\n// accessing undefined.property should throw synchronously\nconst x = undefined.nonexistent\napp.listen({ port: 3000 }, () => console.log('should not reach here'))",
+                "line": 40
+              }
+            ],
+            "keyword": "And ",
+            "line": 39,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 47,
+            "name": "the terminal should show a runtime error",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:44"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 48,
+            "name": "the terminal should NOT contain \"should not reach here\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:48"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3062024
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "fastify-http-server;fastify-with-json-schema-validation",
+        "keyword": "Scenario",
+        "line": 50,
+        "name": "Fastify with JSON schema validation",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 27991180,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 51,
+            "name": "I install the packages \"fastify\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:14"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const Fastify = require('fastify')\nconst app = Fastify({ logger: false })\napp.get('/typed', {\n  schema: { response: { 200: { type: 'object', properties: { ok: { type: 'boolean' } } } } }\n}, async () => ({ ok: true }))\napp.listen({ port: 3000 }, () => console.log('Fastify schema server running'))",
+                "line": 53
+              }
+            ],
+            "keyword": "And ",
+            "line": 52,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 61,
+            "name": "the terminal should contain \"Fastify schema server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3387584
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "fastify-http-server",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Fastify HTTP server",
+    "tags": [],
+    "uri": "tests/e2e/features/fastify.feature"
+  },
+  {
+    "description": "  As a developer using browser-node\n  I want to use React with SSR\n  So that I can render React components to HTML strings",
+    "elements": [
+      {
+        "description": "",
+        "id": "react-server-side-rendering;react-renders-a-component-to-html-string",
+        "keyword": "Scenario",
+        "line": 9,
+        "name": "React renders a component to HTML string",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 30720174,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react-dom",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 10,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const React = require('react')\nconst ReactDOMServer = require('react-dom/server')\nconst App = () => React.createElement('div', null,\n  React.createElement('h1', null, 'Hello React!'))\nconst html = ReactDOMServer.renderToString(React.createElement(App))\nconsole.log('React rendered:', html.length > 0 ? 'ok' : 'empty')\nconsole.log('React SSR complete')",
+                "line": 15
+              }
+            ],
+            "keyword": "And ",
+            "line": 14,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 24,
+            "name": "the terminal should contain \"React SSR complete\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 5812494
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "react-server-side-rendering;react-runs-an-http-server-with-ssr",
+        "keyword": "Scenario",
+        "line": 26,
+        "name": "React runs an HTTP server with SSR",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 24248914,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react-dom",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 27,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const http = require('http')\nconst React = require('react')\nconst ReactDOMServer = require('react-dom/server')\nconst App = () => React.createElement('div', null, React.createElement('h1', null, 'Hello React!'))\nconst html = ReactDOMServer.renderToString(React.createElement(App))\nhttp.createServer((req, res) => {\n  res.writeHead(200, { 'content-type': 'text/html' })\n  res.end('<html><body>' + html + '</body></html>')\n}).listen(3000, () => console.log('React server running on http://localhost:3000'))",
+                "line": 32
+              }
+            ],
+            "keyword": "And ",
+            "line": 31,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 43,
+            "name": "the terminal should contain \"React server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3493607
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "react-server-side-rendering;react-createelement-with-props-and-children",
+        "keyword": "Scenario",
+        "line": 45,
+        "name": "React createElement with props and children",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 23975332,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react-dom",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 46,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const React = require('react')\nconst ReactDOMServer = require('react-dom/server')\nconst Card = ({ title, children }) =>\n  React.createElement('div', { className: 'card' },\n    React.createElement('h2', null, title),\n    children)\nconst html = ReactDOMServer.renderToString(\n  React.createElement(Card, { title: 'Test' },\n    React.createElement('p', null, 'content')))\nconst hasH2 = html.includes('<h2')\nconsole.log('React props+children:', hasH2 ? 'ok' : 'missing h2')",
+                "line": 51
+              }
+            ],
+            "keyword": "And ",
+            "line": 50,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 64,
+            "name": "the terminal should contain \"React props+children: ok\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3835709
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "react-server-side-rendering;react-missing-module-causes-an-error",
+        "keyword": "Scenario",
+        "line": 66,
+        "name": "React missing module causes an error",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 23392147,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react-dom",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 67,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const React = require('react')\nconst Missing = require('nonexistent-react-addon')",
+                "line": 72
+              }
+            ],
+            "keyword": "And ",
+            "line": 71,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 76,
+            "name": "the terminal should show a runtime error",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:44"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3567077
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "react-server-side-rendering",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "React server-side rendering",
+    "tags": [],
+    "uri": "tests/e2e/features/react.feature"
+  },
+  {
+    "description": "  As a developer using browser-node\n  I want to load Angular core packages\n  So that I can use Angular's reactive primitives and dependency injection utilities",
+    "elements": [
+      {
+        "description": "",
+        "id": "angular-core-and-rxjs;angular-core-and-rxjs-behaviorsubject-work-correctly",
+        "keyword": "Scenario",
+        "line": 9,
+        "name": "Angular core and RxJS BehaviorSubject work correctly",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 23283151,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@angular/core",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@angular/compiler",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "rxjs",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "zone.js",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 10,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const http = require('http')\nasync function main() {\n  const core = require('@angular/core')\n  console.log('Angular core loaded, version:', core.VERSION.full)\n  const { BehaviorSubject } = require('rxjs')\n  const state = new BehaviorSubject({ status: 'ok' })\n  let received = null\n  state.subscribe(v => { received = v })\n  state.next({ status: 'ready' })\n  if (!received || received.status !== 'ready') throw new Error('BehaviorSubject not working')\n  console.log('RxJS working, last value:', received.status)\n  const compiler = require('@angular/compiler')\n  console.log('Angular compiler loaded:', typeof compiler.parseTemplate)\n  http.createServer((req, res) => {\n    res.writeHead(200, { 'content-type': 'application/json' })\n    res.end(JSON.stringify({ framework: 'Angular', version: core.VERSION.full, rxjs: 'ok' }))\n  }).listen(3000, () => console.log('Angular server running on http://localhost:3000'))\n}\nmain().catch(e => console.error('Angular failed:', e.stack || e.message || e))",
+                "line": 17
+              }
+            ],
+            "keyword": "And ",
+            "line": 16,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 38,
+            "name": "the terminal should contain \"Angular server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 4459149
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "angular-core-and-rxjs;angular-version-is-accessible",
+        "keyword": "Scenario",
+        "line": 40,
+        "name": "Angular version is accessible",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 22813832,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@angular/core",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@angular/compiler",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "rxjs",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "zone.js",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 41,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const core = require('@angular/core')\nconst version = core.VERSION\nconsole.log('Angular major version:', version.major)\nif (!version.full || !version.major) throw new Error('VERSION missing')\nconsole.log('Angular version check passed')",
+                "line": 48
+              }
+            ],
+            "keyword": "And ",
+            "line": 47,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 55,
+            "name": "the terminal should contain \"Angular version check passed\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 4259201
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "angular-core-and-rxjs;rxjs-observable-operators-work",
+        "keyword": "Scenario",
+        "line": 57,
+        "name": "RxJS Observable operators work",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 50882202,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@angular/core",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "rxjs",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "zone.js",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 58,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const { from, firstValueFrom } = require('rxjs')\nconst { map, filter } = require('rxjs/operators')\nasync function main() {\n  const result = await firstValueFrom(\n    from([1, 2, 3, 4, 5]).pipe(\n      filter(x => x % 2 === 0),\n      map(x => x * 10)\n    )\n  )\n  console.log('RxJS result:', result)\n  if (result !== 20) throw new Error('Expected 20, got ' + result)\n  console.log('RxJS operators working correctly')\n}\nmain().catch(e => console.error('RxJS failed:', e.message))",
+                "line": 64
+              }
+            ],
+            "keyword": "And ",
+            "line": 63,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 80,
+            "name": "the terminal should contain \"RxJS operators working correctly\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 2837451
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "angular-core-and-rxjs;angular-core-error-propagates-to-terminal",
+        "keyword": "Scenario",
+        "line": 82,
+        "name": "Angular core error propagates to terminal",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 52369377,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@angular/core",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "rxjs",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "zone.js",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 83,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "async function main() {\n  const { BehaviorSubject } = require('rxjs')\n  const s = new BehaviorSubject(null)\n  let val = null\n  s.subscribe(v => { val = v })\n  s.next('test')\n  if (val !== 'test') throw new Error('Unexpected value: ' + val)\n  // Force an error\n  throw new Error('deliberate Angular test error')\n}\nmain().catch(e => console.error('Angular failed:', e.message))",
+                "line": 89
+              }
+            ],
+            "keyword": "And ",
+            "line": 88,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 102,
+            "name": "the terminal should contain \"Angular failed: deliberate Angular test error\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3459098
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "angular-core-and-rxjs",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Angular core and RxJS",
+    "tags": [],
+    "uri": "tests/e2e/features/angular.feature"
+  },
+  {
+    "description": "  As a developer using browser-node\n  I want to start a Next.js dev server\n  So that I can build React applications with Next.js in the browser",
+    "elements": [
+      {
+        "description": "",
+        "id": "next.js-development-server;next.js-dev-server-starts-and-announces-its-url",
+        "keyword": "Scenario",
+        "line": 9,
+        "name": "Next.js dev server starts and announces its URL",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 31691029,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "next",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react-dom",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 10,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const fs = require('fs')\nfs.mkdirSync('/next-app/app', { recursive: true })\nfs.mkdirSync('/next-app/public', { recursive: true })\nfs.writeFileSync('/next-app/package.json', JSON.stringify({\n  name: 'next-app', version: '1.0.0', private: true,\n  dependencies: { next: 'latest', react: 'latest', 'react-dom': 'latest' }\n}))\nfs.writeFileSync('/next-app/next.config.js', 'module.exports = {}')\nfs.writeFileSync('/next-app/app/page.js',\n  'export default function Home() { return <div><h1>Hello Next.js!</h1></div> }')\nfs.writeFileSync('/next-app/app/layout.js',\n  'export default function RootLayout({ children }) { return (<html><body>{children}</body></html>) }')\n;['dev/server', 'static/development', 'server'].forEach(d =>\n  fs.mkdirSync('/next-app/.next/' + d, { recursive: true }))\nconst emptyMod = '\"use strict\"; module.exports = {}'\n;['dev/server/instrumentation.js', 'dev/server/middleware.js'].forEach(f =>\n  fs.writeFileSync('/next-app/.next/' + f, emptyMod))\nconsole.log('Next.js app structure created')\nprocess.env.NEXT_TELEMETRY_DISABLED = '1'\nconst next = require('next')\nconst app = next({ dev: true, dir: '/next-app', port: 3000 })\nconst handle = app.getRequestHandler()\nasync function main() {\n  console.log('Preparing Next.js...')\n  await app.prepare()\n  const http = require('http')\n  http.createServer((req, res) => handle(req, res)).listen(3000, () => {\n    console.log('Next.js server running on http://localhost:3000')\n  })\n}\nmain().catch(e => console.error('Next.js failed:', e.stack || e.message || e))",
+                "line": 16
+              }
+            ],
+            "keyword": "And ",
+            "line": 15,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 49,
+            "name": "the terminal should contain \"Next.js server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3955175
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "next.js-development-server;next.js-prepare-step-logs-progress",
+        "keyword": "Scenario",
+        "line": 51,
+        "name": "Next.js prepare step logs progress",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 24539964,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "next",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "react-dom",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 52,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const fs = require('fs')\nfs.mkdirSync('/next-app2/app', { recursive: true })\nfs.writeFileSync('/next-app2/next.config.js', 'module.exports = {}')\nfs.writeFileSync('/next-app2/package.json', JSON.stringify({ name: 'next-app2', version: '1.0.0' }))\n;['dev/server', 'static/development', 'server'].forEach(d =>\n  fs.mkdirSync('/next-app2/.next/' + d, { recursive: true }))\n;['dev/server/instrumentation.js', 'dev/server/middleware.js'].forEach(f =>\n  fs.writeFileSync('/next-app2/.next/' + f, '\"use strict\"; module.exports = {}'))\nprocess.env.NEXT_TELEMETRY_DISABLED = '1'\nconst next = require('next')\nconst app = next({ dev: true, dir: '/next-app2', port: 3001 })\nasync function main() {\n  console.log('Preparing Next.js (second run)...')\n  await app.prepare()\n  const http = require('http')\n  http.createServer((req, res) => app.getRequestHandler()(req, res)).listen(3001, () => {\n    console.log('Next.js second instance running')\n  })\n}\nmain().catch(e => console.error('Next.js failed:', e.stack || e.message || e))",
+                "line": 58
+              }
+            ],
+            "keyword": "And ",
+            "line": 57,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 80,
+            "name": "the terminal should contain \"Next.js second instance running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 2919764
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "next.js-development-server",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Next.js development server",
+    "tags": [],
+    "uri": "tests/e2e/features/nextjs.feature"
+  },
+  {
+    "description": "  As a developer using browser-node\n  I want to use Vue.js with SSR\n  So that I can render Vue components to HTML strings",
+    "elements": [
+      {
+        "description": "",
+        "id": "vue.js-server-side-rendering;vue-renders-a-component-with-createssrapp",
+        "keyword": "Scenario",
+        "line": 9,
+        "name": "Vue renders a component with createSSRApp",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 47532799,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "vue",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@vue/server-renderer",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 10,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const { createSSRApp } = require('vue')\nconst { renderToString } = require('@vue/server-renderer')\nconst http = require('http')\nasync function main() {\n  const app = createSSRApp({\n    data: () => ({ message: 'Hello Vue!' }),\n    template: '<div>{{ message }}</div>'\n  })\n  const html = await renderToString(app)\n  console.log('Vue rendered HTML length:', html.length)\n  http.createServer((req, res) => {\n    res.writeHead(200, { 'content-type': 'text/html' })\n    res.end('<html><body>' + html + '</body></html>')\n  }).listen(3000, () => console.log('Vue server running on http://localhost:3000'))\n}\nmain().catch(e => console.error('Vue failed:', e.stack || e.message || e))",
+                "line": 15
+              }
+            ],
+            "keyword": "And ",
+            "line": 14,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 33,
+            "name": "the terminal should contain \"Vue server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3176281
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "vue.js-server-side-rendering;vue-component-with-props-renders-correctly",
+        "keyword": "Scenario",
+        "line": 35,
+        "name": "Vue component with props renders correctly",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 25034406,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "vue",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@vue/server-renderer",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 36,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const { createSSRApp, h } = require('vue')\nconst { renderToString } = require('@vue/server-renderer')\nasync function main() {\n  const Greeting = {\n    props: ['name'],\n    render() { return h('h1', 'Hello, ' + this.name + '!') }\n  }\n  const app = createSSRApp(Greeting, { name: 'World' })\n  const html = await renderToString(app)\n  const ok = html.includes('Hello, World!')\n  console.log('Vue props render:', ok ? 'ok' : 'failed — ' + html)\n  if (!ok) throw new Error('Missing greeting in HTML')\n  console.log('Vue props test passed')\n}\nmain().catch(e => console.error('Vue failed:', e.stack || e.message || e))",
+                "line": 41
+              }
+            ],
+            "keyword": "And ",
+            "line": 40,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 58,
+            "name": "the terminal should contain \"Vue props test passed\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 6966206
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "vue.js-server-side-rendering;vue-reactive-data-updates-propagate",
+        "keyword": "Scenario",
+        "line": 60,
+        "name": "Vue reactive data updates propagate",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 23916760,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "vue",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@vue/server-renderer",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 61,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const { ref, computed } = require('vue')\nconst count = ref(0)\nconst double = computed(() => count.value * 2)\ncount.value = 5\nconsole.log('Vue ref:', count.value)\nconsole.log('Vue computed:', double.value)\nif (double.value !== 10) throw new Error('computed wrong: ' + double.value)\nconsole.log('Vue reactivity working correctly')",
+                "line": 66
+              }
+            ],
+            "keyword": "And ",
+            "line": 65,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 76,
+            "name": "the terminal should contain \"Vue reactivity working correctly\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 4827864
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "vue.js-server-side-rendering;vue-missing-module-causes-an-error",
+        "keyword": "Scenario",
+        "line": 78,
+        "name": "Vue missing module causes an error",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 28447574,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "vue",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "@vue/server-renderer",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 79,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const { createSSRApp } = require('vue')\nconst missing = require('@vue/nonexistent-plugin')",
+                "line": 84
+              }
+            ],
+            "keyword": "And ",
+            "line": 83,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 88,
+            "name": "the terminal should show a runtime error",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:44"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 89,
+            "name": "the terminal should NOT contain \"Vue server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:48"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3706642
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "vue.js-server-side-rendering",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Vue.js server-side rendering",
+    "tags": [],
+    "uri": "tests/e2e/features/vue.feature"
+  },
+  {
+    "description": "  As a developer using browser-node\n  I want to run a Vite dev server\n  So that I can serve and transform frontend projects from inside the browser",
+    "elements": [
+      {
+        "description": "",
+        "id": "vite-dev-server-inside-browser-node;vite-dev-server-starts-and-announces-its-url",
+        "keyword": "Scenario",
+        "line": 9,
+        "name": "Vite dev server starts and announces its URL",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 24297031,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "vite",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 10,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const fs = require('fs')\nfs.mkdirSync('/vite-app/src', { recursive: true })\nfs.writeFileSync('/vite-app/index.html',\n  '<!DOCTYPE html><html><body><div id=\"app\"></div>' +\n  '<script type=\"module\" src=\"/src/main.js\"></script></body></html>')\nfs.writeFileSync('/vite-app/src/main.js',\n  'document.getElementById(\"app\").textContent = \"Hello Vite!\"')\nconst { createServer } = require('vite')\nasync function main() {\n  const server = await createServer({ root: '/vite-app', server: { port: 3000 } })\n  await server.listen()\n  console.log('Vite dev server running on http://localhost:3000')\n}\nmain().catch(e => console.error('Vite failed:', e.stack || e.message))",
+                "line": 14
+              }
+            ],
+            "keyword": "And ",
+            "line": 13,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 30,
+            "name": "the terminal should contain \"Vite dev server running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3745858
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "vite-dev-server-inside-browser-node;vite-transforms-a-javascript-module",
+        "keyword": "Scenario",
+        "line": 32,
+        "name": "Vite transforms a JavaScript module",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 26706355,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "vite",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 33,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const fs = require('fs')\nfs.mkdirSync('/vite-app2/src', { recursive: true })\nfs.writeFileSync('/vite-app2/index.html',\n  '<html><body><script type=\"module\" src=\"/src/app.js\"></script></body></html>')\nfs.writeFileSync('/vite-app2/src/app.js',\n  'export const greeting = \"Hello World\"\\nconsole.log(greeting)')\nconst { createServer } = require('vite')\nasync function main() {\n  const server = await createServer({ root: '/vite-app2', server: { port: 3001 } })\n  await server.listen()\n  // Pass absolute VFS path — Vite 8's OXC resolver requires it for in-memory VFS\n  const result = await server.transformRequest('/vite-app2/src/app.js')\n  if (!result || !result.code || result.code.length === 0) {\n    throw new Error('Transform returned empty result')\n  }\n  console.log('Transform code length:', result.code.length)\n  console.log('Vite JS transform works')\n}\nmain().catch(e => console.error('Vite failed:', e.stack || e.message))",
+                "line": 37
+              }
+            ],
+            "keyword": "And ",
+            "line": 36,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 58,
+            "name": "the terminal should contain \"Vite JS transform works\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3188266
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "vite-dev-server-inside-browser-node;vite-transforms-a-typescript-file",
+        "keyword": "Scenario",
+        "line": 60,
+        "name": "Vite transforms a TypeScript file",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 24869360,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "vite",
+                      "latest"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "typescript",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 61,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const fs = require('fs')\nfs.mkdirSync('/vite-ts/src', { recursive: true })\nfs.writeFileSync('/vite-ts/index.html',\n  '<html><body><script type=\"module\" src=\"/src/main.ts\"></script></body></html>')\nfs.writeFileSync('/vite-ts/src/main.ts',\n  'const msg: string = \"Hello TypeScript\"\\nconsole.log(msg)\\nexport default msg')\nconst { createServer } = require('vite')\nasync function main() {\n  const server = await createServer({ root: '/vite-ts', server: { port: 3002 } })\n  await server.listen()\n  // Absolute VFS path — required by Vite 8's OXC resolver for in-memory VFS\n  const result = await server.transformRequest('/vite-ts/src/main.ts')\n  if (!result || !result.code) throw new Error('No code in transform result')\n  const hasString = result.code.includes('Hello TypeScript')\n  console.log('TS type annotation stripped:', !result.code.includes(': string'))\n  console.log('String literal preserved:', hasString)\n  if (!hasString) throw new Error('Expected string literal in output')\n  console.log('Vite TypeScript transform works')\n}\nmain().catch(e => console.error('Vite failed:', e.stack || e.message))",
+                "line": 66
+              }
+            ],
+            "keyword": "And ",
+            "line": 65,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 88,
+            "name": "the terminal should contain \"Vite TypeScript transform works\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3538765
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "vite-dev-server-inside-browser-node;vite-build-throws-because-bundler-is-not-supported-in-browser",
+        "keyword": "Scenario",
+        "line": 90,
+        "name": "Vite build throws because bundler is not supported in browser",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 25992840,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "vite",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 91,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const fs = require('fs')\nfs.mkdirSync('/vite-build/src', { recursive: true })\nfs.writeFileSync('/vite-build/index.html', '<html><body></body></html>')\nfs.writeFileSync('/vite-build/src/main.js', 'console.log(\"build target\")')\nconst { build } = require('vite')\nasync function main() {\n  await build({ root: '/vite-build', logLevel: 'silent' })\n  console.log('Build succeeded unexpectedly')\n}\nmain().catch(e => {\n  const msg = e.message || String(e)\n  if (msg.includes('not supported')) {\n    console.log('Vite build correctly rejected:', msg.slice(0, 80))\n  } else {\n    console.error('Unexpected error:', msg)\n  }\n})",
+                "line": 95
+              }
+            ],
+            "keyword": "And ",
+            "line": 94,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 114,
+            "name": "the terminal should contain \"Vite build correctly rejected\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3076538
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "vite-dev-server-inside-browser-node;two-vite-servers-run-on-separate-ports-simultaneously",
+        "keyword": "Scenario",
+        "line": 116,
+        "name": "Two Vite servers run on separate ports simultaneously",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "failed",
+              "duration": 26012487,
+              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 7,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "rows": [
+                  {
+                    "cells": [
+                      "package",
+                      "version"
+                    ]
+                  },
+                  {
+                    "cells": [
+                      "vite",
+                      "latest"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "keyword": "When ",
+            "line": 117,
+            "name": "I install the following packages:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:28"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [
+              {
+                "content": "const fs = require('fs')\n;['/vite-s1', '/vite-s2'].forEach((dir, i) => {\n  fs.mkdirSync(dir + '/src', { recursive: true })\n  fs.writeFileSync(dir + '/index.html',\n    `<html><body><script type=\"module\" src=\"/src/app.js\"></script></body></html>`)\n  fs.writeFileSync(dir + '/src/app.js', `console.log('server ${i + 1}')`)\n})\nconst { createServer } = require('vite')\nasync function main() {\n  const s1 = await createServer({ root: '/vite-s1', server: { port: 3010 } })\n  const s2 = await createServer({ root: '/vite-s2', server: { port: 3011 } })\n  await Promise.all([s1.listen(), s2.listen()])\n  console.log('Vite server 1 running on port 3010')\n  console.log('Vite server 2 running on port 3011')\n  console.log('Both Vite servers running')\n}\nmain().catch(e => console.error('Vite failed:', e.stack || e.message))",
+                "line": 121
+              }
+            ],
+            "keyword": "And ",
+            "line": 120,
+            "name": "I run the following code:",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:36"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 140,
+            "name": "the terminal should contain \"Both Vite servers running\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "skipped",
+              "duration": 0
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 3323361
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "vite-dev-server-inside-browser-node",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Vite dev server inside browser-node",
+    "tags": [],
+    "uri": "tests/e2e/features/vite.feature"
+  }
+]
