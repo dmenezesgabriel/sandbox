@@ -65,6 +65,7 @@ async function loadPreview(port: number, path: string) {
 // xterm.js renders to canvas so tests can't read it — this hidden div shadows all output.
 
 const _testLog = document.getElementById('terminal') as HTMLDivElement
+let _cmdSeq = 0
 
 function _appendTestLog(text: string) {
   _testLog.textContent = (_testLog.textContent ?? '') + text
@@ -176,6 +177,8 @@ runtimeWorker.addEventListener('message', (e: MessageEvent) => {
     if (p.exitCode === -1) terminalUI.clear()
     if (p.cwd) terminalUI.setCwd(p.cwd)
     terminalUI.showPrompt()
+    _appendTestLog(`[cmd:${++_cmdSeq}:exit${p.exitCode ?? 0}]
+`)
     return
   }
 

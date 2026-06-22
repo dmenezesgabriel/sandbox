@@ -20,6 +20,7 @@ class BrowserNodeWorld extends World {
     super(options)
     this.page = null
     this._ctx = null
+    this._cmdSeq = 0
   }
 
   async openPage() {
@@ -66,6 +67,22 @@ class BrowserNodeWorld extends World {
   async runCode(code) {
     // Send code directly to the worker (editor is now CodeMirror, not a textarea)
     await this.sendToWorker({ type: 'run', code, filename: '/app/index.js' })
+  }
+
+  async createFile(path, content) {
+    await this.sendToWorker({ type: 'write-file', path, content })
+    await this.page.waitForTimeout(300)
+  }
+
+  async runTerminalCmd(cmd, timeoutMs = 15000) {
+    this._cmdSeq++
+    await this.page.locator('#terminal-panel').click()
+    await this.page.keyboard.type(cmd)
+    await this.page.keyboard.press('Enter')
+    await this.waitForTerminal(`[cmd:${this._cmdSeq}:exit`, timeoutMs)
+    const term = await this.getTerminal()
+    const match = term.match(new RegExp(`\\[cmd:${this._cmdSeq}:exit(\\d+)\\]`))
+    return match ? parseInt(match[1]) : -1
   }
 
   async installPackages(packages) {
