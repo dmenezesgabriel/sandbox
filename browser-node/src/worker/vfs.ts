@@ -50,7 +50,5 @@ export function dumpVfs(root = '/'): string {
 }
 
 // Bootstrap standard directories
-mkdirpSync('/home/user')
 mkdirpSync('/tmp')
 mkdirpSync('/node_modules')
-mkdirpSync('/app')

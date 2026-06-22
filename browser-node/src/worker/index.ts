@@ -45,6 +45,7 @@ import { install } from './npm'
 import { writeFileToVfs, dumpVfs, memfsInstance } from './vfs'
 import { getServer } from './shims/http'
 import { bindTerminalDeps, runCommand, getCwd } from './terminal-cmd'
+import { initExamples } from './examples'
 
 // Wire up createRequire in the node:module shim (can't import requireSync there — circular)
 bindRequireSync(requireSync)
@@ -57,6 +58,7 @@ async function init() {
   await preloadShims()
   bindTerminalDeps(requireSync, install)
   _registerPostInstallOverrides()
+  initExamples()
   log('[runtime] Ready.\n')
   self.postMessage({ type: 'ready' })
 }
