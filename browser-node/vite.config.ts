@@ -7,6 +7,7 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/**/*.test.ts'],
   },
+  base: process.env.VITE_BASE ?? '/',
   root: '.',
   resolve: {
     alias: {
