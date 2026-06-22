@@ -1,1 +1,3 @@
 .aider*
+.playwright-cli/
+browser-node/test-*.png
