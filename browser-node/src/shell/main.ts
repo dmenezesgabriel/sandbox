@@ -18,7 +18,8 @@ let swReady = false
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return
   try {
-    await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    const base = import.meta.env.BASE_URL  // '/' in dev, '/sandbox/' in prod
+    await navigator.serviceWorker.register(`${base}sw.js`, { scope: base })
     await navigator.serviceWorker.ready
     swReady = true
   } catch { /* SW optional — HTTP server preview disabled */ }
