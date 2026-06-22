@@ -3,7 +3,7 @@ import { path as pathMod } from './shims/path'
 import { clearModuleCache } from './loader'
 
 type RequireFn = (id: string, fromDir: string) => unknown
-type InstallFn  = (packages: Record<string, string>) => Promise<void>
+type InstallFn  = (packages: Record<string, string>, rootNmDir?: string) => Promise<void>
 
 let _require: RequireFn | null = null
 let _install: InstallFn | null = null
@@ -13,7 +13,7 @@ export function bindTerminalDeps(req: RequireFn, inst: InstallFn) {
   _install = inst
 }
 
-let _cwd = '/'
+let _cwd = '/examples'
 export function getCwd() { return _cwd }
 
 function stdout(text: string) { self.postMessage({ type: 'stdout', text }) }
@@ -55,9 +55,36 @@ function tokenize(line: string): string[] {
   return tokens
 }
 
+// ── && chaining ─────────────────────────────────────────────────────────────
+
+function splitOnAnd(line: string): string[] {
+  const parts: string[] = []
+  let cur = ''
+  let q = ''
+  let i = 0
+  while (i < line.length) {
+    const c = line[i]
+    if (q) { if (c === q) q = ''; cur += c; i++; continue }
+    if (c === '"' || c === "'") { q = c; cur += c; i++; continue }
+    if (c === '&' && line[i + 1] === '&') { parts.push(cur); cur = ''; i += 2; continue }
+    cur += c; i++
+  }
+  if (cur.trim()) parts.push(cur)
+  return parts.map(p => p.trim()).filter(Boolean)
+}
+
 // ── Entry point ─────────────────────────────────────────────────────────────
 
 export async function runCommand(cmdline: string): Promise<number> {
+  const andParts = splitOnAnd(cmdline.trim())
+  if (andParts.length > 1) {
+    for (const part of andParts) {
+      const code = await runCommand(part)
+      if (code !== 0) return code
+    }
+    return 0
+  }
+
   const tokens = tokenize(cmdline.trim())
   if (!tokens.length) return 0
   const [cmd, ...args] = tokens
@@ -336,7 +363,7 @@ async function cmdNpm(args: string[]): Promise<number> {
       } catch { stderr('npm: no package.json in current directory\n'); return 1 }
     }
     if (!Object.keys(packages).length) { stdout('Nothing to install.\n'); return 0 }
-    if (_install) { await _install(packages); return 0 }
+    if (_install) { await _install(packages, _cwd + '/node_modules'); return 0 }
     stderr('npm: installer not ready\n'); return 1
   }
 
@@ -532,6 +559,8 @@ function cmdHelp(): number {
 
   \x1b[33mQuick start:\x1b[0m
     cd /examples/express && npm install && node index.js
+
+  \x1b[90mExamples:\x1b[0m  express/  fastify/  react/  vue/  node-http/
 `)
   return 0
 }

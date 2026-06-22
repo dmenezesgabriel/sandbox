@@ -19,10 +19,27 @@ function log(msg: string) {
   self.postMessage({ type: 'stdout', text: msg + '\n' })
 }
 
+function encodePackageName(name: string): string {
+  // Scoped packages: keep @ unencoded, only encode the inner slash
+  // e.g. @vue/server-renderer → @vue%2Fserver-renderer
+  if (name.startsWith('@')) {
+    const slash = name.indexOf('/', 1)
+    if (slash !== -1) return name.slice(0, slash) + '%2F' + name.slice(slash + 1)
+  }
+  return encodeURIComponent(name)
+}
+
 async function fetchMeta(name: string): Promise<PackageMeta> {
   if (metaCache.has(name)) return metaCache.get(name)!
-  const res = await fetch(`${REGISTRY}/${encodeURIComponent(name)}`)
-  if (!res.ok) throw new Error(`npm: package not found: ${name} (${res.status})`)
+  const url = `${REGISTRY}/${encodePackageName(name)}`
+  let res: Response
+  try {
+    // Abbreviated metadata is much smaller (skips readme, full descriptions, etc.)
+    res = await fetch(url, { headers: { Accept: 'application/vnd.npm.install-v1+json, application/json' } })
+  } catch (e) {
+    throw new Error(`fetch failed for ${name}: ${(e as Error).message}`)
+  }
+  if (!res.ok) throw new Error(`package not found: ${name} (${res.status})`)
   const meta = await res.json() as PackageMeta
   metaCache.set(name, meta)
   return meta
@@ -114,7 +131,7 @@ export async function install(
     }
     let meta: PackageMeta
     try { meta = await fetchMeta(name) } catch (e) {
-      log(`npm WARN ${String(e)}`)
+      log(`npm  WARN  ${name}: ${(e as Error).message}`)
       continue
     }
 
