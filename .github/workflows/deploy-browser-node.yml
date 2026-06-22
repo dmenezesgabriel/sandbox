@@ -2,7 +2,7 @@ name: Deploy browser-node to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
     paths:
       - 'browser-node/**'
       - '.github/workflows/deploy-browser-node.yml'
