@@ -100,4 +100,14 @@ export function stripVTControlCharacters(str: string): string {
   return str.replace(/\x1B\[[0-9;]*[mGKHFJABCDEF]/g, '').replace(/\x1B\][^\x07]*\x07/g, '')
 }
 
-export const util = { inherits, promisify, callbackify, deprecate, types, format, inspect, formatWithOptions, parseEnv, stripVTControlCharacters }
+export function debuglog(section: string, cb?: (fn: (...args: unknown[]) => void) => void): (...args: unknown[]) => void {
+  const noop = () => {}
+  if (cb) cb(noop)
+  return noop
+}
+
+export function isDeepStrictEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
+
+export const util = { inherits, promisify, callbackify, deprecate, types, format, inspect, formatWithOptions, parseEnv, stripVTControlCharacters, debuglog, isDeepStrictEqual, TextDecoder, TextEncoder }

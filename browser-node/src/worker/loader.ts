@@ -7,8 +7,13 @@ const moduleCache = new Map<string, { exports: unknown }>()
 
 // Detect whether a source file uses ESM syntax at the module level.
 function isEsmSource(source: string): boolean {
-  // Quick checks: ESM has top-level import/export statements
-  return /^(import|export)\s/m.test(source)
+  // Line-start import (with or without space — minified: import{X}from"mod")
+  if (/^import[\s{*"'`]/m.test(source)) return true
+  // Line-start export
+  if (/^export\s/m.test(source)) return true
+  // Mid-line static imports in minified files (after ;)
+  if (/;\s*import[\s{*"'`]/m.test(source)) return true
+  return false
 }
 
 // Transform ESM source to CJS so it can be eval()'d in our synchronous loader.
@@ -24,64 +29,107 @@ function esmToCjs(source: string, filePath: string): string {
   result = result.replace(/\bimport\.meta\.filename\b/g, `'${filePath}'`)
   result = result.replace(/\bimport\.meta\b/g, `({ url: 'file://${filePath}', dirname: '${dir}', filename: '${filePath}', env: {} })`)
 
+  // Drop const/let redeclarations of runtime-injected CJS globals (__dirname/__filename
+  // are already provided as function parameters in our eval wrapper, and const/let can't
+  // redeclare an existing binding — convert them to plain assignments).
+  result = result.replace(/\b(const|let)\s+(__dirname|__filename)\s*=/g, '$2 =')
+
+  // Helper to build import replacers (handles both line-start and mid-line after ;)
+  // Returns a function that takes prefix ('' or '; ') and returns the CJS replacement
+  const _mkNamedReplace = (pre: string, names: string, mod: string) => {
+    const mapped = names.trim().split(',').filter(Boolean).map((n: string) => {
+      const [src, dst] = n.trim().split(/\s+as\s+/)
+      return dst ? `${src.trim()}: ${dst.trim()}` : src.trim()
+    }).join(', ')
+    return `${pre}const { ${mapped} } = require('${mod}')`
+  }
+  const _mkDefaultReplace = (pre: string, name: string, mod: string) =>
+    `${pre}const ${name} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(require('${mod}'))`
+  const _mkCombinedReplace = (pre: string, defaultName: string, names: string, mod: string) => {
+    const tmp = `_esm${_ctr++}`
+    const mapped = names.trim().split(',').filter(Boolean).map((n: string) => {
+      const [src, dst] = n.trim().split(/\s+as\s+/)
+      return dst ? `${src.trim()}: ${dst.trim()}` : src.trim()
+    }).join(', ')
+    return `${pre}const ${tmp} = require('${mod}'); const ${defaultName} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(${tmp}); const { ${mapped} } = ${tmp}`
+  }
+
   // import X, { Y, Z } from 'mod'  →  combined default + named (must come before single-form patterns)
   result = result.replace(
-    /^import\s+(\w+)\s*,\s*\{([^{}]*?)\}\s+from\s+(['"`])(.*?)\3\s*;?/gm,
-    (_, defaultName, names, __, mod) => {
-      const tmp = `_esm${_ctr++}`
-      const mapped = names.trim().split(',').filter(Boolean).map((n: string) => {
-        const [src, dst] = n.trim().split(/\s+as\s+/)
-        return dst ? `${src.trim()}: ${dst.trim()}` : src.trim()
-      }).join(', ')
-      return `const ${tmp} = require('${mod}'); const ${defaultName} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(${tmp}); const { ${mapped} } = ${tmp}`
-    }
+    /^import\s+([$\w]+)\s*,\s*\{([^{}]*?)\}\s*from\s*(['"`])(.*?)\3[ \t]*;?[ \t]*/gm,
+    (_, dn, ns, __, mod) => _mkCombinedReplace('', dn, ns, mod)
+  )
+  // mid-line variant: ; import X, { Y } from 'mod'
+  result = result.replace(
+    /;[ \t]*import\s+([$\w]+)\s*,\s*\{([^{}]*?)\}\s*from\s*(['"`])(.*?)\3[ \t]*;?[ \t]*/g,
+    (_, dn, ns, __, mod) => _mkCombinedReplace('; ', dn, ns, mod)
   )
 
   // import { X as Y, Z } from 'mod'  →  const { X: Y, Z } = require('mod')
   result = result.replace(
-    /^import\s+\{([^{}]*?)\}\s+from\s+(['"`])(.*?)\2\s*;?/gm,
-    (_, names, __, mod) => {
-      const mapped = names.trim().split(',').filter(Boolean).map((n: string) => {
-        const [src, dst] = n.trim().split(/\s+as\s+/)
-        return dst ? `${src.trim()}: ${dst.trim()}` : src.trim()
-      }).join(', ')
-      return `const { ${mapped} } = require('${mod}')`
-    }
+    /^import\s*\{([^{}]*?)\}\s*from\s*(['"`])(.*?)\2[ \t]*;?[ \t]*/gm,
+    (_, names, __, mod) => _mkNamedReplace('', names, mod)
+  )
+  // mid-line variant: ; import { X } from 'mod'
+  result = result.replace(
+    /;[ \t]*import\s*\{([^{}]*?)\}\s*from\s*(['"`])(.*?)\2[ \t]*;?[ \t]*/g,
+    (_, names, __, mod) => _mkNamedReplace('; ', names, mod)
   )
 
   // import X from 'mod'  →  const X = (m => m?.__esModule ? m.default : m)(require('mod'))
   result = result.replace(
-    /^import\s+(\w+)\s+from\s+(['"`])(.*?)\2\s*;?/gm,
-    (_, name, __, mod) => `const ${name} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(require('${mod}'))`
+    /^import\s+([$\w]+)\s+from\s*(['"`])(.*?)\2[ \t]*;?[ \t]*/gm,
+    (_, name, __, mod) => _mkDefaultReplace('', name, mod)
+  )
+  // mid-line variant: ; import X from 'mod'
+  result = result.replace(
+    /;[ \t]*import\s+([$\w]+)\s+from\s*(['"`])(.*?)\2[ \t]*;?[ \t]*/g,
+    (_, name, __, mod) => _mkDefaultReplace('; ', name, mod)
   )
 
   // import * as X from 'mod'  →  const X = require('mod')
   result = result.replace(
-    /^import\s+\*\s+as\s+(\w+)\s+from\s+(['"`])(.*?)\2\s*;?/gm,
+    /^import\s*\*\s*as\s+([$\w]+)\s+from\s*(['"`])(.*?)\2[ \t]*;?[ \t]*/gm,
     (_, name, __, mod) => `const ${name} = require('${mod}')`
+  )
+  // mid-line variant: ; import * as X from 'mod'
+  result = result.replace(
+    /;[ \t]*import\s*\*\s*as\s+([$\w]+)\s+from\s*(['"`])(.*?)\2[ \t]*;?[ \t]*/g,
+    (_, name, __, mod) => `; const ${name} = require('${mod}')`
   )
 
   // import 'mod' (side effect)  →  require('mod')
   result = result.replace(
-    /^import\s+(['"`])(.*?)\1\s*;?/gm,
+    /^import\s*(['"`])(.*?)\1[ \t]*;?[ \t]*/gm,
     (_, __, mod) => `require('${mod}')`
   )
+  // mid-line variant: ; import 'mod'
+  result = result.replace(
+    /;[ \t]*import\s*(['"`])(.*?)\1[ \t]*;?[ \t]*/g,
+    (_, __, mod) => `; require('${mod}')`
+  )
+
+  // Dynamic import(expr) → Promise.resolve(require(expr))
+  // Must run after all static import transforms so only genuine dynamic calls remain.
+  // (?<!\.) prevents matching obj.import(...) method calls (property access).
+  // (?<!async\s) prevents matching async class method declarations: `async import(url) {}`.
+  result = result.replace(/(?<!\.)\b(?<!async\s)import\s*\(/g, '((__dynArg)=>Promise.resolve(require(__dynArg)))(')
 
   // export * from 'mod'  →  Object.assign(exports, require('mod'))
   result = result.replace(
-    /^export\s+\*\s+from\s+(['"`])(.*?)\1\s*;?/gm,
+    /^export\s+\*\s+from\s*(['"`])(.*?)\1[ \t]*;?[ \t]*/gm,
     (_, __, mod) => `Object.assign(exports, require('${mod}'))`
   )
 
   // export * as X from 'mod'  →  exports.X = require('mod')
   result = result.replace(
-    /^export\s+\*\s+as\s+(\w+)\s+from\s+(['"`])(.*?)\2\s*;?/gm,
+    /^export\s+\*\s+as\s+([$\w]+)\s+from\s*(['"`])(.*?)\2[ \t]*;?[ \t]*/gm,
     (_, name, __, mod) => `exports.${name} = require('${mod}')`
   )
 
   // export { X as Y, Z } from 'mod'  →  (re-export)
   result = result.replace(
-    /^export\s+\{([^{}]*?)\}\s+from\s+(['"`])(.*?)\2\s*;?/gm,
+    /^export\s+\{([^{}]*?)\}\s*from\s*(['"`])(.*?)\2[ \t]*;?[ \t]*/gm,
     (_, names, __, mod) => {
       return names.trim().split(',').filter(Boolean).map((n: string) => {
         const [src, dst] = n.trim().split(/\s+as\s+/)
@@ -93,7 +141,7 @@ function esmToCjs(source: string, filePath: string): string {
 
   // export { X as Y, Z }  →  exports.Y = X; exports.Z = Z
   result = result.replace(
-    /^export\s+\{([^{}]*?)\}\s*;?/gm,
+    /^export\s+\{([^{}]*?)\}[ \t]*;?[ \t]*/gm,
     (_, names) => {
       return names.trim().split(',').filter(Boolean).map((n: string) => {
         const [src, dst] = n.trim().split(/\s+as\s+/)
@@ -112,14 +160,14 @@ function esmToCjs(source: string, filePath: string): string {
   // export function foo  →  function foo  +  exports.foo = foo  (appended)
   const exportedFns: string[] = []
   result = result.replace(
-    /^export\s+(function|class|async\s+function)\s+(\w+)/gm,
+    /^export\s+(function|class|async\s+function)\s+([$\w]+)/gm,
     (_, kw, name) => { exportedFns.push(name); return `${kw} ${name}` }
   )
 
   // export const/let/var X = ...  →  const X = ...  +  exports.X = X
   const exportedVars: string[] = []
   result = result.replace(
-    /^export\s+(const|let|var)\s+(\w+)/gm,
+    /^export\s+(const|let|var)\s+([$\w]+)/gm,
     (_, kw, name) => { exportedVars.push(name); return `${kw} ${name}` }
   )
 
@@ -292,6 +340,24 @@ function resolveModule(specifier: string, fromDir: string): string | null {
   return null
 }
 
+// Walk up from filePath to find the nearest package.json and check if type === 'module'
+function isInModulePackage(filePath: string): boolean {
+  let dir = path.dirname(filePath)
+  while (true) {
+    const pkgPath = path.join(dir, 'package.json')
+    if (isFileInVfs(pkgPath)) {
+      try {
+        const pkg = JSON.parse(memfsInstance.readFileSync(pkgPath, 'utf8') as string) as Record<string, unknown>
+        return pkg.type === 'module'
+      } catch {}
+      return false
+    }
+    const parent = path.dirname(dir)
+    if (parent === dir) return false
+    dir = parent
+  }
+}
+
 function executeModule(filePath: string, fromDir: string): { exports: unknown } {
   if (moduleCache.has(filePath)) return moduleCache.get(filePath)!
 
@@ -307,7 +373,11 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
   }
 
   // Transpile ESM to CJS if needed (handles Vite 8.x+ which ships ESM-only dist)
-  if (isEsmSource(source)) {
+  // Treat .mjs files as ESM regardless of content, and .js files in "type":"module" packages
+  const originalSource = source
+  const isMjs = filePath.endsWith('.mjs')
+  const isModulePackage = !isMjs && filePath.endsWith('.js') && isInModulePackage(filePath)
+  if (isMjs || isModulePackage || isEsmSource(source)) {
     source = esmToCjs(source, filePath)
   }
 
@@ -324,22 +394,26 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
       extensions: { '.js': true, '.cjs': true, '.mjs': true, '.json': true },
     }
   )
-  const code = `(function(require, module, exports, __dirname, __filename, process, Buffer, global) {\n${source}\n})`
+  const execSource = (src: string) => {
+    const wrapped = `(function(require, module, exports, __dirname, __filename, process, global) {\n${src}\n})`
+    // Indirect eval so the function executes in global scope, not module scope
+    const fn = (0, eval)(wrapped)
+    fn(requireFn, mod, mod.exports, dir, filePath, shimCache['process'] ?? self, self)
+  }
 
   try {
-    // Indirect eval so the function executes in global scope, not module scope
-    const fn = (0, eval)(code)
-    fn(
-      requireFn,
-      mod,
-      mod.exports,
-      dir,
-      filePath,
-      shimCache['process'] ?? self,
-      Buffer,
-      self,
-    )
+    execSource(source)
   } catch (e) {
+    // If eval fails with SyntaxError, always retry with fresh ESM→CJS on the original.
+    // Needed when esmToCjs already ran but missed some patterns (e.g. minified bundles).
+    if (e instanceof SyntaxError) {
+      try {
+        execSource(esmToCjs(originalSource, filePath))
+        return mod
+      } catch {
+        // Retry also failed — fall through to throw original error
+      }
+    }
     moduleCache.delete(filePath)
     throw e
   }

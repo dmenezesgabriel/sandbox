@@ -25,11 +25,12 @@ export class IncomingMessage extends Readable {
     if (opts.body) {
       queueMicrotask(() => {
         this.emit('data', new Uint8Array(opts.body!))
+        this.readableEnded = true
         this.emit('end')
         this.complete = true
       })
     } else {
-      queueMicrotask(() => { this.emit('end'); this.complete = true })
+      queueMicrotask(() => { this.readableEnded = true; this.emit('end'); this.complete = true })
     }
   }
 }
@@ -133,6 +134,7 @@ export class ServerResponse extends Writable {
 export class HttpServer extends EventEmitter {
   private _handler: ((req: IncomingMessage, res: ServerResponse, next?: () => void) => void) | null = null
   private _port = 0
+  listening = false
 
   // Called by the SW-dispatch code in the worker (index.ts)
   handleRequest(msg: {
@@ -144,33 +146,51 @@ export class HttpServer extends EventEmitter {
   }) {
     const req = new IncomingMessage(msg)
     const res = new ServerResponse(msg.replyPort)
-    try {
-      this._handler?.(req, res)
-    } catch (e) {
+    const onErr = (e: unknown) => {
       if (!res.writableEnded) {
         res.writeHead(500, { 'content-type': 'text/plain' })
         res.end(String(e))
       }
     }
+    try {
+      const result = this._handler?.(req, res)
+      // Catch async rejections from framework route handlers (e.g. Fastify async routes)
+      if (result && typeof (result as Promise<unknown>).catch === 'function') {
+        (result as Promise<unknown>).catch(onErr)
+      }
+    } catch (e) {
+      onErr(e)
+    }
   }
 
-  listen(port: number | { port?: number }, hostOrCb?: string | number | (() => void), _backlogOrCb?: number | (() => void), cb?: () => void): this {
+  listen(port: number | { port?: number; host?: string; backlog?: number }, hostOrCb?: string | number | (() => void), _backlogOrCb?: number | (() => void), cb?: () => void): this {
+    // Normalize arguments — same as Node.js net.Server.listen()
+    let callback: (() => void) | undefined
     if (typeof port === 'object') {
-      cb = (hostOrCb as () => void) ?? cb
-      port = (port as { port?: number }).port ?? 3000
+      const opts = port as { port?: number; host?: string; backlog?: number }
+      port = opts.port ?? 3000
+      if (typeof hostOrCb === 'function') callback = hostOrCb as () => void
+    } else {
+      if (typeof hostOrCb === 'function') callback = hostOrCb as () => void
+      else if (typeof _backlogOrCb === 'function') callback = _backlogOrCb as () => void
+      else callback = cb
     }
-    if (typeof hostOrCb === 'function') cb = hostOrCb
-    if (typeof _backlogOrCb === 'function') cb = _backlogOrCb
+    // In Node.js, the callback passed to listen() is a one-time listener for 'listening'
+    if (callback) this.once('listening', callback)
+
+    if (this.listening) return this  // already listening — Node.js silently ignores re-listen
 
     this._port = port as number
+    this.listening = true  // set synchronously so re-entrant calls are rejected immediately
     servers.set(this._port, this)
     self.postMessage({ type: 'server-listen', port: this._port })
-    cb?.()
-    this.emit('listening')
+    // Use queueMicrotask to match Node.js async 'listening' emission
+    queueMicrotask(() => { this.emit('listening') })
     return this
   }
 
   close(cb?: () => void): this {
+    this.listening = false
     servers.delete(this._port)
     self.postMessage({ type: 'server-close', port: this._port })
     cb?.()
@@ -179,12 +199,26 @@ export class HttpServer extends EventEmitter {
   }
 
   address() { return { port: this._port, address: '127.0.0.1', family: 'IPv4' } }
+
+  // Node.js http.Server methods that frameworks call
+  setTimeout(_ms?: number, _cb?: () => void): this { return this }
+  keepAliveTimeout = 5000
+  maxHeadersCount = 2000
+  requestTimeout = 0
+  headersTimeout = 60000
+  timeout = 0
+  maxConnections = Infinity
+  ref(): this { return this }
+  unref(): this { return this }
 }
 
 export function createServer(
-  handler?: (req: IncomingMessage, res: ServerResponse) => void
+  optionsOrHandler?: Record<string, unknown> | ((req: IncomingMessage, res: ServerResponse) => void),
+  maybeHandler?: (req: IncomingMessage, res: ServerResponse) => void
 ): HttpServer {
   const server = new HttpServer()
+  // Node.js: createServer([options], [requestListener]) — handler may be 1st or 2nd arg
+  const handler = typeof optionsOrHandler === 'function' ? optionsOrHandler : maybeHandler
   if (handler) {
     ;(server as unknown as { _handler: typeof handler })._handler = handler
   }
@@ -201,6 +235,7 @@ const STATUS_CODES: Record<number, string> = {
 
 export const http = {
   createServer,
+  Server: HttpServer,
   IncomingMessage,
   ServerResponse,
   HttpServer,

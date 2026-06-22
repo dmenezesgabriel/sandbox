@@ -75,10 +75,27 @@ export const format = (o: { dir?: string; root?: string; base?: string; name?: s
   return dir ? dir + '/' + base : base
 }
 
+// Minimal win32 shim (browser is always POSIX; win32 used by some packages for path detection)
+export const win32 = {
+  sep: '\\',
+  delimiter: ';',
+  join: (...parts: string[]): string => normalize(parts.filter(Boolean).join('/')).replace(/\//g, '\\'),
+  basename: (p: string, ext?: string): string => basename(p.replace(/\\/g, '/'), ext),
+  dirname: (p: string): string => dirname(p.replace(/\\/g, '/')),
+  resolve: (...parts: string[]): string => resolve(...parts.map(p => p.replace(/\\/g, '/'))),
+  normalize: (p: string): string => normalize(p.replace(/\\/g, '/')).replace(/\//g, '\\'),
+  isAbsolute: (p: string): boolean => /^[A-Za-z]:[\\/]/.test(p) || p.startsWith('\\\\'),
+  relative: (from: string, to: string): string => relative(from.replace(/\\/g, '/'), to.replace(/\\/g, '/')),
+  extname,
+  parse: (p: string) => parse(p.replace(/\\/g, '/')),
+  format,
+}
+
 export const path = {
   sep,
   delimiter,
   posix: null as unknown,
+  win32: null as unknown,
   normalize,
   join,
   resolve,
@@ -92,6 +109,7 @@ export const path = {
 }
 
 path.posix = path
+path.win32 = win32
 export const posix = path
 
 export default path

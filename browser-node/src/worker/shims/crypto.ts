@@ -78,6 +78,14 @@ export const crypto = {
 
   randomUUID: (): string => self.crypto.randomUUID(),
 
+  // Web Crypto compat — node:crypto exposes these in Node 19+
+  getRandomValues: <T extends ArrayBufferView>(buf: T): T => {
+    self.crypto.getRandomValues(buf)
+    return buf
+  },
+
+  subtle: self.crypto.subtle,
+
   createHash: (algorithm: string): Hash => new Hash(algorithm),
 
   createHmac: (_algorithm: string, _key: string | Uint8Array): Hmac => new Hmac(),

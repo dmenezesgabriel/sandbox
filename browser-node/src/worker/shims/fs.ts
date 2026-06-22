@@ -1,6 +1,20 @@
 // Delegates to the shared memfs instance
 import { memfsInstance } from '../vfs'
 
+// Convert a path argument that may be a URL object or file:// string to a plain path string.
+function toPath(p: unknown): string {
+  if (typeof p === 'string') {
+    // file:// URL strings
+    if (p.startsWith('file://')) {
+      try { return decodeURIComponent(new URL(p).pathname) } catch {}
+    }
+    return p
+  }
+  if (p instanceof URL) return decodeURIComponent(p.pathname)
+  // Let memfs handle Buffers/Uint8Arrays
+  return p as string
+}
+
 // Re-export the memfs fs object as the Node fs shim
 export const fs = memfsInstance as unknown as typeof import('fs')
 
@@ -8,6 +22,19 @@ export const fs = memfsInstance as unknown as typeof import('fs')
 // Vite uses these for HMR file change detection. Without real watching, HMR
 // won't fire automatically, but the dev server will still serve transformed files.
 const _fs = fs as unknown as Record<string, unknown>
+
+// Wrap core fs methods to handle URL objects as path arguments (Node.js 12+ feature)
+const _wrap = <T extends (...args: unknown[]) => unknown>(fn: T): T =>
+  ((...args: unknown[]) => { args[0] = toPath(args[0]); return fn(...args) }) as T
+
+const _wrapSync = (name: string) => {
+  if (typeof _fs[name] === 'function') _fs[name] = _wrap(_fs[name] as (...args: unknown[]) => unknown)
+}
+for (const m of ['readFileSync','writeFileSync','statSync','lstatSync','existsSync','readdirSync',
+                  'mkdirSync','rmdirSync','unlinkSync','accessSync','renameSync','createReadStream','createWriteStream',
+                  'openSync','chmodSync','copyFileSync','linkSync','symlinkSync','readlinkSync','realpathSync']) {
+  _wrapSync(m)
+}
 
 class FsWatcher {
   private _listeners: Map<string, ((...args: unknown[]) => void)[]> = new Map()
@@ -47,30 +74,31 @@ export const FS_CONSTANTS = {
 
 export const fsPromises = {
   constants: FS_CONSTANTS,
-  readFile:   (p: string, opts?: unknown) => Promise.resolve(memfsInstance.readFileSync(p, opts as string) as Buffer),
-  writeFile:  (p: string, data: string | Uint8Array) => { memfsInstance.writeFileSync(p, data); return Promise.resolve() },
-  mkdir:      (p: string, opts?: unknown) => { try { memfsInstance.mkdirSync(p, opts as object) } catch {} return Promise.resolve() },
-  readdir:    (p: string, opts?: unknown) => {
-    const entries = memfsInstance.readdirSync(p, opts as object) as string[]
+  readFile:   (p: unknown, opts?: unknown) => Promise.resolve(memfsInstance.readFileSync(toPath(p), opts as string) as Buffer),
+  writeFile:  (p: unknown, data: string | Uint8Array) => { memfsInstance.writeFileSync(toPath(p), data); return Promise.resolve() },
+  mkdir:      (p: unknown, opts?: unknown) => { try { memfsInstance.mkdirSync(toPath(p), opts as object) } catch {} return Promise.resolve() },
+  readdir:    (p: unknown, opts?: unknown) => {
+    const entries = memfsInstance.readdirSync(toPath(p), opts as object) as string[]
     return Promise.resolve(entries)
   },
-  stat:       (p: string) => Promise.resolve(memfsInstance.statSync(p)),
-  lstat:      (p: string) => Promise.resolve(memfsInstance.statSync(p)),
-  unlink:     (p: string) => { memfsInstance.unlinkSync(p); return Promise.resolve() },
-  rm:         (p: string, opts?: unknown) => {
-    try { memfsInstance.unlinkSync(p) } catch {
-      try { (memfsInstance as unknown as Record<string, (...a: unknown[]) => unknown>).rmdirSync?.(p, opts) } catch {}
+  stat:       (p: unknown) => Promise.resolve(memfsInstance.statSync(toPath(p))),
+  lstat:      (p: unknown) => Promise.resolve(memfsInstance.statSync(toPath(p))),
+  unlink:     (p: unknown) => { memfsInstance.unlinkSync(toPath(p)); return Promise.resolve() },
+  rm:         (p: unknown, opts?: unknown) => {
+    const resolved = toPath(p)
+    try { memfsInstance.unlinkSync(resolved) } catch {
+      try { (memfsInstance as unknown as Record<string, (...a: unknown[]) => unknown>).rmdirSync?.(resolved, opts) } catch {}
     }
     return Promise.resolve()
   },
-  rename:     (from: string, to: string) => { memfsInstance.renameSync(from, to); return Promise.resolve() },
-  access:     (p: string) => { memfsInstance.accessSync(p); return Promise.resolve() },
-  copyFile:   (src: string, dst: string) => { memfsInstance.writeFileSync(dst, memfsInstance.readFileSync(src)); return Promise.resolve() },
-  realpath:   (p: string) => Promise.resolve(p),
-  open:       (p: string, _flags: string) => Promise.resolve({ read: () => Promise.resolve({ bytesRead: 0 }), close: () => Promise.resolve(), fd: 1 }),
-  readlink:   (p: string) => Promise.resolve(p),
-  symlink:    (_target: string, _path: string) => Promise.resolve(),
-  chmod:      (_p: string, _mode: number) => Promise.resolve(),
-  watch:      (_p: string, _opts?: unknown) => ({ close: () => {}, [Symbol.asyncIterator]: async function*() {} }),
+  rename:     (from: unknown, to: unknown) => { memfsInstance.renameSync(toPath(from), toPath(to)); return Promise.resolve() },
+  access:     (p: unknown) => { try { memfsInstance.accessSync(toPath(p)); return Promise.resolve() } catch(e) { return Promise.reject(e) } },
+  copyFile:   (src: unknown, dst: unknown) => { memfsInstance.writeFileSync(toPath(dst), memfsInstance.readFileSync(toPath(src))); return Promise.resolve() },
+  realpath:   (p: unknown) => Promise.resolve(toPath(p)),
+  open:       (p: unknown, _flags: string) => Promise.resolve({ read: () => Promise.resolve({ bytesRead: 0 }), close: () => Promise.resolve(), fd: 1 }),
+  readlink:   (p: unknown) => Promise.resolve(toPath(p)),
+  symlink:    (_target: unknown, _path: unknown) => Promise.resolve(),
+  chmod:      (_p: unknown, _mode: number) => Promise.resolve(),
+  watch:      (_p: unknown, _opts?: unknown) => ({ close: () => {}, [Symbol.asyncIterator]: async function*() {} }),
 }
 

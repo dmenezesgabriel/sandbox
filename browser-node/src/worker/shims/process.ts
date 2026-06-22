@@ -45,4 +45,17 @@ export const process = {
   emit: (_event: string, ..._args: unknown[]) => false,
   removeListener: (_event: string, _listener: unknown) => process,
   addListener: (_event: string, _listener: unknown) => process,
+  stdin: {
+    on(_: string, __: unknown) { return this },
+    once(_: string, __: unknown) { return this },
+    off(_: string, __: unknown) { return this },
+    resume() { return this },
+    pause() { return this },
+    setEncoding() { return this },
+    read() { return null },
+    pipe(dest: unknown) { return dest },
+    isTTY: false as boolean,
+    readable: false as boolean,
+    isRaw: false as boolean,
+  },
 }

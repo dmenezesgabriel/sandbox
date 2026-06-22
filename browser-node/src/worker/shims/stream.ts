@@ -3,6 +3,12 @@ import { EventEmitter } from './events'
 export class Readable extends EventEmitter {
   readable = true
   destroyed = false
+  readableEnded = false
+  readableFlowing: boolean | null = null
+  readableLength = 0
+  readableHighWaterMark = 16384
+  readableObjectMode = false
+  readableEncoding: string | null = null
 
   pipe<T extends Writable>(dest: T): T {
     this.on('data', (chunk) => dest.write(chunk as Buffer | string))
@@ -10,9 +16,14 @@ export class Readable extends EventEmitter {
     return dest
   }
 
-  destroy(): this { this.destroyed = true; return this }
-  resume(): this { return this }
-  pause(): this { return this }
+  destroy(_err?: Error): this { this.destroyed = true; this.emit('close'); return this }
+  resume(): this { this.readableFlowing = true; return this }
+  pause(): this { this.readableFlowing = false; return this }
+  read(_n?: number): unknown { return null }
+  setEncoding(enc: string): this { this.readableEncoding = enc; return this }
+  unpipe(): this { return this }
+  unshift(_chunk: unknown): void {}
+  wrap(_stream: unknown): this { return this }
 
   static from(iterable: Iterable<unknown>): Readable {
     const r = new Readable()

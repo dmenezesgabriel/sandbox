@@ -54,7 +54,7 @@ runtimeWorker.addEventListener('message', (e: MessageEvent) => {
   } else if (type === 'stderr') {
     appendLog('error', payload.text)
   } else if (type === 'server-listen') {
-    registerServerWithSW(payload.port)
+    debouncedServerListen(payload.port)
   } else if (type === 'server-close') {
     unregisterServerWithSW(payload.port)
   } else if (type === 'npm-done') {
@@ -74,6 +74,17 @@ runtimeWorker.addEventListener('messageerror', (e) => {
   appendLog('error', `[worker messageerror] ${JSON.stringify(e.data)}\n`)
 })
 
+// Debounce server-listen events: Fastify's avvio lifecycle may emit multiple
+// listen() calls in the same tick. Only process the last one per port.
+const _listenTimers = new Map<number, ReturnType<typeof setTimeout>>()
+function debouncedServerListen(port: number) {
+  if (_listenTimers.has(port)) clearTimeout(_listenTimers.get(port)!)
+  _listenTimers.set(port, setTimeout(() => {
+    _listenTimers.delete(port)
+    registerServerWithSW(port)
+  }, 50))
+}
+
 // Tell the SW about a server port so it can route requests
 function registerServerWithSW(port: number) {
   if (!swReady || !navigator.serviceWorker.controller) return
@@ -86,7 +97,40 @@ function registerServerWithSW(port: number) {
     [toSW]
   )
   appendLog('ok', `[server] Listening on http://localhost:${port}\n`)
-  preview.src = `http://localhost:${port}/`
+  ;(document.getElementById('preview-url') as HTMLInputElement).value = `http://localhost:${port}/`
+  // Chrome blocks SW responses for iframe navigation requests. Instead, fetch the content
+  // via the SW (which works for fetch() sub-resource requests) and inject as srcdoc.
+  setTimeout(() => loadPreviewViaSrcdoc(port, '/'), 300)
+}
+
+async function loadPreviewViaSrcdoc(port: number, path: string) {
+  const proxyUrl = `${location.origin}/_proxy/${port}${path}`
+  try {
+    const resp = await fetch(proxyUrl)
+    let html = await resp.text()
+    // Skip empty responses — server may not be ready yet
+    if (!html.trim()) return
+    // Inject a <base> tag so relative sub-resource URLs resolve through the SW proxy.
+    // Also patch fetch/XHR so JS API calls use absolute proxy URLs.
+    const injection = `<base href="${location.origin}/_proxy/${port}${path}"><script>
+;(function(){
+  var _base='${location.origin}/_proxy/${port}';
+  function _prx(u){return(typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//'))?_base+u:u}
+  var _f=window.fetch;window.fetch=function(u,o){return _f.call(this,_prx(u),o)};
+  var _x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){return _x.apply(this,[m,_prx(u)].concat([].slice.call(arguments,2)))};
+})();
+<\/script>`
+    if (html.includes('<head>')) {
+      html = html.replace('<head>', '<head>' + injection)
+    } else if (html.includes('<html>')) {
+      html = html.replace('<html>', '<html><head>' + injection + '</head>')
+    } else {
+      html = injection + html
+    }
+    preview.srcdoc = html
+  } catch (e) {
+    preview.srcdoc = `<html><body style="font-family:monospace;color:red;padding:1rem"><p>Preview error: ${e}</p></body></html>`
+  }
 }
 
 function unregisterServerWithSW(port: number) {
@@ -149,9 +193,9 @@ btnInstall.addEventListener('click', async () => {
 btnClear.addEventListener('click', () => { terminal.innerHTML = '' })
 
 btnRefresh.addEventListener('click', () => {
-  const url = (document.getElementById('preview-url') as HTMLInputElement).value
-  preview.src = ''
-  requestAnimationFrame(() => { preview.src = url })
+  const portStr = (document.getElementById('preview-url') as HTMLInputElement).value.match(/:(\d+)/)?.[1] ?? '3000'
+  preview.srcdoc = ''
+  loadPreviewViaSrcdoc(parseInt(portStr, 10), '/')
 })
 
 // --- Boot ---
