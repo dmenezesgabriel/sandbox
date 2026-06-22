@@ -64,8 +64,8 @@ class BrowserNodeWorld extends World {
   }
 
   async runCode(code) {
-    await this.page.evaluate((c) => { document.getElementById('editor').value = c }, code)
-    await this.page.click('#btn-run')
+    // Send code directly to the worker (editor is now CodeMirror, not a textarea)
+    await this.sendToWorker({ type: 'run', code, filename: '/app/index.js' })
   }
 
   async installPackages(packages) {

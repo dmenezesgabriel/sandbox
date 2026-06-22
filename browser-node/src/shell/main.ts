@@ -1,207 +1,237 @@
-const editor = document.getElementById('editor') as HTMLTextAreaElement
-const terminal = document.getElementById('terminal') as HTMLDivElement
-const preview = document.getElementById('preview') as HTMLIFrameElement
-const btnRun = document.getElementById('btn-run') as HTMLButtonElement
-const btnInstall = document.getElementById('btn-install') as HTMLButtonElement
-const btnClear = document.getElementById('btn-clear') as HTMLButtonElement
-const btnRefresh = document.getElementById('btn-refresh') as HTMLButtonElement
-const statusEl = document.getElementById('status') as HTMLSpanElement
+import { Editor } from './editor'
+import { TerminalUI } from './terminal-ui'
+import { FileExplorer } from './explorer'
 
-// --- Service Worker registration ---
-let swReady = false
+// ── Web Worker ────────────────────────────────────────────────────────────────
 
-async function registerSW() {
-  if (!('serviceWorker' in navigator)) {
-    appendLog('warn', '[shell] Service Worker not supported — HTTP server preview disabled.\n')
-    return
-  }
-  try {
-    const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-    await navigator.serviceWorker.ready
-    swReady = true
-    appendLog('ok', '[shell] Service Worker registered.\n')
-
-    // Relay http-request messages FROM the Worker TO the SW (and back)
-    navigator.serviceWorker.addEventListener('message', (e) => {
-      // Not used in this direction; SW talks to Worker via the MessagePort
-    })
-  } catch (e) {
-    appendLog('warn', `[shell] SW registration failed: ${e}\n`)
-  }
-}
-
-// --- Web Worker ---
 const runtimeWorker = new Worker(new URL('../worker/index.ts', import.meta.url), { type: 'module' })
 let workerReady = false
 
-// Channel used by the SW to forward HTTP requests to the Worker
-const { port1: swToWorkerPort, port2: workerFromSwPort } = new MessageChannel()
-
-runtimeWorker.addEventListener('message', (e: MessageEvent) => {
-  const { type, ...payload } = e.data ?? {}
-
-  if (type === 'ready') {
-    workerReady = true
-    setStatus('Ready')
-    appendLog('ok', '[runtime] Worker ready.\n')
-    // Transfer the SW→Worker port to the Worker
-    runtimeWorker.postMessage({ type: 'set-sw-port', port: workerFromSwPort }, [workerFromSwPort])
-    return
-  }
-
-  if (type === 'stdout') {
-    appendLog('info', payload.text)
-  } else if (type === 'stderr') {
-    appendLog('error', payload.text)
-  } else if (type === 'server-listen') {
-    debouncedServerListen(payload.port)
-  } else if (type === 'server-close') {
-    unregisterServerWithSW(payload.port)
-  } else if (type === 'npm-done') {
-    setStatus('Ready')
-    btnInstall.disabled = false
-    btnRun.disabled = false
-    appendLog('ok', '[npm] Install complete.\n')
-  } else if (type === 'vfs-dump-result') {
-    appendLog('info', payload.tree)
-  }
-})
-
-runtimeWorker.addEventListener('error', (e) => {
-  appendLog('error', `[worker error] ${e.message || e.filename || 'unknown'} (line ${e.lineno})\n`)
-})
-runtimeWorker.addEventListener('messageerror', (e) => {
-  appendLog('error', `[worker messageerror] ${JSON.stringify(e.data)}\n`)
-})
-
-// Debounce server-listen events: Fastify's avvio lifecycle may emit multiple
-// listen() calls in the same tick. Only process the last one per port.
-const _listenTimers = new Map<number, ReturnType<typeof setTimeout>>()
-function debouncedServerListen(port: number) {
-  if (_listenTimers.has(port)) clearTimeout(_listenTimers.get(port)!)
-  _listenTimers.set(port, setTimeout(() => {
-    _listenTimers.delete(port)
-    registerServerWithSW(port)
-  }, 50))
+function send(msg: unknown, transfer?: Transferable[]) {
+  runtimeWorker.postMessage(msg, transfer ?? [])
 }
 
-// Tell the SW about a server port so it can route requests
+// ── Service Worker ────────────────────────────────────────────────────────────
+
+let swReady = false
+
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return
+  try {
+    await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    await navigator.serviceWorker.ready
+    swReady = true
+  } catch { /* SW optional — HTTP server preview disabled */ }
+}
+
+const _listenTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
 function registerServerWithSW(port: number) {
   if (!swReady || !navigator.serviceWorker.controller) return
-  // We give the SW a dedicated MessagePort to forward requests to the Worker
-  const { port1: toWorker, port2: toSW } = new MessageChannel()
-  // The worker will receive requests on toWorker
-  runtimeWorker.postMessage({ type: 'register-server-port', port, workerPort: toWorker }, [toWorker])
-  navigator.serviceWorker.controller.postMessage(
-    { type: 'register-server', listenPort: port, port: toSW },
-    [toSW]
-  )
-  appendLog('ok', `[server] Listening on http://localhost:${port}\n`)
-  ;(document.getElementById('preview-url') as HTMLInputElement).value = `http://localhost:${port}/`
-  // Chrome blocks SW responses for iframe navigation requests. Instead, fetch the content
-  // via the SW (which works for fetch() sub-resource requests) and inject as srcdoc.
-  setTimeout(() => loadPreviewViaSrcdoc(port, '/'), 300)
-}
-
-async function loadPreviewViaSrcdoc(port: number, path: string) {
-  const proxyUrl = `${location.origin}/_proxy/${port}${path}`
-  try {
-    const resp = await fetch(proxyUrl)
-    let html = await resp.text()
-    // Skip empty responses — server may not be ready yet
-    if (!html.trim()) return
-    // Inject a <base> tag so relative sub-resource URLs resolve through the SW proxy.
-    // Also patch fetch/XHR so JS API calls use absolute proxy URLs.
-    const injection = `<base href="${location.origin}/_proxy/${port}${path}"><script>
-;(function(){
-  var _base='${location.origin}/_proxy/${port}';
-  function _prx(u){return(typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//'))?_base+u:u}
-  var _f=window.fetch;window.fetch=function(u,o){return _f.call(this,_prx(u),o)};
-  var _x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){return _x.apply(this,[m,_prx(u)].concat([].slice.call(arguments,2)))};
-})();
-<\/script>`
-    if (html.includes('<head>')) {
-      html = html.replace('<head>', '<head>' + injection)
-    } else if (html.includes('<html>')) {
-      html = html.replace('<html>', '<html><head>' + injection + '</head>')
-    } else {
-      html = injection + html
-    }
-    preview.srcdoc = html
-  } catch (e) {
-    preview.srcdoc = `<html><body style="font-family:monospace;color:red;padding:1rem"><p>Preview error: ${e}</p></body></html>`
-  }
+  const { port1, port2 } = new MessageChannel()
+  send({ type: 'register-server-port', port, workerPort: port1 }, [port1])
+  navigator.serviceWorker.controller.postMessage({ type: 'register-server', listenPort: port, port: port2 }, [port2])
+  const urlInput = document.getElementById('preview-url') as HTMLInputElement
+  urlInput.value = `http://localhost:${port}/`
+  setTimeout(() => loadPreview(port, '/'), 300)
 }
 
 function unregisterServerWithSW(port: number) {
   navigator.serviceWorker.controller?.postMessage({ type: 'unregister-server', listenPort: port })
 }
 
-// --- Terminal helpers ---
-function appendLog(level: 'info' | 'ok' | 'warn' | 'error' | 'cmd', text: string) {
-  const line = document.createElement('div')
-  line.className = `log-line log-${level}`
-  line.textContent = text
-  terminal.appendChild(line)
-  terminal.scrollTop = terminal.scrollHeight
+async function loadPreview(port: number, path: string) {
+  const proxyUrl = `${location.origin}/_proxy/${port}${path}`
+  try {
+    const resp = await fetch(proxyUrl)
+    let html = await resp.text()
+    if (!html.trim()) return
+    const injection = `<base href="${location.origin}/_proxy/${port}${path}"><script>
+;(function(){
+  var _b='${location.origin}/_proxy/${port}';
+  function _p(u){return(typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//'))?_b+u:u}
+  var _f=window.fetch;window.fetch=function(u,o){return _f.call(this,_p(u),o)};
+  var _x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){return _x.apply(this,[m,_p(u)].concat([].slice.call(arguments,2)))};
+})();
+<\/script>`
+    if (html.includes('<head>')) html = html.replace('<head>', '<head>' + injection)
+    else html = injection + html
+    previewFrame.srcdoc = html
+  } catch { /* preview unavailable */ }
 }
 
-function setStatus(msg: string) {
-  statusEl.textContent = msg
+// ── Hidden test-interface log buffer ─────────────────────────────────────────
+// E2E tests (Playwright/Cucumber) check document.getElementById('terminal').textContent.
+// xterm.js renders to canvas so tests can't read it — this hidden div shadows all output.
+
+const _testLog = document.getElementById('terminal') as HTMLDivElement
+
+function _appendTestLog(text: string) {
+  _testLog.textContent = (_testLog.textContent ?? '') + text
 }
 
-// --- Tab key in editor ---
-editor.addEventListener('keydown', (e) => {
-  if (e.key === 'Tab') {
-    e.preventDefault()
-    const start = editor.selectionStart
-    const end = editor.selectionEnd
-    editor.value = editor.value.slice(0, start) + '  ' + editor.value.slice(end)
-    editor.selectionStart = editor.selectionEnd = start + 2
-  }
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+
+const editorPanel = document.getElementById('editor-panel') as HTMLDivElement
+const previewPanel = document.getElementById('preview-panel') as HTMLDivElement
+const previewFrame = document.getElementById('preview') as HTMLIFrameElement
+const termPanel = document.getElementById('terminal-panel') as HTMLDivElement
+const explorerEl = document.getElementById('explorer') as HTMLDivElement
+const statusEl = document.getElementById('status') as HTMLSpanElement
+const btnEditor = document.getElementById('btn-editor') as HTMLButtonElement
+const btnPreview = document.getElementById('btn-preview') as HTMLButtonElement
+const btnRun = document.getElementById('btn-run') as HTMLButtonElement
+const btnNewFile = document.getElementById('btn-new-file') as HTMLButtonElement
+const btnRefresh = document.getElementById('btn-refresh') as HTMLButtonElement
+
+// ── UI components ─────────────────────────────────────────────────────────────
+
+const editor = new Editor(editorPanel)
+const terminalUI = new TerminalUI(termPanel, (cmd) => {
+  send({ type: 'terminal-cmd', cmdline: cmd })
 })
+const explorer = new FileExplorer(
+  explorerEl,
+  (path) => { send({ type: 'vfs-read', path }) },
+  (path) => { send({ type: 'vfs-list', path }) },
+)
 
-// --- Button handlers ---
+// ── Tab toggle ────────────────────────────────────────────────────────────────
+
+function showTab(tab: 'editor' | 'preview') {
+  const isEditor = tab === 'editor'
+  editorPanel.style.display = isEditor ? 'flex' : 'none'
+  previewPanel.style.display = isEditor ? 'none' : 'flex'
+  btnEditor.classList.toggle('active', isEditor)
+  btnPreview.classList.toggle('active', !isEditor)
+  if (isEditor) terminalUI.refit()
+}
+
+btnEditor.addEventListener('click', () => showTab('editor'))
+btnPreview.addEventListener('click', () => showTab('preview'))
+showTab('editor')
+
+// ── Run button ────────────────────────────────────────────────────────────────
+
 btnRun.addEventListener('click', () => {
-  if (!workerReady) { appendLog('warn', 'Worker not ready yet.\n'); return }
-  appendLog('cmd', '▶ Run\n')
-  setStatus('Running...')
-  runtimeWorker.postMessage({ type: 'run', code: editor.value, filename: '/app/index.js' })
+  if (!workerReady) return
+  const code = editor.value
+  const filename = editor.filename
+  send({ type: 'run', code, filename })
+  terminalUI.write(`\x1b[35m▶ node ${filename}\x1b[0m\r\n`)
 })
 
-btnInstall.addEventListener('click', async () => {
-  const raw = prompt('Packages to install (e.g. "express@4 lodash")')
-  if (!raw?.trim()) return
+// ── New file ─────────────────────────────────────────────────────────────────
 
-  const packages: Record<string, string> = {}
-  for (const pkg of raw.trim().split(/\s+/)) {
-    const atIdx = pkg.lastIndexOf('@')
-    if (atIdx > 0) {
-      packages[pkg.slice(0, atIdx)] = pkg.slice(atIdx + 1)
-    } else {
-      packages[pkg] = 'latest'
-    }
-  }
-
-  appendLog('cmd', `npm install ${raw}\n`)
-  setStatus('Installing...')
-  btnInstall.disabled = true
-  btnRun.disabled = true
-  runtimeWorker.postMessage({ type: 'npm-install', packages })
+btnNewFile.addEventListener('click', () => {
+  const name = prompt('New file path (e.g. /app/index.js):')
+  if (!name?.trim()) return
+  const path = name.trim().startsWith('/') ? name.trim() : '/app/' + name.trim()
+  send({ type: 'write-file', path, content: '' })
+  send({ type: 'vfs-read', path })
+  explorer.refresh()
 })
 
-btnClear.addEventListener('click', () => { terminal.innerHTML = '' })
+// ── Preview refresh ───────────────────────────────────────────────────────────
 
 btnRefresh.addEventListener('click', () => {
-  const portStr = (document.getElementById('preview-url') as HTMLInputElement).value.match(/:(\d+)/)?.[1] ?? '3000'
-  preview.srcdoc = ''
-  loadPreviewViaSrcdoc(parseInt(portStr, 10), '/')
+  const urlInput = document.getElementById('preview-url') as HTMLInputElement
+  const port = parseInt(urlInput.value.match(/:(\d+)/)?.[1] ?? '3000', 10)
+  previewFrame.srcdoc = ''
+  loadPreview(port, '/')
 })
 
-// --- Boot ---
-setStatus('Initializing...')
-appendLog('info', '[shell] Starting browser-node runtime...\n')
+// ── Worker messages ───────────────────────────────────────────────────────────
+
+function setStatus(msg: string) { statusEl.textContent = msg }
+
+runtimeWorker.addEventListener('message', (e: MessageEvent) => {
+  const { type, ...p } = e.data ?? {}
+
+  if (type === 'ready') {
+    workerReady = true
+    setStatus('Ready')
+    _appendTestLog('[runtime] Worker ready.\n')
+    // Transfer SW↔Worker MessageChannel port
+    const { port1: toWorker, port2: toShell } = new MessageChannel()
+    send({ type: 'set-sw-port', port: toWorker }, [toWorker])
+    toShell.close()
+    terminalUI.setReady('/')
+    explorer.refresh()
+    return
+  }
+
+  if (type === 'stdout') {
+    _appendTestLog(p.text)
+    terminalUI.write(p.text)
+    return
+  }
+  if (type === 'stderr') {
+    _appendTestLog(p.text)
+    terminalUI.write(`\x1b[31m${p.text}\x1b[0m`)
+    return
+  }
+
+  if (type === 'terminal-done') {
+    if (p.exitCode === -1) terminalUI.clear()
+    if (p.cwd) terminalUI.setCwd(p.cwd)
+    terminalUI.showPrompt()
+    return
+  }
+
+  if (type === 'terminal-cwd') {
+    terminalUI.setCwd(p.cwd)
+    return
+  }
+
+  if (type === 'vfs-changed') {
+    explorer.refresh()
+    return
+  }
+
+  if (type === 'vfs-list-result') {
+    explorer.updateDir(p.path, p.entries)
+    return
+  }
+
+  if (type === 'vfs-read-result') {
+    if (p.content !== null && p.content !== undefined) {
+      editor.setContent(p.content, p.path)
+      explorer.setActive(p.path)
+      showTab('editor')
+      // Auto-save: wire future edits back to VFS
+    }
+    return
+  }
+
+  if (type === 'server-listen') {
+    if (_listenTimers.has(p.port)) clearTimeout(_listenTimers.get(p.port)!)
+    _listenTimers.set(p.port, setTimeout(() => {
+      _listenTimers.delete(p.port)
+      registerServerWithSW(p.port)
+    }, 50))
+    return
+  }
+
+  if (type === 'server-close') {
+    unregisterServerWithSW(p.port)
+    return
+  }
+
+  if (type === 'npm-done') {
+    setStatus('Ready')
+    return
+  }
+})
+
+runtimeWorker.addEventListener('error', (e) => {
+  terminalUI.write(`\x1b[31m[worker error] ${e.message}\x1b[0m\r\n`)
+})
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+
+setStatus('Initializing…')
 registerSW()
 
-// Dev-only test hook — lets playwright-cli eval send messages to the worker
+// Playwright test hook
 ;(window as unknown as Record<string, unknown>)._sendToWorker = (msg: unknown) => runtimeWorker.postMessage(msg)

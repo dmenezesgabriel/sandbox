@@ -42,8 +42,9 @@ console.debug = console.log
 import { preloadShims, requireSync, clearModuleCache, registerFileOverride } from './loader'
 import { bindRequireSync } from './shims/index'
 import { install } from './npm'
-import { writeFileToVfs, dumpVfs } from './vfs'
+import { writeFileToVfs, dumpVfs, memfsInstance } from './vfs'
 import { getServer } from './shims/http'
+import { bindTerminalDeps, runCommand, getCwd } from './terminal-cmd'
 
 // Wire up createRequire in the node:module shim (can't import requireSync there — circular)
 bindRequireSync(requireSync)
@@ -54,6 +55,8 @@ function err(text: string) { self.postMessage({ type: 'stderr', text }) }
 async function init() {
   log('[runtime] Initializing shims...\n')
   await preloadShims()
+  bindTerminalDeps(requireSync, install)
+  _registerPostInstallOverrides()
   log('[runtime] Ready.\n')
   self.postMessage({ type: 'ready' })
 }
@@ -284,6 +287,45 @@ self.addEventListener('message', async (e: MessageEvent) => {
 
   if (type === 'vfs-dump') {
     self.postMessage({ type: 'vfs-dump-result', tree: dumpVfs() })
+    return
+  }
+
+  if (type === 'terminal-cmd') {
+    const { cmdline } = payload as { cmdline: string }
+    try {
+      const exitCode = await runCommand(cmdline)
+      self.postMessage({ type: 'terminal-done', exitCode, cwd: getCwd() })
+    } catch (e) {
+      err(`[terminal] ${(e as Error).message}\n`)
+      self.postMessage({ type: 'terminal-done', exitCode: 1, cwd: getCwd() })
+    }
+    return
+  }
+
+  if (type === 'vfs-list') {
+    const { path = '/' } = payload as { path?: string }
+    try {
+      const entries = (memfsInstance.readdirSync(path) as string[]).map(name => {
+        const fp = path === '/' ? '/' + name : path + '/' + name
+        let isDir = false
+        try { isDir = (memfsInstance.statSync(fp) as { isDirectory(): boolean }).isDirectory() } catch {}
+        return { name, isDir }
+      })
+      self.postMessage({ type: 'vfs-list-result', path, entries })
+    } catch {
+      self.postMessage({ type: 'vfs-list-result', path, entries: [] })
+    }
+    return
+  }
+
+  if (type === 'vfs-read') {
+    const { path } = payload as { path: string }
+    try {
+      const content = memfsInstance.readFileSync(path, 'utf-8') as string
+      self.postMessage({ type: 'vfs-read-result', path, content })
+    } catch (e) {
+      self.postMessage({ type: 'vfs-read-result', path, content: null, error: (e as Error).message })
+    }
     return
   }
 })
