@@ -42,14 +42,16 @@ function unregisterServerWithSW(port: number) {
 }
 
 async function loadPreview(port: number, path: string) {
-  const proxyUrl = `${location.origin}/_proxy/${port}${path}`
+  const base = import.meta.env.BASE_URL
+  const proxyPrefix = base.endsWith('/') ? `${base}_proxy/` : `${base}/_proxy/`
+  const proxyUrl = `${location.origin}${proxyPrefix}${port}${path}`
   try {
     const resp = await fetch(proxyUrl)
     let html = await resp.text()
     if (!html.trim()) return
-    const injection = `<base href="${location.origin}/_proxy/${port}${path}"><script>
+    const injection = `<base href="${location.origin}${proxyPrefix}${port}${path}"><script>
 ;(function(){
-  var _b='${location.origin}/_proxy/${port}';
+  var _b='${location.origin}${proxyPrefix}${port}';
   function _p(u){return(typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//'))?_b+u:u}
   var _f=window.fetch;window.fetch=function(u,o){return _f.call(this,_p(u),o)};
   var _x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){return _x.apply(this,[m,_p(u)].concat([].slice.call(arguments,2)))};
