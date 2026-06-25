@@ -24,39 +24,66 @@ self.addEventListener('message', (e) => {
   }
 })
 
+const clientPorts = new Map()
+
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url)
 
-  // Debug test: return a static response for /_sw-test
+  // Debug test
   if (url.pathname === '/_sw-test') {
-    e.respondWith(new Response('<h1>SW Test OK</h1>', {
-      status: 200,
-      headers: { 'Content-Type': 'text/html' }
-    }))
+    e.respondWith(new Response('<h1>SW Test OK</h1>', { status: 200, headers: { 'Content-Type': 'text/html' } }))
     return
   }
 
-  // Mode 1: same-origin proxy path
   const basePath = new URL(self.registration.scope).pathname
   const proxyPrefix = basePath.endsWith('/') ? basePath + '_proxy/' : basePath + '/_proxy/'
 
+  let listenPort = undefined;
+  let proxiedPath = url.pathname + url.search;
+
+  // 1. Check if the URL itself contains the proxy prefix
   if (url.pathname.startsWith(proxyPrefix)) {
     const parts = url.pathname.slice(proxyPrefix.length).split('/')
-    const listenPort = parseInt(parts[0], 10)
-    const workerPort = serverPorts.get(listenPort)
-    if (workerPort) {
-      const proxiedPath = '/' + parts.slice(1).join('/') + (url.search || '')
-      e.respondWith(forwardToWorker(workerPort, e.request, proxiedPath, listenPort))
+    listenPort = parseInt(parts[0], 10)
+    proxiedPath = '/' + parts.slice(1).join('/') + (url.search || '')
+  } 
+  // 2. Check the referrer to see if it came from a proxy path
+  else if (e.request.referrer) {
+    const referrerUrl = new URL(e.request.referrer)
+    if (referrerUrl.origin === self.location.origin && referrerUrl.pathname.startsWith(proxyPrefix)) {
+      const referrerParts = referrerUrl.pathname.slice(proxyPrefix.length).split('/')
+      listenPort = parseInt(referrerParts[0], 10)
     }
-    return
   }
 
-  // Mode 2: cross-origin localhost (sub-resource requests from pages in SW scope)
-  if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') return
-  const port = url.port ? parseInt(url.port, 10) : 80
-  const workerPort = serverPorts.get(port)
-  if (!workerPort) return
-  e.respondWith(forwardToWorker(workerPort, e.request, url.pathname + url.search, port))
+  // 3. Fallback to clientId mapping
+  if (!listenPort && e.clientId && clientPorts.has(e.clientId)) {
+    listenPort = clientPorts.get(e.clientId)
+  }
+
+  // If we found a port, intercept the request
+  if (listenPort) {
+    const workerPort = serverPorts.get(listenPort)
+    if (workerPort) {
+      // Save the association for future requests from this client
+      if (e.request.destination !== 'iframe' && e.request.destination !== 'document' && e.clientId) {
+        clientPorts.set(e.clientId, listenPort)
+      }
+      if (e.resultingClientId) clientPorts.set(e.resultingClientId, listenPort)
+
+      e.respondWith(forwardToWorker(workerPort, e.request, proxiedPath, listenPort))
+      return
+    }
+  }
+
+  // 4. Cross-origin localhost sub-resource fetches
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+    const port = url.port ? parseInt(url.port, 10) : 80
+    const workerPort = serverPorts.get(port)
+    if (workerPort) {
+      e.respondWith(forwardToWorker(workerPort, e.request, url.pathname + url.search, port))
+    }
+  }
 })
 
 async function forwardToWorker(workerPort, request, path, listenPort) {
@@ -72,7 +99,7 @@ async function forwardToWorker(workerPort, request, path, listenPort) {
         status: 408,
         headers: { 'content-type': 'text/html', 'Cross-Origin-Resource-Policy': 'cross-origin' }
       }))
-    }, 8000)
+    }, 30000)
 
     port1.onmessage = (e) => {
       clearTimeout(timeout)
