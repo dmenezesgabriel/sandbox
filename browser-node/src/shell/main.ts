@@ -20,6 +20,14 @@ async function registerSW() {
   try {
     const base = import.meta.env.BASE_URL  // '/' in dev, '/sandbox/' in prod
     await navigator.serviceWorker.register(`${base}sw.js`, { scope: base })
+    
+    let refreshing = false
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return
+      refreshing = true
+      window.location.reload()
+    })
+
     await navigator.serviceWorker.ready
     swReady = true
   } catch { /* SW optional — HTTP server preview disabled */ }
