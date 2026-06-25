@@ -36,9 +36,12 @@ self.addEventListener('fetch', (e) => {
     return
   }
 
-  // Mode 1: same-origin proxy path  /_proxy/<port>/...
-  if (url.pathname.startsWith('/_proxy/')) {
-    const parts = url.pathname.slice(8).split('/')        // strip leading /_proxy/
+  // Mode 1: same-origin proxy path
+  const basePath = new URL(self.registration.scope).pathname
+  const proxyPrefix = basePath.endsWith('/') ? basePath + '_proxy/' : basePath + '/_proxy/'
+
+  if (url.pathname.startsWith(proxyPrefix)) {
+    const parts = url.pathname.slice(proxyPrefix.length).split('/')
     const listenPort = parseInt(parts[0], 10)
     const workerPort = serverPorts.get(listenPort)
     if (workerPort) {
