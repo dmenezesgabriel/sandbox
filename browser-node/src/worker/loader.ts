@@ -37,23 +37,23 @@ function esmToCjs(source: string, filePath: string): string {
       const [src, dst] = n.trim().split(/\s+as\s+/)
       return dst ? `${src.trim()}: ${dst.trim()}` : src.trim()
     }).join(', ')
-    return `${pre}const { ${mapped} } = require('${mod}'); `
+    return `${pre}var { ${mapped} } = require('${mod}'); `
   }
   const _mkDefaultReplace = (pre: string, name: string, mod: string) =>
-    `${pre}const ${name} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(require('${mod}')); `
+    `${pre}var ${name} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(require('${mod}')); `
   const _mkCombinedReplace = (pre: string, defaultName: string, names: string, mod: string) => {
     const tmp = `_esm${_ctr++}`
     const mapped = names.trim().split(',').filter(Boolean).map((n: string) => {
       const [src, dst] = n.trim().split(/\s+as\s+/)
       return dst ? `${src.trim()}: ${dst.trim()}` : src.trim()
     }).join(', ')
-    return `${pre}const ${tmp} = require('${mod}'); const ${defaultName} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(${tmp}); const { ${mapped} } = ${tmp}; `
+    return `${pre}var ${tmp} = require('${mod}'); var ${defaultName} = ((_m) => _m && _m.__esModule && _m.default !== undefined ? _m.default : _m)(${tmp}); var { ${mapped} } = ${tmp}; `
   }
 
   result = result.replace(/(?<!['"`])\bimport\s+([$\w]+)\s*,\s*\{([^{}]*?)\}\s*from\s*(['"`])(.*?)\3/g, (_, dn, ns, __, mod) => _mkCombinedReplace('', dn, ns, mod));
   result = result.replace(/(?<!['"`])\bimport\s*\{([^{}]*?)\}\s*from\s*(['"`])(.*?)\2/g, (_, names, __, mod) => _mkNamedReplace('', names, mod));
   result = result.replace(/(?<!['"`])\bimport\s+([$\w]+)\s+from\s*(['"`])(.*?)\2/g, (_, name, __, mod) => _mkDefaultReplace('', name, mod));
-  result = result.replace(/(?<!['"`])\bimport\s*\*\s*as\s+([$\w]+)\s+from\s*(['"`])(.*?)\2/g, (_, name, __, mod) => `const ${name} = require('${mod}'); `);
+  result = result.replace(/(?<!['"`])\bimport\s*\*\s*as\s+([$\w]+)\s+from\s*(['"`])(.*?)\2/g, (_, name, __, mod) => `var ${name} = require('${mod}'); `);
   result = result.replace(/(?<!['"`])\bimport\s*(['"`])(.*?)\1/g, (_, __, mod) => `require('${mod}'); `);
   
   result = result.replace(/(?<!\.)(?<!['"`])\b(?<!async\s)import\s*\((?!\?)/g, '((__dynArg)=>Promise.resolve(require(__dynArg)))(');
@@ -65,7 +65,9 @@ function esmToCjs(source: string, filePath: string): string {
     const parts = names.trim().split(',').filter(Boolean).map((n: string) => {
       const [src, dst] = n.trim().split(/\s+as\s+/)
       const s = src.trim(), d = (dst || src).trim()
-      return `exports.${d} = require('${mod}').${s}`
+      const dSafe = (d.startsWith('"') || d.startsWith("'")) ? `[${d}]` : `.${d}`
+      const sSafe = (s.startsWith('"') || s.startsWith("'")) ? `[${s}]` : `.${s}`
+      return `exports${dSafe} = require('${mod}')${sSafe}`
     }).join('; ')
     return parts ? `${parts}; ` : ''
   });
@@ -74,7 +76,8 @@ function esmToCjs(source: string, filePath: string): string {
     const parts = names.trim().split(',').filter(Boolean).map((n: string) => {
       const [src, dst] = n.trim().split(/\s+as\s+/)
       const s = src.trim(), d = (dst || src).trim()
-      return `exports.${d} = ${s}`
+      const dSafe = (d.startsWith('"') || d.startsWith("'")) ? `[${d}]` : `.${d}`
+      return `exports${dSafe} = ${s}`
     }).join('; ')
     return parts ? `${parts}; ` : ''
   });
@@ -154,7 +157,7 @@ export async function preloadShims() {
   // shimMap is populated at import time; nothing async to do
 }
 
-function resolveModule(specifier: string, fromDir: string): string | null {
+export function resolveModule(specifier: string, fromDir: string): string | null {
   // Built-in shims
   if (specifier in shimCache) return `__shim__:${specifier}`
 
@@ -295,7 +298,14 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
   if (moduleCache.has(filePath)) return moduleCache.get(filePath)!
 
   // Check if this file path has a registered override (e.g., native-binary stubs)
-  const override = filePathOverrides.get(filePath)
+  let override: (() => unknown) | undefined
+  for (const [pattern, factory] of filePathOverrides.entries()) {
+    if (filePath === pattern || filePath.endsWith(pattern)) {
+      override = factory
+      break
+    }
+  }
+  
   if (override) {
     const mod = { exports: override() }
     moduleCache.set(filePath, mod)
@@ -322,23 +332,27 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
   const ext = path.extname(filePath).slice(1)
   if (['ts', 'tsx', 'jsx', 'cts', 'mts'].includes(ext)) {
     try {
-      const loader = (ext === 'cts' || ext === 'mts') ? 'ts' : (ext as 'ts' | 'tsx' | 'jsx')
-      const transformSyncFn = esbuildWasm.transformSync || (esbuildWasm as any).default?.transformSync
-      if (typeof transformSyncFn !== 'function') {
-        throw new Error('esbuild transformSync function not found')
-      }
-      const result = transformSyncFn(source, {
-        loader,
-        format: 'cjs',
-        target: 'es2022',
-        define: {
-          'import.meta.url': '__filename_url',
-          'import.meta.filename': '__filename',
-          'import.meta.dirname': '__dirname',
-          'import.meta': '__import_meta'
+      let transpiled = false
+      try {
+        const ts = requireSync('typescript', dir) as any
+        if (ts && ts.transpileModule) {
+          // jsx: 2 = React (classic) → compiles <Foo /> to React.createElement calls (needed for JSX files)
+          // jsx: 4 = Preserve        → leaves JSX syntax intact (WRONG — causes parse errors)
+          // jsx: 1 = None            → strips JSX tags from .ts files
+          const isJsx = ext === 'jsx' || ext === 'tsx'
+          source = ts.transpileModule(source, { compilerOptions: { target: 99, jsx: isJsx ? 2 : 1 } }).outputText
+          transpiled = true
         }
-      })
-      source = result.code
+      } catch {}
+      if (!transpiled) {
+        // Regex fallback: strip common TS-only syntax
+        source = source
+          .replace(/:\s*[A-Za-z][A-Za-z0-9_<>, [\]|&.()]*(?=\s*[=,);{])/g, '') // : TypeAnnotation
+          .replace(/\binterface\s+\w+[^{]*\{[^}]*\}/gs, '')                      // interface declarations
+          .replace(/\btype\s+\w+\s*=\s*[^;\n]+;?/g, '')                          // type aliases
+          .replace(/<[A-Za-z][A-Za-z0-9_, ]*>/g, '')                             // <T> generics (simple)
+          .replace(/\s+as\s+[A-Za-z][A-Za-z0-9_<>, [\]|&.()]+/g, '')            // x as Type
+      }
     } catch (err) {
       self.postMessage({ type: 'stdout', text: `[loader] Transpilation error in ${filePath}: ${(err as Error).message}\n` })
       throw err
@@ -350,14 +364,12 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
   const originalSource = source
   const isMjs = filePath.endsWith('.mjs')
   const isModulePackage = !isMjs && filePath.endsWith('.js') && isInModulePackage(filePath)
-  if (isMjs || isModulePackage || isEsmSource(source)) {
-    source = esmToCjs(source, filePath)
-  } else if (/(?<=await|return|yield|throw|[=,(\[?:+\-*|&^!~])\s*import\s*\(/.test(source)) {
-    // CJS file that uses dynamic import() in expression position — patch just the dynamic
-    // imports so they go through our synchronous require() rather than the native ESM loader.
-    // Positive lookbehind requires expression-context chars before import() to avoid
-    // matching class method declarations like `import(data) {}`.
-    source = source.replace(/(?<=await|return|yield|throw|[=,(\[?:+\-*|&^!~])\s*import\s*\(/g, '((__dynArg)=>Promise.resolve(require(__dynArg)))(')
+  if (!filePath.includes('/typescript/lib/')) {
+    if (isMjs || isModulePackage || isEsmSource(source)) {
+      source = esmToCjs(source, filePath)
+    } else if (/(?<=await|return|yield|throw|[=,(\[?:+\-*|&^!~])\s*import\s*\(/.test(source)) {
+      source = source.replace(/(?<=await|return|yield|throw|[=,(\[?:+\-*|&^!~])\s*import\s*\(/g, '((__dynArg)=>Promise.resolve(require(__dynArg)))(')
+    }
   }
 
   const requireFn = Object.assign(

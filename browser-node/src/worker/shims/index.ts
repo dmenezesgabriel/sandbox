@@ -207,26 +207,223 @@ _rolldownParseAst.default = _rolldownParseAst
 
 class _TsconfigCache { constructor() {} }
 class _Visitor { constructor() {} }
-// Synchronous TypeScript→JS transform used by Vite 8's plugin container.
-// Tries TypeScript.transpileModule() (sync, available if 'typescript' is installed),
-// then falls back to a regex-based type stripper for simple cases.
-function _tsTransformSync(code: string, filename?: string): string {
-  const isTs = /\.[mc]?tsx?$/.test(filename ?? '.ts')
-  if (!isTs) return code
+
+/**
+ * Minimal synchronous JSX → React.createElement transform.
+ * Used as a fallback when TypeScript is not installed in the project.
+ * Handles the common patterns produced by create-vite react template.
+ * The goal: make vite:import-analysis able to parse the file as plain JS.
+ */
+function jsxToReactCreateElement(code: string): string {
+  // We use a simple character-level state machine to convert JSX.
+  // Strategy: scan for '<' that starts a JSX element (not in a string/comment),
+  // then convert open tags, self-closing tags, and close tags.
+  // JSX fragments <> </> → React.createElement(React.Fragment, null, ...)
+  // JSX expressions {expr} → expr (passed through)
+  // Text content → string literals
+  //
+  // For vite:import-analysis we just need parseable JS, not perfect runtime semantics.
+  // We convert JSX to tagged template/function calls that ARE valid JS.
+
+  // Simple but effective approach: use nested regex replacements.
+  // Order matters: handle self-closing before open tags.
+
+  let result = code
+
+  // 1. JSX comments {/* ... */} — strip them
+  result = result.replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, '')
+
+  // 2. JSX fragments <> </> — convert to array notation
+  // We replace fragments with a unique sentinel and process later
+  // For simplicity, just strip fragment wrappers (the children become adjacent exprs)
+  result = result.replace(/<>([\s\S]*?)<\/>/gs, '(_fragment($1))')
+
+  // 3. Self-closing tags with props: <Component key="val" k2={v2} />
+  // Match: < (ComponentName or tag) (optional attrs) />
+  result = result.replace(
+    /<([A-Za-z][A-Za-z0-9.]*(?:\.[A-Za-z][A-Za-z0-9]*)*)([^>]*?)\/>/gs,
+    (_: string, tag: string, attrs: string) => {
+      const name = /^[A-Z]/.test(tag[0]) ? tag : `"${tag}"`
+      const props = parseJsxAttrs(attrs)
+      return `React.createElement(${name}, ${props})`
+    }
+  )
+
+  // 4. Open/close tag pairs with children
+  // We do multiple passes to handle nesting (innermost first)
+  // Match: <Tag attrs>...children...</Tag>
+  for (let i = 0; i < 10; i++) {
+    const before = result
+    result = result.replace(
+      /<([A-Za-z][A-Za-z0-9.]*)([^>]*)>([\s\S]*?)<\/\1>/g,
+      (_: string, tag: string, attrs: string, children: string) => {
+        const name = /^[A-Z]/.test(tag[0]) ? tag : `"${tag}"`
+        const props = parseJsxAttrs(attrs)
+        const childStr = processJsxChildren(children)
+        return childStr
+          ? `React.createElement(${name}, ${props}, ${childStr})`
+          : `React.createElement(${name}, ${props})`
+      }
+    )
+    if (result === before) break
+  }
+
+  // 5. Clean up remaining JSX closing tags (e.g. from fragments)
+  result = result.replace(/<\/[A-Za-z][A-Za-z0-9.]*>/g, '')
+
+  // 6. Remove remaining self-closing tags we might have missed
+  result = result.replace(/<[A-Za-z][A-Za-z0-9.]*(?:\s+[^>]*)?\/>/g, 'null')
+
+  return result
+}
+
+function parseJsxAttrs(attrsStr: string): string {
+  const s = attrsStr.trim()
+  if (!s) return 'null'
+  const spreadMatch = s.match(/^\{\.\.\.(.*?)\}$/)
+  if (spreadMatch) return `Object.assign({}, ${spreadMatch[1]})`
+  const pairs: string[] = []
+  
+  let pos = 0
+  while (pos < s.length) {
+    while (pos < s.length && /\s/.test(s[pos])) pos++;
+    if (pos >= s.length) break;
+
+    if (s.startsWith('{...', pos)) {
+      let depth = 0, start = pos
+      while (pos < s.length) {
+        if (s[pos] === '{') depth++
+        else if (s[pos] === '}') { depth--; if (depth === 0) { pos++; break } }
+        pos++
+      }
+      pairs.push(`...${s.slice(start + 4, pos - 1)}`)
+      continue
+    }
+
+    const nameMatch = s.slice(pos).match(/^[A-Za-z_][A-Za-z0-9_-]*/)
+    if (!nameMatch) { pos++; continue }
+    const name = nameMatch[0]
+    pos += name.length
+
+    while (pos < s.length && /\s/.test(s[pos])) pos++;
+
+    if (s[pos] === '=') {
+      pos++
+      while (pos < s.length && /\s/.test(s[pos])) pos++;
+      let val = ''
+      if (s[pos] === '"' || s[pos] === "'") {
+        const quote = s[pos]
+        const start = pos
+        pos++
+        while (pos < s.length && s[pos] !== quote) pos++
+        val = `"${s.slice(start + 1, pos)}"`
+        pos++
+      } else if (s[pos] === '{') {
+        let depth = 0
+        const start = pos
+        while (pos < s.length) {
+          if (s[pos] === '{') depth++
+          else if (s[pos] === '}') { depth--; if (depth === 0) { pos++; break } }
+          pos++
+        }
+        val = s.slice(start + 1, pos - 1)
+      } else {
+        const start = pos
+        while (pos < s.length && !/\s/.test(s[pos]) && s[pos] !== '>') pos++
+        val = s.slice(start, pos)
+      }
+      pairs.push(`${name}: ${val}`)
+    } else {
+      pairs.push(`${name}: true`)
+    }
+  }
+  return pairs.length ? `{ ${pairs.join(', ')} }` : 'null'
+}
+
+function processJsxChildren(childrenStr: string): string {
+  const s = childrenStr.trim()
+  if (!s) return ''
+  // Split children: {expr} blocks and text content
+  const parts: string[] = []
+  let pos = 0
+  while (pos < s.length) {
+    if (s[pos] === '{') {
+      // JSX expression block
+      let depth = 0, end = pos
+      while (end < s.length) {
+        if (s[end] === '{') depth++
+        else if (s[end] === '}') { depth--; if (depth === 0) { end++; break } }
+        end++
+      }
+      parts.push(s.slice(pos + 1, end - 1).trim())
+      pos = end
+    } else if (s[pos] === '<') {
+      // Nested element (already transformed or self-closing)
+      // Look for the end of the tag
+      let end = s.indexOf('>', pos) + 1
+      if (end === 0) end = s.length
+      parts.push(s.slice(pos, end))
+      pos = end
+    } else {
+      // Text content
+      const offset = s.slice(pos).search(/[{<]/)
+      const next = offset === -1 ? -1 : pos + offset
+      const text = (next === -1 ? s.slice(pos) : s.slice(pos, next)).trim()
+      if (text) parts.push(`"${text.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`)
+      pos = next === -1 ? s.length : next
+    }
+  }
+  return parts.filter(p => p.trim() && p !== '""').join(', ')
+}
+
+// Synchronous TypeScript/JSX→JS transform used by Vite 8's transformWithOxc.
+// Vite 8 calls: rolldown/utils.transformSync(filename, code, { lang, sourcemap, ...options })
+// We must compile JSX→JS here, because Vite's vite:import-analysis plugin runs AFTER this
+// transform and cannot handle raw JSX syntax.
+import { transform as sucraseTransform } from 'sucrase'
+
+function _tsTransformSync(code: string, filename?: string, lang?: string): string {
+  // Try to use TypeScript from the project's node_modules if available
   try {
-    const ts = _requireSync('typescript', '/') as { transpileModule: (code: string, opts: Record<string, unknown>) => { outputText: string } }
-    if (ts?.transpileModule) {
-      return ts.transpileModule(code, { compilerOptions: { module: 99, target: 99, jsx: 1 } }).outputText
+    const fromDir = filename ? filename.split('/').slice(0, -1).join('/') || '/' : '/'
+    const ts = _requireSync('typescript', fromDir) as {
+      transpileModule: (code: string, opts: Record<string, unknown>) => { outputText: string }
+      _isBuiltinShim?: boolean
+    }
+    if (ts?.transpileModule && !ts._isBuiltinShim) {
+      return ts.transpileModule(code, {
+        compilerOptions: {
+          target: 99, // ESNext
+          module: 99, // ESNext
+          jsx: 1, // Preserve (let Vite handle it if possible, or React)
+          // Actually, we want to compile JSX away so Vite's import-analysis can parse it
+        }
+      }).outputText
     }
   } catch {}
-  // Regex fallback: strip common TS-only syntax (handles built-in lowercase types too)
-  return code
-    .replace(/:\s*[A-Za-z][A-Za-z0-9_<>, [\]|&.()]*(?=\s*[=,);{])/g, '') // : TypeAnnotation
-    .replace(/\binterface\s+\w+[^{]*\{[^}]*\}/gs, '')                      // interface declarations
-    .replace(/\btype\s+\w+\s*=\s*[^;\n]+;?/g, '')                          // type aliases
-    .replace(/<[A-Za-z][A-Za-z0-9_, ]*>/g, '')                             // <T> generics (simple)
-    .replace(/\s+as\s+[A-Za-z][A-Za-z0-9_<>, [\]|&.()]+/g, '')            // x as Type
+
+  const isJsxLike = lang === 'jsx' || lang === 'tsx' || filename?.endsWith('.jsx') || filename?.endsWith('.tsx') || code.includes('</') || code.includes('/>')
+  const isTsLike = lang === 'ts' || lang === 'tsx' || filename?.endsWith('.ts') || filename?.endsWith('.tsx')
+  
+  const transforms: string[] = []
+  if (isTsLike) transforms.push('typescript')
+  if (isJsxLike) transforms.push('jsx')
+  
+  if (transforms.length === 0) return code
+
+  try {
+    const result = sucraseTransform(code, {
+      transforms: transforms as any,
+      filePath: filename || 'file.jsx',
+      production: false
+    })
+    return result.code
+  } catch (e) {
+    console.error(`[sucrase] Failed to transform ${filename}:`, e)
+    return code
+  }
 }
+
 
 const _rolldownUtils = {
   TsconfigCache: _TsconfigCache,
@@ -235,10 +432,11 @@ const _rolldownUtils = {
   minifySync: _notSupported('rolldown/utils.minifySync'),
   parse: _notSupported('rolldown/utils.parse'),
   parseSync: _notSupported('rolldown/utils.parseSync'),
-  // OXC/rolldown API: transformSync(filename, sourceCode, options?)
+  // OXC/rolldown API: transformSync(filename, sourceCode, options?) — called by Vite's transformWithOxc()
+  // Must return compiled JS (no raw JSX) so that vite:import-analysis can parse the result.
   transformSync: (filename: string, sourceCode: string, options?: { lang?: string; [k: string]: unknown }) => {
-    const out = _tsTransformSync(sourceCode, filename)
-    return { code: out, map: '', errors: [], warnings: [] }
+    const out = _tsTransformSync(sourceCode, filename, options?.lang)
+    return { code: out, map: '', errors: [], warnings: [], tsconfigFilePaths: [] }
   },
   transform: _asyncNotSupported('rolldown/utils.transform'),
   resolveTsconfig: _notSupported('rolldown/utils.resolveTsconfig'),
@@ -263,6 +461,57 @@ const _rolldownFilter = {
 _rolldownFilter.default = _rolldownFilter
 
 const _experimentalPluginStub = (name: string) => () => ({ name, transform: undefined })
+
+const _viteResolvePlugin = (options: any) => ({
+  name: 'vite-resolve',
+  async resolveId(id: string, importer: string | undefined) {
+    if (id.startsWith('\0') || id.startsWith('virtual:')) return null;
+    
+    let resolvedPath = id;
+    if (id.startsWith('/@fs/')) {
+      resolvedPath = id.slice(4);
+    } else if (id.startsWith('/')) {
+      const root = options?.resolveOptions?.root || process.cwd();
+      resolvedPath = path.resolve(root, id.slice(1));
+    } else if (id.startsWith('.')) {
+      if (!importer) return null;
+      resolvedPath = path.resolve(path.dirname(importer), id);
+    } else {
+      try {
+        const req = _moduleShim.createRequire(importer || process.cwd() + '/');
+        return { id: req.resolve(id) };
+      } catch {
+        return null;
+      }
+    }
+
+    try {
+      if (fs.existsSync(resolvedPath)) {
+        const stat = fs.statSync(resolvedPath);
+        if (stat.isFile()) return { id: resolvedPath };
+        if (stat.isDirectory()) {
+          const exts = ['/index.ts', '/index.tsx', '/index.js', '/index.jsx'];
+          for (const ext of exts) {
+            if (fs.existsSync(resolvedPath + ext)) {
+              return { id: resolvedPath + ext };
+            }
+          }
+        }
+      }
+      
+      const exts = ['.ts', '.tsx', '.js', '.jsx', '.json', '.css', '.mjs', '.cjs'];
+      for (const ext of exts) {
+        if (fs.existsSync(resolvedPath + ext)) {
+          return { id: resolvedPath + ext };
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    
+    return null;
+  }
+})
 const _rolldownExperimental = {
   dev: _experimentalPluginStub('rolldown-dev'),
   oxcRuntimePlugin: _experimentalPluginStub('oxc-runtime'),
@@ -277,20 +526,45 @@ const _rolldownExperimental = {
   viteManifestPlugin: _experimentalPluginStub('vite-manifest'),
   viteModulePreloadPolyfillPlugin: _experimentalPluginStub('vite-module-preload-polyfill'),
   viteReporterPlugin: _experimentalPluginStub('vite-reporter'),
-  viteResolvePlugin: _experimentalPluginStub('vite-resolve'),
+  viteResolvePlugin: _viteResolvePlugin,
   viteTransformPlugin: _experimentalPluginStub('vite-transform'),
   viteWasmFallbackPlugin: _experimentalPluginStub('vite-wasm-fallback'),
   viteWebWorkerPostPlugin: _experimentalPluginStub('vite-web-worker-post'),
+  viteReactRefreshWrapperPlugin: _experimentalPluginStub('vite-react-refresh-wrapper'),
   default: undefined as unknown,
 }
 _rolldownExperimental.default = _rolldownExperimental
 
 // rollup/rolldown stub — allows Vite to import them at startup without crashing.
 // Actual bundling (vite build) will throw; the dev server does not use rollup/rolldown.
-const _notSupportedBundle = () => Promise.reject(new Error('bundler is not supported in browser; use vite dev server only'))
+const _notSupportedBundle = () => { console.trace('_notSupportedBundle called'); return Promise.reject(new Error("bundler is not supported in browser; use vite dev server only")) }
 const _rollupBundle = {
   rollup: _notSupportedBundle,
-  rolldown: _notSupportedBundle,
+  rolldown: async (options: any) => {
+    // Minimal mock for Vite 8's loadConfigFromFile which uses rolldown
+    if (options && typeof options.input === 'string') {
+      const fs = _requireSync('node:fs', '/app') as typeof import('fs')
+      const code = fs.readFileSync(options.input, 'utf-8')
+      const transpiled = _tsTransformSync(code, options.input)
+      return {
+        generate: async () => {
+          return {
+            output: [{
+              type: 'chunk',
+              isEntry: true,
+              code: transpiled,
+              fileName: 'vite.config.js',
+              moduleIds: [options.input],
+              imports: [],
+              dynamicImports: []
+            }]
+          }
+        },
+        close: async () => {}
+      }
+    }
+    return _notSupportedBundle()
+  },
   watch: () => { throw new Error('rollup/rolldown.watch is not supported in browser') },
   defineConfig: (cfg: unknown) => cfg,
   VERSION: '4.34.0',
@@ -329,9 +603,14 @@ const _sirvShim = _sirvFn
 
 // Late-bound reference to requireSync (set by worker/index.ts to avoid circular deps)
 let _requireSync: (spec: string, fromDir: string) => unknown = () => undefined
+let _resolveModule: (spec: string, fromDir: string) => string | null = () => null
 
-export function bindRequireSync(fn: (spec: string, fromDir: string) => unknown) {
+export function bindRequireSync(
+  fn: (spec: string, fromDir: string) => unknown,
+  resolveFn: (spec: string, fromDir: string) => string | null
+) {
   _requireSync = fn
+  _resolveModule = resolveFn
 }
 
 const _vmScript = class Script {
@@ -426,7 +705,11 @@ const _moduleShim = {
       ? base.replace(/\/[^/]+$/, '')
       : '/app'
     const req = (spec: string) => _requireSync(spec, fromDir)
-    req.resolve = (spec: string) => spec
+    req.resolve = (spec: string) => {
+      const resolved = _resolveModule(spec, fromDir)
+      if (!resolved) throw new Error(`Cannot find module '${spec}'`)
+      return resolved.replace(/^__shim__:/, '')
+    }
     req.cache = {} as Record<string, unknown>
     req.extensions = {} as Record<string, unknown>
     req.main = undefined
@@ -441,7 +724,10 @@ const _moduleShim = {
     require: (spec: string) => _requireSync(spec, '/app'),
   },
   // Next.js reads and patches Module._resolveFilename
-  _resolveFilename: (request: string) => request,
+  _resolveFilename: (request: string) => {
+    const resolved = _resolveModule(request, '/app')
+    return resolved ? resolved.replace(/^__shim__:/, '') : request
+  },
 }
 _moduleShim.default = _moduleShim
 
@@ -560,7 +846,29 @@ export const shimMap: Record<string, unknown> = {
   'rolldown/filter': _rolldownFilter,
   'rolldown/experimental': _rolldownExperimental,
 
-  // Third-party shims intercepted before npm packages so native-binary deps never run
+  // TypeScript shim: always available so require('typescript') works even in JS-only projects.
+  // The create-vite react (JavaScript) template does NOT install typescript, but Vite 8 uses
+  // rolldown/utils.transformSync (our shim) which calls _requireSync('typescript', dir).
+  // By providing it here in the global shim map, JSX transform always works.
+  'typescript': (() => {
+    const _transpileModule = (sourceCode: string, opts: Record<string, unknown>) => {
+      const co = (opts?.compilerOptions ?? {}) as Record<string, unknown>
+      const lang = co.jsx === 2 || co.jsx === 4 ? 'jsx' : undefined
+      const out = _tsTransformSync(sourceCode, 'file.tsx', lang ?? 'tsx')
+      return { outputText: out, diagnostics: [] }
+    }
+    const tsShim = {
+      transpileModule: _transpileModule,
+      version: '5.4.0',
+      ModuleKind: { CommonJS: 1, ESNext: 99 },
+      ScriptTarget: { ESNext: 99 },
+      JsxEmit: { None: 1, React: 2, ReactJSX: 4, Preserve: 4 },
+      _isBuiltinShim: true,
+      default: undefined as unknown,
+    }
+    tsShim.default = tsShim
+    return tsShim
+  })(),
   'esbuild': esbuildShim,
   'rollup': _rollupBundle,
   'chokidar': chokidarShim,
