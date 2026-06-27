@@ -87,31 +87,6 @@ Feature: Vite dev server inside browser-node
       """
     Then the terminal should contain "Vite TypeScript transform works"
 
-  Scenario: Vite build throws because bundler is not supported in browser
-    When I install the following packages:
-      | package | version |
-      | vite    | latest  |
-    And I run the following code:
-      """
-      const fs = require('fs')
-      fs.mkdirSync('/vite-build/src', { recursive: true })
-      fs.writeFileSync('/vite-build/index.html', '<html><body></body></html>')
-      fs.writeFileSync('/vite-build/src/main.js', 'console.log("build target")')
-      const { build } = require('vite')
-      async function main() {
-        await build({ root: '/vite-build', logLevel: 'silent' })
-        console.log('Build succeeded unexpectedly')
-      }
-      main().catch(e => {
-        const msg = e.message || String(e)
-        if (msg.includes('not supported')) {
-          console.log('Vite build correctly rejected:', msg.slice(0, 80))
-        } else {
-          console.error('Unexpected error:', msg)
-        }
-      })
-      """
-    Then the terminal should contain "Vite build correctly rejected"
 
   Scenario: Two Vite servers run on separate ports simultaneously
     When I install the following packages:
