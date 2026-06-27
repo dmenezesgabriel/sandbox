@@ -365,7 +365,10 @@ function executeModule(filePath: string, fromDir: string): { exports: unknown } 
   const isMjs = filePath.endsWith('.mjs')
   const isModulePackage = !isMjs && filePath.endsWith('.js') && isInModulePackage(filePath)
   if (!filePath.includes('/typescript/lib/')) {
-    if (isMjs || isModulePackage || isEsmSource(source)) {
+    const definitelyCjs = /\bObject\.defineProperty\(exports,\s*['"]__esModule['"]/.test(source) || 
+                          (!isMjs && !isModulePackage && (/\bmodule\.exports\b/.test(source) || /\bexports\.\w+/.test(source)));
+    
+    if (!definitelyCjs && (isMjs || isModulePackage || isEsmSource(source))) {
       source = esmToCjs(source, filePath)
     } else if (/(?<=await|return|yield|throw|[=,(\[?:+\-*|&^!~])\s*import\s*\(/.test(source)) {
       source = source.replace(/(?<=await|return|yield|throw|[=,(\[?:+\-*|&^!~])\s*import\s*\(/g, '((__dynArg)=>Promise.resolve(require(__dynArg)))(')
@@ -393,9 +396,13 @@ ${src}
 \n})`
     // Indirect eval so the function executes in global scope, not module scope
     const fn = (0, eval)(wrapped)
-    fn(requireFn, mod, mod.exports, dir, filePath, shimCache['process'] ?? self, self)
+    try {
+      fn(requireFn, mod, mod.exports, dir, filePath, shimCache['process'] ?? self, self)
+    } catch (err) {
+      console.error(`[loader] Error executing module ${filePath}:`, err)
+      throw err
+    }
   }
-
   try {
     execSource(source)
   } catch (e) {
