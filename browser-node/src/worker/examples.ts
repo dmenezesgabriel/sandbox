@@ -560,58 +560,21 @@ h1 {
     },
     devDependencies: {
       vite: '^8.0.16',
-      typescript: '^6.0.3'
+      typescript: '^5.0.0',
+      '@analogjs/vite-plugin-angular': '^0.2.0'
     }
   }, null, 2))
 
   writeFileToVfs('/examples/vite-angular-ts/vite.config.ts',
 `import { defineConfig } from 'vite'
-import * as ts from 'typescript'
+import angular from '@analogjs/vite-plugin-angular'
 
 export default defineConfig({
   server: {
     port: 3000,
     hmr: false
   },
-  resolve: {
-    alias: {
-      'rxjs/operators': 'rxjs/dist/esm/operators/index.js',
-      'rxjs': 'rxjs/dist/esm/index.js',
-      'tslib': 'tslib/tslib.es6.js'
-    }
-  },
-  plugins: [{
-    name: 'angular-jit',
-    enforce: 'pre',
-    transform(code, id) {
-      if (id.endsWith('.ts') && !id.includes('node_modules')) {
-        try {
-          // Bypass browser-node shim by requiring the full typescript instance directly
-          const realTs = require('/examples/vite-angular-ts/node_modules/typescript/lib/typescript.js')
-          const res = realTs.transpileModule(code, {
-            compilerOptions: {
-              experimentalDecorators: true,
-              emitDecoratorMetadata: true,
-              target: 2, // ES2015
-              module: 99 // ESNext
-            }
-          })
-          return { code: res.outputText }
-        } catch (e) {
-          // Fallback if not yet installed
-          const res = ts.transpileModule(code, {
-            compilerOptions: {
-              experimentalDecorators: true,
-              emitDecoratorMetadata: true,
-              target: ts.ScriptTarget.ES2022,
-              module: ts.ModuleKind.ESNext
-            }
-          })
-          return { code: res.outputText }
-        }
-      }
-    }
-  }]
+  plugins: [angular({ jit: true })]
 })
 `)
 

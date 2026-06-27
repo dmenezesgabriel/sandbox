@@ -50,9 +50,13 @@ async function fetchMeta(name: string): Promise<PackageMeta> {
     // Abbreviated metadata is much smaller (skips readme, full descriptions, etc.)
     res = await fetchWithTimeout(url, { headers: { Accept: 'application/vnd.npm.install-v1+json, application/json' } })
   } catch (e) {
+    log(`[npm fetch error] ${name}: ${(e as Error).message}`)
     throw new Error(`fetch failed for ${name}: ${(e as Error).message}`)
   }
-  if (!res.ok) throw new Error(`package not found: ${name} (${res.status})`)
+  if (!res.ok) {
+    log(`[npm fetch error] ${name}: not ok (${res.status}) ${url}`)
+    throw new Error(`package not found: ${name} (${res.status})`)
+  }
   const meta = await res.json() as PackageMeta
   metaCache.set(name, meta)
   return meta
@@ -116,6 +120,7 @@ export async function install(
   packages: Record<string, string>,
   rootNmDir = '/node_modules'
 ): Promise<void> {
+  log(`[npm] install called with ${JSON.stringify(packages)} in ${rootNmDir}`)
   const queue: { name: string; range: string; dest: string }[] = Object.entries(packages).map(
     ([name, range]) => ({ name, range, dest: rootNmDir })
   )

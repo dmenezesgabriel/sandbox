@@ -610,6 +610,8 @@ async function cmdVite(args: string[]): Promise<number> {
       logLevel: 'info',
       // Disable dep optimization — our WASM esbuild shim makes it very slow and
       // it blocks the first request. React etc. are already served from memfs.
+      // Disable dep optimization — our WASM esbuild shim makes it very slow and
+      // it blocks the first request. React etc. are already served from memfs.
       optimizeDeps: { disabled: true },
     })
     await server.listen()
