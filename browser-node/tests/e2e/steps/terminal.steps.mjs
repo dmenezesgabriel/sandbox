@@ -5,11 +5,7 @@ When('I run terminal command {string}', { timeout: 15000 }, async function (cmd)
 })
 
 When('I create file {string} with content {string}', async function (path, content) {
-  await this.createFile(path, content)
-})
-
-Given('I create file {string} with content {string}', async function (path, content) {
-  await this.createFile(path, content)
+  await this.createFile(path, content.replace(/\\n/g, '\n'))
 })
 
 Then('the terminal exit code should be {int}', async function (expected) {

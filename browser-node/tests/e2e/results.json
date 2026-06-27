@@ -13,9 +13,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 138910666,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 990187274
             }
           },
           {
@@ -27,8 +26,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2062169
             }
           },
           {
@@ -40,8 +39,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:14"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 10732633632
             }
           },
           {
@@ -58,8 +57,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 4273510
             }
           },
           {
@@ -71,8 +70,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 89846622
             }
           },
           {
@@ -80,7 +79,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 10304826
+              "duration": 6210526
             }
           }
         ],
@@ -98,9 +97,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 28206040,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1007506069
             }
           },
           {
@@ -112,8 +110,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2619501
             }
           },
           {
@@ -125,8 +123,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:14"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 9518900755
             }
           },
           {
@@ -143,8 +141,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3023758
             }
           },
           {
@@ -156,8 +154,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 91197026
             }
           },
           {
@@ -165,7 +163,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 5620499
+              "duration": 5433059
             }
           }
         ],
@@ -183,9 +181,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 31342618,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 969811138
             }
           },
           {
@@ -197,8 +194,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1386364
             }
           },
           {
@@ -210,8 +207,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:14"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 9611263007
             }
           },
           {
@@ -228,8 +225,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3594691
             }
           },
           {
@@ -241,8 +238,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:44"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 26933898
             }
           },
           {
@@ -250,7 +247,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 6203105
+              "duration": 22657494
             }
           }
         ],
@@ -268,9 +265,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 36400059,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 984776626
             }
           },
           {
@@ -282,8 +278,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1282352
             }
           },
           {
@@ -295,8 +291,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:14"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 9327198421
             }
           },
           {
@@ -313,8 +309,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1401437
             }
           },
           {
@@ -326,8 +322,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 73843834
             }
           },
           {
@@ -335,7 +331,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 6221064
+              "duration": 4834238
             }
           }
         ],
@@ -364,9 +360,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 31282443,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1024605151
             }
           },
           {
@@ -378,8 +373,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1107989
             }
           },
           {
@@ -391,8 +386,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:14"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 6922595287
             }
           },
           {
@@ -409,8 +404,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1210468
             }
           },
           {
@@ -422,8 +417,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 143761941
             }
           },
           {
@@ -431,7 +426,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 14930499
+              "duration": 5716768
             }
           }
         ],
@@ -449,9 +444,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 44824029,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1008750079
             }
           },
           {
@@ -463,8 +457,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1301403
             }
           },
           {
@@ -476,8 +470,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:14"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 7041433303
             }
           },
           {
@@ -494,8 +488,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 13960824
             }
           },
           {
@@ -507,8 +501,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 190252398
             }
           },
           {
@@ -516,7 +510,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 7606207
+              "duration": 5655036
             }
           }
         ],
@@ -534,9 +528,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 31126753,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 964950783
             }
           },
           {
@@ -548,8 +541,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1496891
             }
           },
           {
@@ -561,8 +554,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:14"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 7511701250
             }
           },
           {
@@ -579,8 +572,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1448487
             }
           },
           {
@@ -592,8 +585,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:44"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 246699733
             }
           },
           {
@@ -605,8 +598,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:48"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 5645492
             }
           },
           {
@@ -614,7 +607,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3062024
+              "duration": 6582918
             }
           }
         ],
@@ -632,9 +625,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 27991180,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1023012273
             }
           },
           {
@@ -646,8 +638,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1653537
             }
           },
           {
@@ -659,8 +651,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:14"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 6902806383
             }
           },
           {
@@ -677,8 +669,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2754765
             }
           },
           {
@@ -690,8 +682,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 170575693
             }
           },
           {
@@ -699,7 +691,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3387584
+              "duration": 4619355
             }
           }
         ],
@@ -728,9 +720,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 30720174,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1073339645
             }
           },
           {
@@ -742,8 +733,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2109433
             }
           },
           {
@@ -778,8 +769,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1088508610
             }
           },
           {
@@ -796,8 +787,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1609481
             }
           },
           {
@@ -809,8 +800,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 78154425
             }
           },
           {
@@ -818,7 +809,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 5812494
+              "duration": 5800864
             }
           }
         ],
@@ -836,9 +827,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 24248914,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1852250564
             }
           },
           {
@@ -850,8 +840,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1160564
             }
           },
           {
@@ -886,8 +876,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 908386131
             }
           },
           {
@@ -904,8 +894,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1350665
             }
           },
           {
@@ -917,8 +907,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 79672636
             }
           },
           {
@@ -926,7 +916,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3493607
+              "duration": 4571620
             }
           }
         ],
@@ -944,9 +934,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 23975332,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1122508646
             }
           },
           {
@@ -958,8 +947,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1766289
             }
           },
           {
@@ -994,8 +983,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 922114018
             }
           },
           {
@@ -1012,8 +1001,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1240890
             }
           },
           {
@@ -1025,8 +1014,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 63059317
             }
           },
           {
@@ -1034,7 +1023,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3835709
+              "duration": 6889473
             }
           }
         ],
@@ -1052,9 +1041,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 23392147,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 931985560
             }
           },
           {
@@ -1066,8 +1054,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1268301
             }
           },
           {
@@ -1102,8 +1090,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 943679149
             }
           },
           {
@@ -1120,8 +1108,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1225586
             }
           },
           {
@@ -1133,8 +1121,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:44"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 21291693
             }
           },
           {
@@ -1142,7 +1130,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3567077
+              "duration": 5075320
             }
           }
         ],
@@ -1171,9 +1159,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 23283151,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1085614428
             }
           },
           {
@@ -1185,8 +1172,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3034499
             }
           },
           {
@@ -1233,8 +1220,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1838141294
             }
           },
           {
@@ -1251,8 +1238,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2762824
             }
           },
           {
@@ -1264,8 +1251,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 272494321
             }
           },
           {
@@ -1273,7 +1260,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 4459149
+              "duration": 5972992
             }
           }
         ],
@@ -1291,9 +1278,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 22813832,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 999798527
             }
           },
           {
@@ -1305,8 +1291,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1359024
             }
           },
           {
@@ -1353,8 +1339,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1418242675
             }
           },
           {
@@ -1371,8 +1357,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2053455
             }
           },
           {
@@ -1384,8 +1370,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 187907844
             }
           },
           {
@@ -1393,7 +1379,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 4259201
+              "duration": 11213585
             }
           }
         ],
@@ -1411,9 +1397,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 50882202,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 934916966
             }
           },
           {
@@ -1425,8 +1410,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1398272
             }
           },
           {
@@ -1467,8 +1452,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1069560026
             }
           },
           {
@@ -1485,8 +1470,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1032422
             }
           },
           {
@@ -1498,8 +1483,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 114588908
             }
           },
           {
@@ -1507,7 +1492,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 2837451
+              "duration": 4318511
             }
           }
         ],
@@ -1525,9 +1510,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 52369377,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 924468056
             }
           },
           {
@@ -1539,8 +1523,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1601871
             }
           },
           {
@@ -1581,8 +1565,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1153447479
             }
           },
           {
@@ -1599,8 +1583,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1216927
             }
           },
           {
@@ -1612,8 +1596,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 113438521
             }
           },
           {
@@ -1621,7 +1605,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3459098
+              "duration": 4207524
             }
           }
         ],
@@ -1650,9 +1634,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 31691029,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 942903764
             }
           },
           {
@@ -1664,8 +1647,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1375056
             }
           },
           {
@@ -1706,8 +1689,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 5954420209
             }
           },
           {
@@ -1724,8 +1707,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2622459
             }
           },
           {
@@ -1737,8 +1720,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 592821114
             }
           },
           {
@@ -1746,7 +1729,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3955175
+              "duration": 4021859
             }
           }
         ],
@@ -1764,9 +1747,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 24539964,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 993873179
             }
           },
           {
@@ -1778,8 +1760,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1296029
             }
           },
           {
@@ -1820,8 +1802,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 5819914604
             }
           },
           {
@@ -1838,8 +1820,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1708190
             }
           },
           {
@@ -1851,8 +1833,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 577690119
             }
           },
           {
@@ -1860,7 +1842,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 2919764
+              "duration": 3978973
             }
           }
         ],
@@ -1889,9 +1871,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 47532799,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 966862988
             }
           },
           {
@@ -1903,8 +1884,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1191848
             }
           },
           {
@@ -1939,8 +1920,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 4483120786
             }
           },
           {
@@ -1957,8 +1938,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3370007
             }
           },
           {
@@ -1970,8 +1951,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 106931888
             }
           },
           {
@@ -1979,7 +1960,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3176281
+              "duration": 7385867
             }
           }
         ],
@@ -1997,9 +1978,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 25034406,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1281002850
             }
           },
           {
@@ -2011,8 +1991,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1083656
             }
           },
           {
@@ -2047,8 +2027,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 4631126675
             }
           },
           {
@@ -2065,8 +2045,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2317749
             }
           },
           {
@@ -2078,8 +2058,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 92205004
             }
           },
           {
@@ -2087,7 +2067,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 6966206
+              "duration": 4304335
             }
           }
         ],
@@ -2105,9 +2085,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 23916760,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 937503824
             }
           },
           {
@@ -2119,8 +2098,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3842902
             }
           },
           {
@@ -2155,8 +2134,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 4474110132
             }
           },
           {
@@ -2173,8 +2152,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1999975
             }
           },
           {
@@ -2186,8 +2165,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 76970923
             }
           },
           {
@@ -2195,7 +2174,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 4827864
+              "duration": 4054965
             }
           }
         ],
@@ -2213,9 +2192,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 28447574,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 929711018
             }
           },
           {
@@ -2227,8 +2205,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1545762
             }
           },
           {
@@ -2263,8 +2241,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 4518289644
             }
           },
           {
@@ -2281,8 +2259,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2292794
             }
           },
           {
@@ -2294,8 +2272,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:44"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 75944272
             }
           },
           {
@@ -2307,8 +2285,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:48"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 3734033
             }
           },
           {
@@ -2316,7 +2294,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3706642
+              "duration": 6660038
             }
           }
         ],
@@ -2345,9 +2323,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 24297031,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 942585762
             }
           },
           {
@@ -2359,8 +2336,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1354802
             }
           },
           {
@@ -2389,8 +2366,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2229130757
             }
           },
           {
@@ -2407,8 +2384,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 956684
             }
           },
           {
@@ -2420,8 +2397,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 180876903
             }
           },
           {
@@ -2429,7 +2406,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3745858
+              "duration": 3832530
             }
           }
         ],
@@ -2447,9 +2424,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 26706355,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 983518400
             }
           },
           {
@@ -2461,8 +2437,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1345300
             }
           },
           {
@@ -2491,8 +2467,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1829218251
             }
           },
           {
@@ -2509,8 +2485,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1858179
             }
           },
           {
@@ -2522,8 +2498,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 195745836
             }
           },
           {
@@ -2531,7 +2507,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3188266
+              "duration": 6145151
             }
           }
         ],
@@ -2549,9 +2525,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 24869360,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 1050826081
             }
           },
           {
@@ -2563,8 +2538,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1735210
             }
           },
           {
@@ -2599,8 +2574,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2810665525
             }
           },
           {
@@ -2617,8 +2592,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2422418
             }
           },
           {
@@ -2630,8 +2605,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 477012051
             }
           },
           {
@@ -2639,7 +2614,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3538765
+              "duration": 5377563
             }
           }
         ],
@@ -2657,9 +2632,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 25992840,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 924328356
             }
           },
           {
@@ -2671,8 +2645,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 5212633
             }
           },
           {
@@ -2701,8 +2675,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2017795012
             }
           },
           {
@@ -2719,8 +2693,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 2161567
             }
           },
           {
@@ -2732,8 +2706,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 160047969
             }
           },
           {
@@ -2741,7 +2715,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3076538
+              "duration": 3533293
             }
           }
         ],
@@ -2759,9 +2733,8 @@
             "keyword": "Before",
             "hidden": true,
             "result": {
-              "status": "failed",
-              "duration": 26012487,
-              "error_message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:5179/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:5179/\", waiting until \"networkidle\"\u001b[22m\n\n    at BrowserNodeWorld.openPage (/home/user/sandbox/browser-node/tests/e2e/world.mjs:29:21)\n    at async BrowserNodeWorld.<anonymous> (/home/user/sandbox/browser-node/tests/e2e/hooks.mjs:13:3)"
+              "status": "passed",
+              "duration": 932784274
             }
           },
           {
@@ -2773,8 +2746,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:6"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1403516
             }
           },
           {
@@ -2803,8 +2776,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:28"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1914522255
             }
           },
           {
@@ -2821,8 +2794,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:36"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 1653695
             }
           },
           {
@@ -2834,8 +2807,8 @@
               "location": "tests/e2e/steps/common.steps.mjs:40"
             },
             "result": {
-              "status": "skipped",
-              "duration": 0
+              "status": "passed",
+              "duration": 161747033
             }
           },
           {
@@ -2843,7 +2816,7 @@
             "hidden": true,
             "result": {
               "status": "passed",
-              "duration": 3323361
+              "duration": 5800851
             }
           }
         ],
@@ -2857,5 +2830,1766 @@
     "name": "Vite dev server inside browser-node",
     "tags": [],
     "uri": "tests/e2e/features/vite.feature"
+  },
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "terminal-shell-commands;echo-prints-text-to-the-terminal",
+        "keyword": "Scenario",
+        "line": 6,
+        "name": "echo prints text to the terminal",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 924751154
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1471885
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 7,
+            "name": "I run terminal command \"echo hello from terminal\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 120546524
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 8,
+            "name": "the terminal should contain \"hello from terminal\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2487808
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 6894562
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;ls-lists-files-after-creating-one",
+        "keyword": "Scenario",
+        "line": 10,
+        "name": "ls lists files after creating one",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 974111795
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1151871
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 11,
+            "name": "I create file \"/app/listed.txt\" with content \"x\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 302598863
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 12,
+            "name": "I run terminal command \"ls /app\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 94995853
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 13,
+            "name": "the terminal should contain \"listed.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3354128
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 7059240
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;mkdir--p-creates-nested-directory",
+        "keyword": "Scenario",
+        "line": 15,
+        "name": "mkdir -p creates nested directory",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 932395692
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1210702
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 16,
+            "name": "I run terminal command \"mkdir -p /app/nested/deep\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 103098489
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 17,
+            "name": "I run terminal command \"ls /app/nested\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 88088282
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 18,
+            "name": "the terminal should contain \"deep\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3905365
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 14588938
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;touch-creates-an-empty-file",
+        "keyword": "Scenario",
+        "line": 20,
+        "name": "touch creates an empty file",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 912092197
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1419601
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 21,
+            "name": "I run terminal command \"touch /app/touched.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 78833837
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 22,
+            "name": "I run terminal command \"ls /app\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 85247935
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 23,
+            "name": "the terminal should contain \"touched.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3977642
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 9025444
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;cat-reads-a-file's-contents",
+        "keyword": "Scenario",
+        "line": 25,
+        "name": "cat reads a file's contents",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 952968731
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1349841
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 26,
+            "name": "I create file \"/app/greet.txt\" with content \"hello cat\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 302657009
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 27,
+            "name": "I run terminal command \"cat /app/greet.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 79119479
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 28,
+            "name": "the terminal should contain \"hello cat\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3044699
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 4952691
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;cd-changes-working-directory",
+        "keyword": "Scenario",
+        "line": 30,
+        "name": "cd changes working directory",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 965552893
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1216025
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 31,
+            "name": "I run terminal command \"cd /tmp\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 74210118
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 32,
+            "name": "I run terminal command \"pwd\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 64308827
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 33,
+            "name": "the terminal should contain \"/tmp\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2035200
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 6152658
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;node-executes-a-js-file-and-shows-output",
+        "keyword": "Scenario",
+        "line": 35,
+        "name": "node executes a JS file and shows output",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 966406396
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1104116
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 36,
+            "name": "I create file \"/app/hello.js\" with content \"console.log('node works')\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 301993520
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 37,
+            "name": "I run terminal command \"node /app/hello.js\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 87534775
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 38,
+            "name": "the terminal should contain \"node works\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1967183
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 10204357
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;running-node-on-the-same-file-twice-produces-output-both-times",
+        "keyword": "Scenario",
+        "line": 40,
+        "name": "running node on the same file twice produces output both times",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 956322934
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1725105
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 41,
+            "name": "I create file \"/app/counter.js\" with content \"console.log('run output')\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 302494676
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 42,
+            "name": "I run terminal command \"node /app/counter.js\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 92853852
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 43,
+            "name": "I run terminal command \"node /app/counter.js\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 83239841
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 44,
+            "name": "the terminal should contain \"run output\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1825084
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 4707869
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;unknown-command-shows-command-not-found-error",
+        "keyword": "Scenario",
+        "line": 46,
+        "name": "unknown command shows command not found error",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 972791141
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1150361
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 47,
+            "name": "I run terminal command \"notacommand\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 85928973
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 48,
+            "name": "the terminal should contain \"command not found\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1900082
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 4266384
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;which-node-reports-shell-built-in",
+        "keyword": "Scenario",
+        "line": 50,
+        "name": "which node reports shell built-in",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 957148440
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1443583
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 51,
+            "name": "I run terminal command \"which node\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 100775751
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 52,
+            "name": "the terminal should contain \"shell built-in\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1747566
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 5463118
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;which-nonexistent-shows-not-found-in-the-terminal",
+        "keyword": "Scenario",
+        "line": 54,
+        "name": "which nonexistent shows not found in the terminal",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 986650114
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1353381
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 55,
+            "name": "I run terminal command \"which nonexistentprog\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 120283537
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 56,
+            "name": "the terminal should contain \"not found\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1551318
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 4201895
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;grep-finds-matching-lines-in-a-file",
+        "keyword": "Scenario",
+        "line": 58,
+        "name": "grep finds matching lines in a file",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 1000807213
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1296677
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 59,
+            "name": "I create file \"/app/data.txt\" with content \"apple\\nbanana\\ncherry\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 302718805
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 60,
+            "name": "I run terminal command \"grep banana /app/data.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 104428686
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 61,
+            "name": "the terminal should contain \"banana\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1610523
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 62,
+            "name": "the terminal should NOT contain \"apple\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:48"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1232648
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 5835895
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;find-locates-files-by-name-pattern",
+        "keyword": "Scenario",
+        "line": 64,
+        "name": "find locates files by name pattern",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 1022239614
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2571992
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 65,
+            "name": "I create file \"/app/find-me.txt\" with content \"findable\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 304099147
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 66,
+            "name": "I run terminal command \"find /app -name find-me.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 96315845
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 67,
+            "name": "the terminal should contain \"find-me.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2423428
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 4965858
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;mv-renames-a-file",
+        "keyword": "Scenario",
+        "line": 69,
+        "name": "mv renames a file",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 1005312487
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1338307
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 70,
+            "name": "I create file \"/app/before.txt\" with content \"renamed\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 302350846
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 71,
+            "name": "I run terminal command \"mv /app/before.txt /app/after.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 96955149
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 72,
+            "name": "I run terminal command \"ls /app\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 83324041
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 73,
+            "name": "the terminal should contain \"after.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1340226
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 74,
+            "name": "the terminal should NOT contain \"before.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:48"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 977127
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 9813075
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "terminal-shell-commands;npm-run-executes-a-package.json-script",
+        "keyword": "Scenario",
+        "line": 76,
+        "name": "npm run executes a package.json script",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 1028486944
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1422575
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 77,
+            "name": "I create file \"/app/package.json\" with content \"{\\\"scripts\\\":{\\\"greet\\\":\\\"echo npm-script-ran\\\"}}\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 302684367
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 78,
+            "name": "I run terminal command \"cd /app\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 72440245
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 79,
+            "name": "I run terminal command \"npm run greet\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 69917562
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 80,
+            "name": "the terminal should contain \"npm-script-ran\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3285238
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 5711135
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "terminal-shell-commands",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "Terminal shell commands",
+    "tags": [],
+    "uri": "tests/e2e/features/terminal.feature"
+  },
+  {
+    "description": "",
+    "elements": [
+      {
+        "description": "",
+        "id": "ui-behaviors;editor-tab-is-active-by-default",
+        "keyword": "Scenario",
+        "line": 6,
+        "name": "Editor tab is active by default",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 927568236
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 14485721
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 7,
+            "name": "the terminal should contain \"Worker ready\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 7898876
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 19940033
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "ui-behaviors;clicking-preview-tab-shows-preview-panel-and-hides-editor-panel",
+        "keyword": "Scenario",
+        "line": 9,
+        "name": "Clicking Preview tab shows preview panel and hides editor panel",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 944750410
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1755639
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 10,
+            "name": "I click \"#btn-preview\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:17"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 357469626
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 11,
+            "name": "the terminal should contain \"Worker ready\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4046868
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 8316913
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "ui-behaviors;clicking-editor-tab-after-preview-restores-editor-panel",
+        "keyword": "Scenario",
+        "line": 13,
+        "name": "Clicking Editor tab after Preview restores editor panel",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 938465820
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1277606
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 14,
+            "name": "I click \"#btn-preview\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:17"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 373368077
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "And ",
+            "line": 15,
+            "name": "I click \"#btn-editor\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:17"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 323091347
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 16,
+            "name": "the terminal should contain \"Worker ready\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4746206
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 8723385
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "ui-behaviors;new-file-button-opens-a-dialog-and-editor-shows-the-new-file",
+        "keyword": "Scenario",
+        "line": 18,
+        "name": "New file button opens a dialog and editor shows the new file",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 1034145581
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1142042
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 19,
+            "name": "I accept the new file dialog with path \"/app/newtest.js\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:22"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 573142110
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 20,
+            "name": "the terminal should contain \"Worker ready\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4148645
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 8382595
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "ui-behaviors;run-button-executes-editor-code-and-shows-output-in-the-terminal",
+        "keyword": "Scenario",
+        "line": 22,
+        "name": "Run button executes editor code and shows output in the terminal",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 988929659
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1335944
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 23,
+            "name": "I run terminal command \"echo run-btn-test\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 99981316
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 24,
+            "name": "the terminal should contain \"run-btn-test\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 2090422
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 5020735
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "ui-behaviors;file-explorer-sidebar-shows-directory-entries",
+        "keyword": "Scenario",
+        "line": 26,
+        "name": "File explorer sidebar shows directory entries",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 958395743
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1394790
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 27,
+            "name": "I create file \"/app/explorer-test.txt\" with content \"x\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:7"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 302966978
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 28,
+            "name": "I run terminal command \"ls /app\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 97519245
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 29,
+            "name": "the terminal should contain \"explorer-test.txt\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 3669958
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 6977834
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "ui-behaviors;clear-command-exits-with-code--1",
+        "keyword": "Scenario",
+        "line": 31,
+        "name": "clear command exits with code -1",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 988918783
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1067976
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 32,
+            "name": "I run terminal command \"clear\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 64975983
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 33,
+            "name": "the terminal exit code should be -1",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:11"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 341565
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 6643360
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      },
+      {
+        "description": "",
+        "id": "ui-behaviors;ctrl+c-cancels-typed-input-and-terminal-recovers",
+        "keyword": "Scenario",
+        "line": 35,
+        "name": "Ctrl+C cancels typed input and terminal recovers",
+        "steps": [
+          {
+            "keyword": "Before",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 1022670702
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Given ",
+            "line": 4,
+            "name": "the browser-node environment is ready",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:6"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 1710805
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "When ",
+            "line": 36,
+            "name": "I run terminal command \"echo after-ctrl-c\"",
+            "match": {
+              "location": "tests/e2e/steps/terminal.steps.mjs:3"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 101207560
+            }
+          },
+          {
+            "arguments": [],
+            "keyword": "Then ",
+            "line": 37,
+            "name": "the terminal should contain \"after-ctrl-c\"",
+            "match": {
+              "location": "tests/e2e/steps/common.steps.mjs:40"
+            },
+            "result": {
+              "status": "passed",
+              "duration": 4949867
+            }
+          },
+          {
+            "keyword": "After",
+            "hidden": true,
+            "result": {
+              "status": "passed",
+              "duration": 14338115
+            }
+          }
+        ],
+        "tags": [],
+        "type": "scenario"
+      }
+    ],
+    "id": "ui-behaviors",
+    "line": 1,
+    "keyword": "Feature",
+    "name": "UI behaviors",
+    "tags": [],
+    "uri": "tests/e2e/features/ui.feature"
   }
 ]

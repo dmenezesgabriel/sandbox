@@ -560,7 +560,7 @@ describe('npm', () => {
     bindTerminalDeps(null as any, mockInstall)
     const code = await runCommand('npm install')
     expect(code).toBe(0)
-    expect(mockInstall).toHaveBeenCalledWith({ lodash: '4.0.0' })
+    expect(mockInstall).toHaveBeenCalledWith({ lodash: '4.0.0' }, '/tmp/node_modules')
     bindTerminalDeps(null as any, null as any)
   })
 
@@ -569,7 +569,7 @@ describe('npm', () => {
     bindTerminalDeps(null as any, mockInstall)
     const code = await runCommand('npm install express')
     expect(code).toBe(0)
-    expect(mockInstall).toHaveBeenCalledWith({ express: 'latest' })
+    expect(mockInstall).toHaveBeenCalledWith({ express: 'latest' }, '/node_modules')
     bindTerminalDeps(null as any, null as any)
   })
 
@@ -578,7 +578,7 @@ describe('npm', () => {
     bindTerminalDeps(null as any, mockInstall)
     const code = await runCommand('npm install express@4.18.0')
     expect(code).toBe(0)
-    expect(mockInstall).toHaveBeenCalledWith({ express: '4.18.0' })
+    expect(mockInstall).toHaveBeenCalledWith({ express: '4.18.0' }, '/node_modules')
     bindTerminalDeps(null as any, null as any)
   })
 
