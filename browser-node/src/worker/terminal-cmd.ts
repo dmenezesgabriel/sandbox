@@ -16,17 +16,67 @@ export function bindTerminalDeps(req: RequireFn, inst: InstallFn) {
 let _cwd = '/examples'
 export function getCwd() { return _cwd }
 
-function stdout(text: string) { self.postMessage({ type: 'stdout', text }) }
-function stderr(text: string) { self.postMessage({ type: 'stderr', text }) }
+export let stdout = (text: string) => { self.postMessage({ type: 'stdout', text }) }
+export let stderr = (text: string) => { self.postMessage({ type: 'stderr', text }) }
 function notifyVfsChanged() { self.postMessage({ type: 'vfs-changed' }) }
 
 // ── Path helpers ────────────────────────────────────────────────────────────
 
 function resolve(p: string): string {
-  if (!p || p === '~') return '/examples'
-  if (p.startsWith('~/')) p = '/examples/' + p.slice(2)
+  if (!p || p === '~') return '/home/user'
+  if (p.startsWith('~/')) p = '/home/user/' + p.slice(2)
   if (p.startsWith('/')) return normalize(p)
   return normalize(_cwd + '/' + p)
+}
+
+function resolveBin(cmdName: string, startDir: string): string | null {
+  let dir = startDir
+  while (true) {
+    const nmDir = pathMod.join(dir, 'node_modules')
+    if (existsInVfs(nmDir)) {
+      try {
+        const pkgs = memfsInstance.readdirSync(nmDir) as string[]
+        for (const name of pkgs) {
+          if (name.startsWith('@')) {
+            const scopeDir = pathMod.join(nmDir, name)
+            const scopePkgs = memfsInstance.readdirSync(scopeDir) as string[]
+            for (const subName of scopePkgs) {
+              const pkgJsonPath = pathMod.join(scopeDir, subName, 'package.json')
+              const binPath = checkBinField(pkgJsonPath, cmdName)
+              if (binPath) return pathMod.join(scopeDir, subName, binPath)
+            }
+          } else {
+            const pkgJsonPath = pathMod.join(nmDir, name, 'package.json')
+            const binPath = checkBinField(pkgJsonPath, cmdName)
+            if (binPath) return pathMod.join(nmDir, name, binPath)
+          }
+        }
+      } catch {}
+    }
+    const parent = pathMod.dirname(dir)
+    if (parent === dir) break
+    dir = parent
+  }
+  return null
+}
+
+function checkBinField(pkgJsonPath: string, cmdName: string): string | null {
+  if (!existsInVfs(pkgJsonPath)) return null
+  try {
+    const pkg = JSON.parse(memfsInstance.readFileSync(pkgJsonPath, 'utf8') as string)
+    if (!pkg.bin) return null
+    if (typeof pkg.bin === 'string') {
+      const pkgName = pkg.name || pathMod.basename(pathMod.dirname(pkgJsonPath))
+      if (pkgName === cmdName || pkgName.split('/').pop() === cmdName) {
+        return pkg.bin
+      }
+    } else if (typeof pkg.bin === 'object' && pkg.bin !== null) {
+      if (cmdName in pkg.bin) {
+        return pkg.bin[cmdName]
+      }
+    }
+  } catch {}
+  return null
 }
 
 function normalize(p: string): string {
@@ -87,41 +137,88 @@ export async function runCommand(cmdline: string): Promise<number> {
 
   const tokens = tokenize(cmdline.trim())
   if (!tokens.length) return 0
-  const [cmd, ...args] = tokens
+  
+  let redirectFile: string | null = null
+  let append = false
+  const cleanTokens: string[] = []
+  
+  for (let i = 0; i < tokens.length; i++) {
+    if (tokens[i] === '>' || tokens[i] === '>>') {
+      append = tokens[i] === '>>'
+      redirectFile = tokens[i + 1]
+      break
+    }
+    cleanTokens.push(tokens[i])
+  }
+  
+  if (!cleanTokens.length) return 0
+  const [cmd, ...args] = cleanTokens
+  
+  const origStdout = stdout
+  let outBuffer = ''
+  if (redirectFile) {
+    stdout = (text: string) => { outBuffer += text }
+  }
+
+  let code = 0
   try {
     switch (cmd) {
-      case 'ls':    case 'dir':  return cmdLs(args)
-      case 'cd':                 return cmdCd(args)
-      case 'pwd':                return cmdPwd()
-      case 'mkdir':              return cmdMkdir(args)
-      case 'rm':                 return cmdRm(args)
-      case 'mv':                 return cmdMv(args)
-      case 'cp':                 return cmdCp(args)
-      case 'touch':              return cmdTouch(args)
-      case 'cat':                return cmdCat(args)
-      case 'echo':               return cmdEcho(args)
-      case 'node':               return await cmdNode(args)
-      case 'npm':                return await cmdNpm(args)
-      case 'npx':                return await cmdNpx(args)
-      case 'vite':               return await cmdVite(args)
-      case 'which':              return cmdWhich(args)
-      case 'env':                return cmdEnv()
-      case 'export':             return cmdExport(args)
-      case 'find':               return cmdFind(args)
-      case 'head':               return cmdHead(args)
-      case 'tail':               return cmdTail(args)
-      case 'grep':               return cmdGrep(args)
-      case 'clear':              return -1
-      case 'help': case '?':     return cmdHelp()
-      case 'exit': case 'quit':  return 0
-      default:
-        stderr(`\x1b[31m${cmd}: command not found\x1b[0m\n`)
-        return 127
+      case 'ls':    case 'dir':  code = cmdLs(args); break
+      case 'cd':                 code = cmdCd(args); break
+      case 'pwd':                code = cmdPwd(); break
+      case 'mkdir':              code = cmdMkdir(args); break
+      case 'rm':                 code = cmdRm(args); break
+      case 'mv':                 code = cmdMv(args); break
+      case 'cp':                 code = cmdCp(args); break
+      case 'touch':              code = cmdTouch(args); break
+      case 'cat':                code = cmdCat(args); break
+      case 'echo':               code = cmdEcho(args); break
+      case 'node':               code = await cmdNode(args); break
+      case 'npm':                code = await cmdNpm(args); break
+      case 'npx':                code = await cmdNpx(args); break
+      case 'vite':               code = await cmdVite(args); break
+      case 'which':              code = cmdWhich(args); break
+      case 'env':                code = cmdEnv(); break
+      case 'export':             code = cmdExport(args); break
+      case 'find':               code = cmdFind(args); break
+      case 'head':               code = cmdHead(args); break
+      case 'tail':               code = cmdTail(args); break
+      case 'grep':               code = cmdGrep(args); break
+      case 'clear': case 'cls':  code = -1; break
+      case 'help': case '?':     code = cmdHelp(); break
+      case 'exit': case 'quit':  code = 0; break
+      default: {
+        const binPath = resolveBin(cmd, _cwd)
+        if (binPath) {
+          code = await cmdNode([binPath, ...args])
+        } else {
+          stderr(`\x1b[31m${cmd}: command not found\x1b[0m\n`)
+          code = 127
+        }
+      }
     }
   } catch (e) {
     stderr(`\x1b[31m${cmd}: ${(e as Error).message}\x1b[0m\n`)
-    return 1
+    code = 1
   }
+  
+  if (redirectFile) {
+    stdout = origStdout
+    try {
+      const fullPath = resolve(redirectFile)
+      if (append && existsInVfs(fullPath)) {
+        const orig = memfsInstance.readFileSync(fullPath, 'utf8') as string
+        writeFileToVfs(fullPath, orig + outBuffer)
+      } else {
+        writeFileToVfs(fullPath, outBuffer)
+      }
+      notifyVfsChanged()
+    } catch (e) {
+      stderr(`\x1b[31m${cmd}: Failed to write to ${redirectFile}\x1b[0m\n`)
+      code = 1
+    }
+  }
+  return code
 }
 
 // ── ls ───────────────────────────────────────────────────────────────────────
@@ -183,7 +280,7 @@ function stripAnsi(s: string) { return s.replace(/\x1b\[[^m]*m/g, '') }
 // ── cd ───────────────────────────────────────────────────────────────────────
 
 function cmdCd(args: string[]): number {
-  const target = resolve(args[0] ?? '/')
+  const target = resolve(args[0])
   try {
     const st = memfsInstance.statSync(target) as { isDirectory(): boolean }
     if (!st.isDirectory()) { stderr(`cd: ${args[0]}: Not a directory\n`); return 1 }
@@ -315,19 +412,44 @@ function cmdEcho(args: string[]): number {
 // ── node ─────────────────────────────────────────────────────────────────────
 
 async function cmdNode(args: string[]): Promise<number> {
+  const proc = (globalThis as any).process
+  if (proc) {
+    proc.cwd = () => _cwd
+    proc.chdir = (dir: string) => {
+      const target = resolve(dir)
+      try {
+        const st = memfsInstance.statSync(target) as { isDirectory(): boolean }
+        if (!st.isDirectory()) throw new Error()
+        _cwd = target
+        self.postMessage({ type: 'terminal-cwd', cwd: _cwd })
+      } catch {
+        throw new Error(`chdir: ${dir}: No such file or directory`)
+      }
+    }
+  }
+
   if (!args.length) { stderr('usage: node [--version] <file.js>\n'); return 1 }
   if (args[0] === '--version' || args[0] === '-v') { stdout('v22.14.0\n'); return 0 }
+
+  if (proc) {
+    proc.argv = ['node', ...args.map(a => resolve(a))]
+  }
+
   if (args[0] === '-e' || args[0] === '--eval') {
+    if (proc) proc.argv = ['node', '-e']
     const code = args.slice(1).join(' ')
     if (!code) { stderr('node: -e requires an expression\n'); return 1 }
     if (!_require) { stderr('node: runtime not ready\n'); return 1 }
     clearModuleCache()
-    const tmpPath = '/tmp/_eval_' + Date.now() + '.js'
+    const tmpPath = _cwd + '/_eval_' + Date.now() + '.js'
     writeFileToVfs(tmpPath, code)
-    try { _require(tmpPath, '/tmp'); return 0 }
+    try { _require(tmpPath, _cwd); return 0 }
     catch (e) { stderr(`node: ${(e as Error).message}\n`); return 1 }
   }
   const file = resolve(args[0])
+  if (proc) {
+    proc.argv = ['node', file, ...args.slice(1)]
+  }
   try {
     if (!existsInVfs(file)) { stderr(`node: ${args[0]}: No such file or directory\n`); return 1 }
     if (!_require) { stderr('node: runtime not ready\n'); return 1 }
@@ -363,7 +485,7 @@ async function cmdNpm(args: string[]): Promise<number> {
       } catch { stderr('npm: no package.json in current directory\n'); return 1 }
     }
     if (!Object.keys(packages).length) { stdout('Nothing to install.\n'); return 0 }
-    if (_install) { await _install(packages, _cwd + '/node_modules'); return 0 }
+    if (_install) { await _install(packages, normalize(_cwd + '/node_modules')); return 0 }
     stderr('npm: installer not ready\n'); return 1
   }
 
@@ -379,18 +501,74 @@ async function cmdNpm(args: string[]): Promise<number> {
     } catch (e) { stderr(`npm run: ${(e as Error).message}\n`); return 1 }
   }
 
+  if (sub === 'create' || sub === 'init') {
+    const pkgArgs = args.slice(1)
+    if (!pkgArgs.length) {
+      stderr('npm create: package name required\n')
+      return 1
+    }
+    const createPkg = `create-${pkgArgs[0]}`
+    return await cmdNpx([createPkg, ...pkgArgs.slice(1)])
+  }
+
   stderr(`npm: unknown command: ${sub}\n`); return 1
 }
 
 // ── npx ──────────────────────────────────────────────────────────────────────
 
 async function cmdNpx(args: string[]): Promise<number> {
-  if (!args.length) { stderr('usage: npx <package> [...args]\n'); return 1 }
-  // For now, treat as npm-install + run
-  const pkg = args[0]
-  if (_install) await _install({ [pkg]: 'latest' })
-  stderr(`npx: '${pkg}' execution not yet supported — package installed\n`)
-  return 0
+  let pkgIndex = 0
+  while (pkgIndex < args.length && args[pkgIndex].startsWith('-')) {
+    pkgIndex++
+  }
+  if (pkgIndex >= args.length) { stderr('usage: npx [options] <package> [...args]\n'); return 1 }
+  
+  const rawPkg = args[pkgIndex]
+  let pkgName = rawPkg
+  let version = 'latest'
+  const lastAt = rawPkg.lastIndexOf('@')
+  if (lastAt > 0) {
+    pkgName = rawPkg.slice(0, lastAt)
+    version = rawPkg.slice(lastAt + 1)
+  }
+
+  const pkgJsonPath = `/node_modules/${pkgName}/package.json`
+  if (!existsInVfs(pkgJsonPath)) {
+    stdout(`npx: installing ${pkgName}@${version}...\n`)
+    if (_install) {
+      await _install({ [pkgName]: version })
+    } else {
+      stderr('npx: installer not ready\n')
+      return 1
+    }
+  }
+
+  let binFile: string | null = null
+  try {
+    const pkg = JSON.parse(memfsInstance.readFileSync(pkgJsonPath, 'utf8') as string)
+    if (pkg.bin) {
+      if (typeof pkg.bin === 'string') {
+        binFile = pathMod.join('/node_modules', pkgName, pkg.bin)
+      } else if (typeof pkg.bin === 'object' && pkg.bin !== null) {
+        const keys = Object.keys(pkg.bin)
+        const cmdName = pkgName.split('/').pop() || ''
+        const matchingKey = keys.find(k => k === cmdName) || keys[0]
+        if (matchingKey) {
+          binFile = pathMod.join('/node_modules', pkgName, pkg.bin[matchingKey])
+        }
+      }
+    }
+  } catch (e) {
+    stderr(`npx: failed to read package.json for ${pkgName}: ${(e as Error).message}\n`)
+    return 1
+  }
+
+  if (!binFile || !existsInVfs(binFile)) {
+    stderr(`npx: could not find executable binary for ${pkgName}\n`)
+    return 1
+  }
+
+  return await cmdNode([binFile, ...args.slice(pkgIndex + 1)])
 }
 
 // ── vite ─────────────────────────────────────────────────────────────────────
@@ -401,7 +579,7 @@ async function cmdVite(args: string[]): Promise<number> {
   // Ensure vite is installed
   let vite: Record<string, unknown>
   try { vite = _require('vite', _cwd) as Record<string, unknown> }
-  catch { stderr('vite: not installed — run: npm install vite\n'); return 1 }
+  catch (e: any) { stderr('vite error: ' + (e.stack || e.message) + '\n'); return 1 }
 
   const sub = args[0]
   if (sub === 'build') {
@@ -410,12 +588,30 @@ async function cmdVite(args: string[]): Promise<number> {
   }
 
   // Default: dev server
-  const port = parseInt(args.find(a => a.startsWith('--port='))?.split('=')[1] ?? '3000', 10)
-  const root = resolve(args.find(a => !a.startsWith('-')) ?? '.')
+  let port = 5173
+  let rootArg = '.'
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--port' && i + 1 < args.length) {
+      port = parseInt(args[i + 1], 10)
+      i++
+    } else if (args[i].startsWith('--port=')) {
+      port = parseInt(args[i].split('=')[1], 10)
+    } else if (!args[i].startsWith('-')) {
+      rootArg = args[i]
+    }
+  }
+  const root = resolve(rootArg)
   try {
     const { createServer } = vite as { createServer: (opts: unknown) => Promise<{ listen(): Promise<void> }> }
     stdout(`Starting Vite dev server in \x1b[36m${root}\x1b[0m on port \x1b[33m${port}\x1b[0m...\n`)
-    const server = await createServer({ root, server: { port }, logLevel: 'info' })
+    const server = await createServer({
+      root,
+      server: { port },
+      logLevel: 'info',
+      // Disable dep optimization — our WASM esbuild shim makes it very slow and
+      // it blocks the first request. React etc. are already served from memfs.
+      optimizeDeps: { disabled: true },
+    })
     await server.listen()
     stdout(`\x1b[32m✓\x1b[0m Vite dev server running on \x1b[36mhttp://localhost:${port}\x1b[0m\n`)
     return 0

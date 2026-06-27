@@ -19,6 +19,19 @@ function log(msg: string) {
   self.postMessage({ type: 'stdout', text: msg + '\n' })
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal })
+    clearTimeout(id)
+    return res
+  } catch (err) {
+    clearTimeout(id)
+    throw err
+  }
+}
+
 function encodePackageName(name: string): string {
   // Scoped packages: keep @ unencoded, only encode the inner slash
   // e.g. @vue/server-renderer → @vue%2Fserver-renderer
@@ -35,7 +48,7 @@ async function fetchMeta(name: string): Promise<PackageMeta> {
   let res: Response
   try {
     // Abbreviated metadata is much smaller (skips readme, full descriptions, etc.)
-    res = await fetch(url, { headers: { Accept: 'application/vnd.npm.install-v1+json, application/json' } })
+    res = await fetchWithTimeout(url, { headers: { Accept: 'application/vnd.npm.install-v1+json, application/json' } })
   } catch (e) {
     throw new Error(`fetch failed for ${name}: ${(e as Error).message}`)
   }
@@ -85,7 +98,7 @@ function rewriteUrl(url: string): string {
 }
 
 async function extractTarball(tarball: string, destDir: string) {
-  const res = await fetch(rewriteUrl(tarball))
+  const res = await fetchWithTimeout(rewriteUrl(tarball), {}, 30000)
   const buf = new Uint8Array(await res.arrayBuffer())
   const tar = gunzipSync(buf)
   for (const entry of parseTar(tar)) {

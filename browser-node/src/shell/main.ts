@@ -5,6 +5,7 @@ import { FileExplorer } from './explorer'
 // ── Web Worker ────────────────────────────────────────────────────────────────
 
 const runtimeWorker = new Worker(new URL('../worker/index.ts', import.meta.url), { type: 'module' })
+;(window as any).__worker = runtimeWorker;
 let workerReady = false
 
 function send(msg: unknown, transfer?: Transferable[]) {
@@ -52,14 +53,23 @@ function unregisterServerWithSW(port: number) {
 async function loadPreview(port: number, path: string) {
   const base = import.meta.env.BASE_URL
   const proxyPrefix = base.endsWith('/') ? `${base}_proxy/` : `${base}/_proxy/`
-  const proxyUrl = `${location.origin}${proxyPrefix}${port}${path}`
+  const proxyBase = `${location.origin}${proxyPrefix}${port}`
+  const proxyUrl = `${proxyBase}${path}`
   try {
     const resp = await fetch(proxyUrl)
     let html = await resp.text()
     if (!html.trim()) return
-    const injection = `<base href="${location.origin}${proxyPrefix}${port}${path}"><script>
+
+    // Rewrite absolute-path URLs ("/foo") in HTML attributes so they go through the proxy.
+    // The <base href="..."> tag DOES NOT affect absolute-path URLs (those starting with /)
+    // because browsers always resolve them against the document origin, not the base.
+    // We must rewrite them before the browser parses the srcdoc HTML.
+    html = rewriteHtmlAbsolutePaths(html, proxyBase)
+
+    // Inject <base> (for relative paths) plus a runtime patch for dynamic fetch/XHR calls
+    const injection = `<base href="${proxyUrl}"><script>
 ;(function(){
-  var _b='${location.origin}${proxyPrefix}${port}';
+  var _b='${proxyBase}';
   function _p(u){return(typeof u==='string'&&u.startsWith('/')&&!u.startsWith('//'))?_b+u:u}
   var _f=window.fetch;window.fetch=function(u,o){return _f.call(this,_p(u),o)};
   var _x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){return _x.apply(this,[m,_p(u)].concat([].slice.call(arguments,2)))};
@@ -70,6 +80,56 @@ async function loadPreview(port: number, path: string) {
     previewFrame.srcdoc = html
   } catch { /* preview unavailable */ }
 }
+
+/** Rewrite absolute-path URLs (starting with /) in HTML to go via proxyBase.
+ *  Handles:
+ *    - Attribute values: src="/..." href="/..." action="/..." srcset="/..."
+ *    - CSS url(/...) in style blocks/attributes
+ *    - ESM import specifiers inside <script type="module"> inline blocks:
+ *        import X from '/...'   →  import X from 'http://.../_proxy/PORT/...'
+ *        import('/...')         →  import('http://..._proxy/PORT/...')
+ *  Skips protocol-relative "//" URLs.
+ */
+function rewriteHtmlAbsolutePaths(html: string, proxyBase: string): string {
+  // 1. Rewrite quoted attribute values: src="/...", href="/...", etc.
+  html = html.replace(
+    /((?:src|href|action|srcset|data-src)\s*=\s*)(["'])(\/[^"']*)\2/gi,
+    (match, attr, quote, url) => {
+      if (url.startsWith('//')) return match  // protocol-relative, keep
+      return `${attr}${quote}${proxyBase}${url}${quote}`
+    }
+  )
+
+  // 2. Rewrite CSS url(/...) references in style attributes and inline <style> blocks
+  html = html.replace(
+    /url\(\s*(["']?)(\/[^"')]*)\1\s*\)/gi,
+    (match, quote, url) => {
+      if (url.startsWith('//')) return match
+      return `url(${quote}${proxyBase}${url}${quote})`
+    }
+  )
+
+  // 3. Rewrite ES module bare specifiers inside inline <script type="module"> blocks.
+  //    @vitejs/plugin-react injects: import RefreshRuntime from '/@react-refresh'
+  //    These are inside <script> text, NOT attributes, so attr rewriting can't reach them.
+  //    Pattern matches: from '/...'  |  from "/..."  |  import('/...')  |  import("/...")
+  html = html.replace(
+    /(<script\b[^>]*type\s*=\s*["']module["'][^>]*>)([\s\S]*?)(<\/script>)/gi,
+    (match, openTag, scriptBody, closeTag) => {
+      const rewritten = scriptBody
+        // import X from '/path'
+        .replace(/(from\s*)(["'])(\/[^"']*)\2/g, (m: string, kw: string, q: string, u: string) =>
+          u.startsWith('//') ? m : `${kw}${q}${proxyBase}${u}${q}`)
+        // dynamic import('/path')
+        .replace(/(import\s*\()(["'])(\/[^"']*)\2/g, (m: string, kw: string, q: string, u: string) =>
+          u.startsWith('//') ? m : `${kw}${q}${proxyBase}${u}${q}`)
+      return `${openTag}${rewritten}${closeTag}`
+    }
+  )
+
+  return html
+}
+
 
 // ── Hidden test-interface log buffer ─────────────────────────────────────────
 
@@ -251,6 +311,12 @@ runtimeWorker.addEventListener('message', (e: MessageEvent) => {
     return
   }
 
+  if (type === 'log') {
+    _appendTestLog(`[worker] ${(p.args ?? []).map(String).join(' ')}\n`)
+    console.log('[worker]', ...(p.args ?? []))
+    return
+  }
+
   if (type === 'terminal-done') {
     if (p.exitCode === -1) terminalUI.clear()
     if (p.cwd) {
@@ -308,6 +374,11 @@ runtimeWorker.addEventListener('message', (e: MessageEvent) => {
   if (type === 'npm-done') {
     setWorkerStatus('ready')
     setStatusMsg('Ready')
+    if (_testLog.textContent?.includes('[npm error]') || _testLog.textContent?.includes('[error]')) {
+      _appendTestLog('Install failed\n')
+    } else {
+      _appendTestLog('Install complete\n')
+    }
     return
   }
 })

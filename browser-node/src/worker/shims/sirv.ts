@@ -44,6 +44,7 @@ export function sirv(
     const fsPath = path.join(dir, urlPath)
 
     let resolved = fsPath
+    console.log(`[SIRV] urlPath: ${urlPath}, dir: ${dir}, resolved: ${resolved}, exists: ${isFileInVfs(resolved)}`);
     if (!isFileInVfs(resolved)) {
       // Try index.html
       const idx = path.join(fsPath, 'index.html')

@@ -1,4 +1,4 @@
-import * as esbuild from 'esbuild-wasm'
+import * as esbuild from 'esbuild-wasm/esm/browser.js'
 import { memfsInstance, existsInVfs } from './vfs'
 import { path } from './shims/path'
 
@@ -6,49 +6,46 @@ let initialized = false
 
 export async function initBuild() {
   if (initialized) return
-  await esbuild.initialize({
+  const esbuildInitialize = esbuild.initialize || (esbuild as any).default?.initialize
+  if (typeof esbuildInitialize !== 'function') {
+    const keys = Object.keys(esbuild).join(', ')
+    const defKeys = (esbuild as any).default ? Object.keys((esbuild as any).default).join(', ') : 'no-default'
+    throw new Error(`esbuild initialize function not found. esbuild keys: ${keys}. default keys: ${defKeys}.`)
+  }
+  await esbuildInitialize({
     wasmURL: '/node_modules/esbuild-wasm/esbuild.wasm',
     worker: false, // We're already in a Worker
   })
   initialized = true
 }
 
-// Bundle a file from the VFS using esbuild
-export async function bundle(
-  entryPoint: string,
-  opts: { format?: 'cjs' | 'esm' | 'iife'; platform?: 'browser' | 'node'; minify?: boolean } = {}
-): Promise<string> {
-  const result = await esbuild.build({
-    entryPoints: [entryPoint],
-    bundle: true,
-    write: false,
-    format: opts.format ?? 'cjs',
-    platform: opts.platform ?? 'node',
-    minify: opts.minify ?? false,
-    plugins: [vfsPlugin()],
-    define: {
-      'process.env.NODE_ENV': '"development"',
-    },
-  })
-
-  if (result.errors.length) {
-    throw new Error(result.errors.map(e => e.text).join('\n'))
+// esbuild API match
+export async function build(opts: any): Promise<any> {
+  const esbuildBuild = esbuild.build || (esbuild as any).default?.build
+  if (typeof esbuildBuild !== 'function') throw new Error('esbuild build function not found')
+  
+  // Inject our VFS plugin
+  const plugins = opts.plugins || []
+  if (!plugins.find((p: any) => p.name === 'vfs')) {
+    plugins.push(vfsPlugin())
   }
 
-  return new TextDecoder().decode(result.outputFiles[0].contents)
+  // Ensure write is false so we get outputFiles
+  return await esbuildBuild({
+    ...opts,
+    plugins,
+    write: false,
+  })
 }
 
 // Transform a single file (no bundling — just transpile TS/JSX)
 export async function transform(
   source: string,
-  opts: { loader?: 'ts' | 'tsx' | 'js' | 'jsx'; format?: 'cjs' | 'esm' } = {}
-): Promise<string> {
-  const result = await esbuild.transform(source, {
-    loader: opts.loader ?? 'ts',
-    format: opts.format ?? 'cjs',
-    target: 'es2022',
-  })
-  return result.code
+  opts: any = {}
+): Promise<any> {
+  const esbuildTransform = esbuild.transform || (esbuild as any).default?.transform
+  if (typeof esbuildTransform !== 'function') throw new Error('esbuild transform function not found')
+  return await esbuildTransform(source, opts)
 }
 
 // esbuild plugin that reads from the VFS

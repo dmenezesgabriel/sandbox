@@ -98,13 +98,6 @@ export class TerminalUI {
     if (data === '\r') {
       this.term.write('\r\n')
       const cmd = this.buf.trim()
-      if (cmd === 'clear' || cmd === 'cls') {
-        this.term.clear()
-        this.buf = ''
-        this.cur = 0
-        this._prompt()
-        return
-      }
       if (cmd) {
         this.history.unshift(cmd)
         if (this.history.length > 500) this.history.pop()
