@@ -39,7 +39,7 @@ export default defineConfig({
       },
     },
   },
-  optimizeDeps: {
-    exclude: ['esbuild-wasm'],
-  },
+  // optimizeDeps: {
+  //   exclude: ['esbuild-wasm'],
+  // },
 })

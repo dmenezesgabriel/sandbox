@@ -28,13 +28,14 @@ const clientPorts = new Map()
 
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url)
+  console.log(`[SW FETCH] ${url.pathname} (referrer: ${e.request.referrer})`);
 
   // Debug test
   if (url.pathname === '/_sw-test') {
     e.respondWith(new Response('<h1>SW Test OK</h1>', { status: 200, headers: { 'Content-Type': 'text/html' } }))
     return
   }
-
+  
   const basePath = new URL(self.registration.scope).pathname
   const proxyPrefix = basePath.endsWith('/') ? basePath + '_proxy/' : basePath + '/_proxy/'
 
@@ -67,7 +68,11 @@ self.addEventListener('fetch', (e) => {
     if (workerPort) {
       // Save the association for future requests from this client
       if (e.request.destination !== 'iframe' && e.request.destination !== 'document' && e.clientId) {
-        clientPorts.set(e.clientId, listenPort)
+        // Only associate if the request came from within the proxy (e.g. iframe with <base>)
+        // to prevent the IDE main frame from being permanently mapped to the proxy port.
+        if (e.request.referrer && new URL(e.request.referrer).pathname.startsWith(proxyPrefix)) {
+          clientPorts.set(e.clientId, listenPort)
+        }
       }
       if (e.resultingClientId) clientPorts.set(e.resultingClientId, listenPort)
 

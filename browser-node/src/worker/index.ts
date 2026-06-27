@@ -39,7 +39,7 @@ console.warn = (...args: unknown[]) => self.postMessage({ type: 'stderr', text: 
 console.error = (...args: unknown[]) => self.postMessage({ type: 'stderr', text: _fmtArgs(...args) })
 console.debug = console.log
 
-import { preloadShims, requireSync, clearModuleCache, registerFileOverride } from './loader'
+import { preloadShims, requireSync, resolveModule, clearModuleCache, registerFileOverride } from './loader'
 import { bindRequireSync } from './shims/index'
 import { install } from './npm'
 import { writeFileToVfs, dumpVfs, memfsInstance } from './vfs'
@@ -48,7 +48,7 @@ import { bindTerminalDeps, runCommand, getCwd } from './terminal-cmd'
 import { initExamples } from './examples'
 
 // Wire up createRequire in the node:module shim (can't import requireSync there — circular)
-bindRequireSync(requireSync)
+bindRequireSync(requireSync, resolveModule)
 
 function log(text: string) { self.postMessage({ type: 'stdout', text }) }
 function err(text: string) { self.postMessage({ type: 'stderr', text }) }
@@ -59,6 +59,12 @@ async function init() {
   bindTerminalDeps(requireSync, install)
   _registerPostInstallOverrides()
   initExamples()
+  try {
+    const { initBuild } = await import('./build')
+    await initBuild()
+  } catch (e) {
+    err(`[runtime] esbuild init failed: ${(e as Error).message}\n`)
+  }
   log('[runtime] Ready.\n')
   self.postMessage({ type: 'ready' })
 }
@@ -245,6 +251,10 @@ function _registerPostInstallOverrides() {
   }
 
   registerFileOverride('/node_modules/next/dist/build/swc/index.js', swcLoaderStub)
+
+  // Force Vite to use our esbuild shim instead of the npm package
+  registerFileOverride('/node_modules/esbuild/package.json', () => ({ name: 'esbuild', version: '0.24.2', main: 'lib/main.js' }))
+  registerFileOverride('/node_modules/esbuild/lib/main.js', () => requireSync('esbuild', '/app'))
 }
 
 self.addEventListener('message', async (e: MessageEvent) => {
@@ -282,6 +292,10 @@ self.addEventListener('message', async (e: MessageEvent) => {
     return
   }
 
+  if (e.data.type === 'run-command') {
+    runCommand(e.data.cmd).catch((e: any) => err(e.message))
+    return
+  }
   if (type === 'write-file') {
     writeFileToVfs(payload.path, payload.content)
     return
