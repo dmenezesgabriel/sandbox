@@ -110,7 +110,45 @@ const _childProcess = {
   },
   execSync: (_cmd: string) => { throw new Error('child_process.execSync not supported in browser') },
   spawn: (_cmd: string, _args?: string[], _opts?: unknown) => {
-    const ee = { on: () => ee, emit: () => false, stdout: { on: () => {} }, stderr: { on: () => {} }, stdin: { write: () => {}, end: () => {} }, kill: () => {} }
+    let handlers: Record<string, Function[]> = {}
+    const createStream = () => {
+      let streamHandlers: Record<string, Function[]> = {}
+      return {
+        on: (event: string, fn: Function) => {
+          if (!streamHandlers[event]) streamHandlers[event] = []
+          streamHandlers[event].push(fn)
+        },
+        emit: (event: string, ...args: any[]) => {
+          if (streamHandlers[event]) streamHandlers[event].forEach(fn => fn(...args))
+        },
+        pipe: () => {},
+        unpipe: () => {},
+        destroy: () => {}
+      }
+    }
+    const stdout = createStream()
+    const stderr = createStream()
+    const ee = { 
+      on: (event: string, fn: Function) => {
+        if (!handlers[event]) handlers[event] = []
+        handlers[event].push(fn)
+        return ee 
+      }, 
+      emit: (event: string, ...args: any[]) => {
+        if (handlers[event]) handlers[event].forEach(fn => fn(...args))
+        return false 
+      }, 
+      stdout,
+      stderr,
+      stdin: { write: () => {}, end: () => {} }, 
+      kill: () => {} 
+    }
+    setTimeout(() => {
+      stdout.emit('end')
+      stderr.emit('end')
+      ee.emit('error', new Error('child_process.spawn not supported in browser'))
+      ee.emit('close', 1)
+    }, 10)
     return ee
   },
   spawnSync: (_cmd: string) => ({ status: 1, stdout: '', stderr: 'not supported', error: new Error('not supported') }),
