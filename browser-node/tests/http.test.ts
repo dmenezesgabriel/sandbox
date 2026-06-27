@@ -112,21 +112,21 @@ describe('http shim', () => {
   describe('ServerResponse', () => {
     it('writeHead sets status code', () => {
       const port = fakePort()
-      const res = new ServerResponse(port as unknown as MessagePort)
+      const res = new ServerResponse({ url: "/" } as any, port as unknown as MessagePort)
       res.writeHead(404)
       expect(res.statusCode).toBe(404)
     })
 
     it('setHeader and getHeader work', () => {
       const port = fakePort()
-      const res = new ServerResponse(port as unknown as MessagePort)
+      const res = new ServerResponse({ url: "/" } as any, port as unknown as MessagePort)
       res.setHeader('Content-Type', 'text/plain')
       expect(res.getHeader('content-type')).toBe('text/plain')
     })
 
     it('hasHeader returns true for set header', () => {
       const port = fakePort()
-      const res = new ServerResponse(port as unknown as MessagePort)
+      const res = new ServerResponse({ url: "/" } as any, port as unknown as MessagePort)
       res.setHeader('X-Custom', '1')
       expect(res.hasHeader('x-custom')).toBe(true)
       expect(res.hasHeader('x-missing')).toBe(false)
@@ -134,7 +134,7 @@ describe('http shim', () => {
 
     it('removeHeader deletes the header', () => {
       const port = fakePort()
-      const res = new ServerResponse(port as unknown as MessagePort)
+      const res = new ServerResponse({ url: "/" } as any, port as unknown as MessagePort)
       res.setHeader('X-Remove', '1')
       res.removeHeader('x-remove')
       expect(res.hasHeader('x-remove')).toBe(false)
@@ -142,7 +142,7 @@ describe('http shim', () => {
 
     it('end sends response via the reply port', () => {
       const port = fakePort()
-      const res = new ServerResponse(port as unknown as MessagePort)
+      const res = new ServerResponse({ url: "/" } as any, port as unknown as MessagePort)
       res.writeHead(200, { 'content-type': 'text/html' })
       res.end('<h1>hi</h1>')
       expect(port.received).toHaveLength(1)
@@ -154,7 +154,7 @@ describe('http shim', () => {
 
     it('end is idempotent — second call is a no-op', () => {
       const port = fakePort()
-      const res = new ServerResponse(port as unknown as MessagePort)
+      const res = new ServerResponse({ url: "/" } as any, port as unknown as MessagePort)
       res.end('first')
       res.end('second')
       expect(port.received).toHaveLength(1)
@@ -162,7 +162,7 @@ describe('http shim', () => {
 
     it('write + end concatenates chunks', () => {
       const port = fakePort()
-      const res = new ServerResponse(port as unknown as MessagePort)
+      const res = new ServerResponse({ url: "/" } as any, port as unknown as MessagePort)
       res.write('hello ')
       res.write('world')
       res.end()
@@ -172,7 +172,7 @@ describe('http shim', () => {
 
     it('getHeaders returns all headers', () => {
       const port = fakePort()
-      const res = new ServerResponse(port as unknown as MessagePort)
+      const res = new ServerResponse({ url: "/" } as any, port as unknown as MessagePort)
       res.setHeader('A', '1')
       res.setHeader('B', '2')
       const hdrs = res.getHeaders()
@@ -182,7 +182,7 @@ describe('http shim', () => {
 
     it('emits finish event after end', () => {
       const port = fakePort()
-      const res = new ServerResponse(port as unknown as MessagePort)
+      const res = new ServerResponse({ url: "/" } as any, port as unknown as MessagePort)
       let finished = false
       res.on('finish', () => { finished = true })
       res.end('done')
