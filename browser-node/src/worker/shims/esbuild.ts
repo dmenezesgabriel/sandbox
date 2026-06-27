@@ -13,10 +13,13 @@ function ensureInit(): Promise<void> {
 
 import { memfsInstance } from '../vfs'
 import { path } from './path'
+import { resolveModule } from '../loader'
 
 function injectVfsPlugin(options?: Record<string, unknown>) {
   const opts = (options || {}) as Record<string, any>
+  console.log('[esbuild] injectVfsPlugin called with:', JSON.stringify(options))
   if (!opts.plugins) opts.plugins = []
+  if (!opts.absWorkingDir) opts.absWorkingDir = '/'
   
   opts.plugins.push({
     name: 'vfs-fallback',
@@ -32,11 +35,24 @@ function injectVfsPlugin(options?: Record<string, unknown>) {
                return { path: p, namespace: 'file' }
              }
            } catch {
-             // fallback to appending .js
              if (memfsInstance.existsSync(p + '.js')) return { path: p + '.js', namespace: 'file' }
            }
+        } else {
+           // Bare import
+           try {
+             const resolved = resolveModule(args.path, args.resolveDir || '/')
+             if (resolved) {
+               if (resolved.startsWith('__shim__:')) {
+                 return { path: args.path, external: true }
+               }
+               return { path: resolved, namespace: 'file' }
+             }
+           } catch (e) {
+             // Fall through
+           }
+           return { errors: [{ text: `Could not resolve "${args.path}" (sandbox vfs)` }] }
         }
-        return null // Let Vite handle bare imports
+        return null
       })
       
       build.onLoad({ filter: /.*/ }, (args: any) => {
